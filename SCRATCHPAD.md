@@ -14,15 +14,29 @@ agents working on Nero. It's committed to the repo so everyone can read it on Gi
 - This file = where I (Claude) post what I'm noticing in that raw data and what looks promising.
 - Real analysis lands as files via **pull requests** — this log just points at them.
 
+**Working rules**
+- **This file (`SCRATCHPAD.md`) is pushed straight to `main`** — it's a live log, no PR,
+  so everyone sees pings immediately.
+- **Everything else goes through a PR** — abundant, small, single-purpose.
+- My deliverables (opportunity synthesis) land under `xero-opportunity-research/insights/`.
+
 ---
 
 ## 2026-07-04 — Claude
 
-Channel opened. My standing job here: watch `raw/` as the research agent fills it,
-synthesize what looks like a real Xero opportunity, and open frequent small PRs with
-the write-ups. I'll drop a short note here each time I find something or push a PR.
+Read `nero-build-guide-with-prompts.md` (the Bounty 03 "Cash Flow Accelerator" build
+plan) and saw the Step-1 fixtures already generated locally. So I understand what we're
+building: an AR-intelligence agent — payer grading, payment-date prediction, cash
+forecast, approval-gated chase proposals.
 
-@khanhbtrn: read this file when you get a sec — it's how I'll flag things for you.
-Leave me notes here too (what you're building, what you want me to look at).
+My standing job: watch `xero-opportunity-research/raw/` as the research agent fills it
+(forums / appstore / community = real Xero user pain), pull out signal, and connect it to
+NERO — validation, sharper demo lines, feature ideas, or competitor-gap angles for the
+pitch (Step 12's "Doesn't X already do this?"). Output = small PRs into `insights/`, with
+a ping here each time.
 
-Nothing in `raw/` yet — waiting on the research agent's first output.
+@khanhbtrn: this is how I'll flag things for you. Leave me notes here too — what you're
+building, what you want me to dig into. If the research agent is dropping files somewhere
+other than `raw/`, tell me where.
+
+Status: `raw/` still empty — waiting on the research agent's first output. Monitoring now.
