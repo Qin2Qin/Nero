@@ -61,6 +61,18 @@ def current_forecast(state: dict[str, Any]) -> dict:
     return build_forecast(state["invoices"], today=demo_today(), cash_floor=cash_floor)
 
 
+def data_source(state: dict[str, Any]) -> dict[str, Any]:
+    return state.get(
+        "data_source",
+        {
+            "mode": "unknown",
+            "label": "Unknown source",
+            "detail": "No source metadata has been saved for this dashboard state.",
+            "generated_at": None,
+        },
+    )
+
+
 def append_log(state: dict[str, Any], actor: str, event: str) -> dict:
     entry = {
         "id": str(uuid4()),

@@ -25,7 +25,7 @@ def _email(contact_name: str, invoice: dict, tone: str, overdue_days: int) -> tu
     due_phrase = f"{overdue_days} days overdue" if overdue_days > 0 else "due soon"
     body = (
         f"Hi {contact_name},\n\n"
-        f"{invoice['invoice_number']} for ${invoice['amount_due']:,} is {due_phrase}. "
+        f"{invoice['invoice_number']} for GBP {invoice['amount_due']:,} is {due_phrase}. "
         "Could you confirm the planned payment date, or use {payment_link} when ready?"
     )
     if tone in {"firm", "final"}:
@@ -81,7 +81,7 @@ def run_agent_cycle(state: dict[str, Any], max_pending: int = 8) -> list[dict]:
             "reasoning_text": (
                 f"{contact['name']} pays on average {round(contact['avg_days_late'])} days late "
                 f"across {contact['invoice_count']} paid invoices. A {tone} {action_type} for "
-                f"{invoice['invoice_number']} is expected to bring ${invoice['amount_due']:,} forward by about {days} days."
+                f"{invoice['invoice_number']} is expected to bring GBP {invoice['amount_due']:,} forward by about {days} days."
             ),
             "draft_subject": subject,
             "draft_body": body,
@@ -112,9 +112,9 @@ def run_agent_cycle(state: dict[str, Any], max_pending: int = 8) -> list[dict]:
                     "contact_name": contact["name"],
                     "invoice_id": None,
                     "reasoning_text": (
-                        f"{contact['name']} is a top-revenue customer at ${contact['revenue_12m']:,} over 12 months "
+                        f"{contact['name']} is a top-revenue customer at GBP {contact['revenue_12m']:,} over 12 months "
                         f"but pays on average {round(contact['avg_days_late'])} days late. A 30% deposit on the next quote "
-                        f"reduces exposure and should bring about ${round(average_invoice * 0.3):,} forward."
+                        f"reduces exposure and should bring about GBP {round(average_invoice * 0.3):,} forward."
                     ),
                     "draft_subject": None,
                     "draft_body": None,

@@ -17,6 +17,12 @@ const localState = {
   metrics: { cash_accelerated_dollars: 0, avg_days_accelerated: 0 },
   research: { generated_at: null, sources: {}, files: [] },
   settings: { cash_floor: forecast.cash_floor },
+  dataSource: {
+    mode: "fixture",
+    label: "Fixture portfolio",
+    detail: "Bundled local fixtures for offline demos.",
+    generated_at: null
+  },
   appStoreReadiness: {
     status: "draft",
     ready_count: 3,
@@ -129,6 +135,7 @@ export async function fetchAll() {
       metrics: localState.metrics,
       research: localState.research,
       settings: localState.settings,
+      dataSource: localState.dataSource,
       appStoreReadiness: localState.appStoreReadiness,
       xeroStatus: localState.xeroStatus
     };
@@ -144,6 +151,7 @@ export async function fetchAll() {
     metricsData,
     researchData,
     settingsData,
+    dataSourceData,
     appStoreReadinessData,
     xeroStatusData
   ] =
@@ -157,6 +165,7 @@ export async function fetchAll() {
       request("/api/metrics"),
       request("/api/research/status"),
       request("/api/settings"),
+      request("/api/data_source"),
       request("/api/app_store/readiness"),
       request("/api/xero/status")
     ]);
@@ -171,6 +180,7 @@ export async function fetchAll() {
     metrics: metricsData,
     research: researchData,
     settings: settingsData,
+    dataSource: dataSourceData,
     appStoreReadiness: appStoreReadinessData,
     xeroStatus: xeroStatusData
   };
@@ -282,9 +292,26 @@ export async function updateCashFloor(cashFloor) {
     id: `cash-floor-${Date.now()}`,
     timestamp: nowIso(),
     actor: "You",
-    event: `Cash floor changed to $${money(payload.cash_floor)}`
+    event: `Cash floor changed to GBP ${money(payload.cash_floor)}`
   });
   return localState.settings;
+}
+
+export async function seedSyntheticPortfolio() {
+  if (!USE_FIXTURES) return request("/api/synthetic/seed", { method: "POST" });
+  localState.action_log.unshift({
+    id: `seed-${Date.now()}`,
+    timestamp: nowIso(),
+    actor: "System",
+    event: "Synthetic portfolio seed is available in live backend mode."
+  });
+  return {
+    status: "seeded",
+    contacts: localState.contacts.length,
+    invoices: localState.invoices.length,
+    proposals: localState.proposals.length,
+    source: localState.dataSource
+  };
 }
 
 export { money };

@@ -25,6 +25,7 @@ def main() -> None:
         "/api/metrics",
         "/api/research/status",
         "/api/settings",
+        "/api/data_source",
         "/api/app_store/readiness",
         "/api/xero/status",
     ]
@@ -36,6 +37,10 @@ def main() -> None:
     sync_response = client.post("/api/sync")
     sync_response.raise_for_status()
     print(f"POST /api/sync -> {sync_response.status_code} ({sync_response.json()['status']})")
+
+    seed_response = client.post("/api/synthetic/seed")
+    seed_response.raise_for_status()
+    print(f"POST /api/synthetic/seed -> {seed_response.status_code} ({seed_response.json()['status']})")
 
     proposal_id = client.get("/api/proposals").json()[0]["id"]
     approve_response = client.post(f"/api/proposals/{proposal_id}/approve")

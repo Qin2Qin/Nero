@@ -101,9 +101,9 @@ async function runSmoke() {
     if (lineCount < 3) throw new Error(`Expected at least 3 rendered forecast lines, saw ${lineCount}`);
     await expectText(page.locator(".chart-panel"), /\d+ Jul below floor|below floor/i, "forecast warning");
 
-    await page.getByRole("button", { name: "$10k" }).click();
+    await page.getByRole("button", { name: "£10k" }).click();
     await page.getByRole("button", { name: "Apply floor" }).click();
-    await expectText(page.locator(".cash-floor-readout"), /\$10,000/, "cash floor readout");
+    await expectText(page.locator(".cash-floor-readout"), /£10,000/, "cash floor readout");
     const settings = await page.evaluate((url) => fetch(`${url}/api/settings`).then((response) => response.json()), backendUrl);
     if (settings.cash_floor !== 10000) throw new Error(`Expected cash_floor 10000, saw ${settings.cash_floor}`);
 

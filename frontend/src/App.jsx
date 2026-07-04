@@ -2,6 +2,7 @@ import {
   Bot,
   Check,
   ClipboardList,
+  Database,
   ExternalLink,
   LayoutDashboard,
   Minus,
@@ -35,6 +36,7 @@ import {
   money,
   runAgent,
   scanResearch,
+  seedSyntheticPortfolio,
   syncXero,
   updateCashFloor
 } from "./api.js";
@@ -60,11 +62,11 @@ function addDays(date, days) {
 }
 
 function formatCurrency(value) {
-  return `$${money(Math.round(Number(value || 0)))}`;
+  return `£${money(Math.round(Number(value || 0)))}`;
 }
 
 function formatHeroCurrency(value) {
-  return `$${money(Math.round(Number(value || 0) / 1000) * 1000)}`;
+  return `£${money(Math.round(Number(value || 0) / 1000) * 1000)}`;
 }
 
 function formatDateTime(value) {
@@ -135,8 +137,8 @@ function useCountUp(value) {
 
 function compactMoney(value) {
   const v = Number(value || 0);
-  if (Math.abs(v) >= 1000) return `$${Math.round(v / 1000)}k`;
-  return `$${Math.round(v)}`;
+  if (Math.abs(v) >= 1000) return `£${Math.round(v / 1000)}k`;
+  return `£${Math.round(v)}`;
 }
 
 function xeroBadge(status) {
@@ -152,6 +154,9 @@ function syncSummary(result) {
   }
   if (result.status === "demo") {
     return `Demo sync checked ${result.contacts ?? 0} contacts and ${result.invoices ?? 0} invoices.`;
+  }
+  if (result.status === "seeded") {
+    return `Seeded ${result.contacts ?? 0} companies, ${result.invoices ?? 0} invoices and ${result.proposals ?? 0} proposed actions.`;
   }
   return result.detail || result.status || "Sync checked.";
 }
@@ -198,6 +203,11 @@ function CashFloorControl({ value, forecast, onUpdateCashFloor, busy }) {
   const [draft, setDraft] = useState(value || 0);
   const warningCount = forecast?.buckets?.filter((bucket) => bucket.cumulative_predicted < draft).length || 0;
   const isChanged = Number(draft) !== Number(value || 0);
+  const maxForecast = Math.max(...(forecast?.buckets || []).map((bucket) => bucket.cumulative_predicted || 0), 15000);
+  const maxFloor = Math.max(15000, Math.ceil(maxForecast / 5000) * 5000);
+  const presets = [...new Set([5000, Math.round(maxFloor * 0.45 / 5000) * 5000, Math.round(maxFloor * 0.7 / 5000) * 5000])]
+    .filter((preset) => preset > 0 && preset <= maxFloor)
+    .slice(0, 3);
 
   useEffect(() => {
     setDraft(value || 0);
@@ -223,14 +233,14 @@ function CashFloorControl({ value, forecast, onUpdateCashFloor, busy }) {
         className="range range-primary range-sm range-input"
         type="range"
         min="0"
-        max="15000"
+        max={maxFloor}
         step="500"
         value={draft}
         onChange={(event) => setDraft(Number(event.target.value))}
         aria-label="Cash floor"
       />
       <div className="preset-row" aria-label="Cash floor presets">
-        {[5000, 7500, 10000].map((preset) => (
+        {presets.map((preset) => (
           <button
             className={draft === preset ? "preset-chip btn btn-xs active" : "preset-chip btn btn-xs"}
             key={preset}
@@ -335,7 +345,7 @@ function ForecastChart({ forecast }) {
   );
 }
 
-function XeroConnection({ status, syncResult, onSyncXero, busy }) {
+function XeroConnection({ status, source, syncResult, onSyncXero, onSeedPortfolio, busy }) {
   const badge = xeroBadge(status);
   const canSync = status?.demo_mode || status?.connected;
   const credentialState = status?.client_credentials_configured ? "Ready" : "Missing";
@@ -356,10 +366,14 @@ function XeroConnection({ status, syncResult, onSyncXero, busy }) {
         <div><dt>OAuth token</dt><dd>{tokenState}</dd></div>
         <div><dt>Tenant</dt><dd>{status?.tenant_id || "Not selected"}</dd></div>
         <div><dt>Expires</dt><dd>{formatDate(status?.expires_at)}</dd></div>
+        <div><dt>Dashboard data</dt><dd>{source?.label || "Unknown"}</dd></div>
       </dl>
       <div className="mini-actions">
         <button className="button primary btn btn-primary btn-sm" onClick={onSyncXero} disabled={busy || !canSync}>
           <RefreshCw size={16} /> {status?.demo_mode ? "Check demo sync" : "Sync Xero"}
+        </button>
+        <button className="button ghost btn btn-ghost btn-sm" onClick={onSeedPortfolio} disabled={busy}>
+          <Database size={16} /> Seed portfolio
         </button>
         {!status?.demo_mode && !status?.connected && status?.client_credentials_configured && (
           <a className="button ghost btn btn-ghost btn-sm" href="/auth/login">
@@ -368,6 +382,7 @@ function XeroConnection({ status, syncResult, onSyncXero, busy }) {
         )}
       </div>
       {syncResult && <p className="sync-result">{syncSummary(syncResult)}</p>}
+      {source?.detail && <p className="muted compact-note">{source.detail}</p>}
       {!status?.demo_mode && !status?.connected && !status?.client_credentials_configured && (
         <p className="muted compact-note">Live credentials missing.</p>
       )}
@@ -399,6 +414,22 @@ function ResearchSignals({ sources, onScanResearch, busy }) {
   );
 }
 
+function DataSourceBanner({ source, xeroStatus }) {
+  const synthetic = source?.mode === "synthetic";
+  const liveConnected = xeroStatus?.connected && !xeroStatus?.demo_mode;
+  return (
+    <section className={synthetic ? "source-banner synthetic-source" : "source-banner"}>
+      <div>
+        <strong>{source?.label || "Dashboard data"}</strong>
+        <p>{source?.detail || "No source metadata available."}</p>
+      </div>
+      <span className={liveConnected ? "badge badge-success success" : "badge badge-outline neutral"}>
+        {liveConnected ? "Xero live" : "Local"}
+      </span>
+    </section>
+  );
+}
+
 function Dashboard({
   data,
   cashDisplay,
@@ -406,6 +437,7 @@ function Dashboard({
   onMarkPaid,
   onScanResearch,
   onSyncXero,
+  onSeedPortfolio,
   onUpdateCashFloor,
   syncResult,
   busy
@@ -433,6 +465,8 @@ function Dashboard({
         </button>
       </div>
 
+      <DataSourceBanner source={data.dataSource} xeroStatus={data.xeroStatus} />
+
       <section className="metrics">
         <article>
           <span>Due next 30 days</span>
@@ -449,16 +483,59 @@ function Dashboard({
       </section>
 
       <section className="split">
-        <div className="panel chart-panel">
-          <div className="panel-head">
-            <div>
-              <h2>Cash forecast</h2>
-              {firstWarning && (
-                <span className="badge badge-error danger">{formatWeekLabel(firstWarning.week_start)} below floor</span>
-              )}
+        <div className="main-stack">
+          <div className="panel chart-panel">
+            <div className="panel-head">
+              <div>
+                <h2>Cash forecast</h2>
+                {firstWarning && (
+                  <span className="badge badge-error danger">{formatWeekLabel(firstWarning.week_start)} below floor</span>
+                )}
+              </div>
             </div>
+            <ForecastChart forecast={data.forecast} />
           </div>
-          <ForecastChart forecast={data.forecast} />
+
+          <section className="panel">
+            <div className="panel-head">
+              <h2>Open invoices</h2>
+            </div>
+            <div className="table-wrap">
+              <table className="table table-sm">
+                <thead>
+                  <tr>
+                    <th>Invoice</th>
+                    <th>Customer</th>
+                    <th>Due</th>
+                    <th>Predicted</th>
+                    <th>Amount</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.invoices.map((invoice) => (
+                    <tr key={invoice.id}>
+                      <td>{invoice.invoice_number}</td>
+                      <td>{invoice.contact_name}</td>
+                      <td>{invoice.due_date}</td>
+                      <td>{invoice.accelerated_paid_date || invoice.predicted_paid_date}</td>
+                      <td>{formatCurrency(invoice.amount_due)}</td>
+                      <td className="right">
+                        <button className="button ghost btn btn-ghost btn-sm" onClick={() => onMarkPaid(invoice.id)}>Mark paid</button>
+                      </td>
+                    </tr>
+                  ))}
+                  {data.invoices.length === 0 && (
+                    <tr>
+                      <td colSpan="6">
+                        <div className="empty inline-empty">No open invoices. Sync Xero or seed the synthetic portfolio.</div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
 
         <aside className="panel signal-panel">
@@ -470,47 +547,15 @@ function Dashboard({
           />
           <XeroConnection
             status={data.xeroStatus}
+            source={data.dataSource}
             syncResult={syncResult}
             onSyncXero={onSyncXero}
+            onSeedPortfolio={onSeedPortfolio}
             busy={busy}
           />
           <ResearchSignals sources={researchSources} onScanResearch={onScanResearch} busy={busy} />
           <AppStoreReadiness readiness={data.appStoreReadiness} />
         </aside>
-      </section>
-
-      <section className="panel">
-        <div className="panel-head">
-          <h2>Open invoices</h2>
-        </div>
-        <div className="table-wrap">
-          <table className="table table-sm">
-            <thead>
-              <tr>
-                <th>Invoice</th>
-                <th>Customer</th>
-                <th>Due</th>
-                <th>Predicted</th>
-                <th>Amount</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.invoices.map((invoice) => (
-                <tr key={invoice.id}>
-                  <td>{invoice.invoice_number}</td>
-                  <td>{invoice.contact_name}</td>
-                  <td>{invoice.due_date}</td>
-                  <td>{invoice.accelerated_paid_date || invoice.predicted_paid_date}</td>
-                  <td>{formatCurrency(invoice.amount_due)}</td>
-                  <td className="right">
-                    <button className="button ghost btn btn-ghost btn-sm" onClick={() => onMarkPaid(invoice.id)}>Mark paid</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       </section>
     </main>
   );
@@ -574,6 +619,13 @@ function Payers({ contacts, invoices = [] }) {
                   <td className="right">{contact.invoice_count}</td>
                 </tr>
               ))}
+              {ranked.length === 0 && (
+                <tr>
+                  <td colSpan="6">
+                    <div className="empty inline-empty">No payer profiles yet. Seed a portfolio or sync Xero history.</div>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -744,6 +796,7 @@ export function App() {
           onMarkPaid={(id) => act(() => markPaid(id))}
           onScanResearch={() => act(scanResearch)}
           onSyncXero={() => act(async () => setSyncResult(await syncXero()))}
+          onSeedPortfolio={() => act(async () => setSyncResult(await seedSyntheticPortfolio()))}
           onUpdateCashFloor={(cashFloor) => act(() => updateCashFloor(cashFloor))}
           syncResult={syncResult}
         />

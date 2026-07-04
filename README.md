@@ -13,11 +13,11 @@ python3 -m venv .venv
 cd frontend && npm install
 ```
 
-Run the backend:
+Run the backend in live Xero mode:
 
 ```bash
 cd backend
-DEMO_MODE=true ../.venv/bin/uvicorn main:app --reload --host 0.0.0.0 --port 8000
+DEMO_MODE=false ../.venv/bin/uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 Run the frontend:
@@ -87,6 +87,9 @@ Live Xero flow:
 4. Check `GET /api/xero/status`.
 5. Run `POST /api/sync` to pull raw Xero contacts, authorised/paid invoices,
    and payments into SQLite.
+6. If the connected organisation is empty, run `POST /api/synthetic/seed` to
+   populate the local dashboard with generated UK portfolio data. This does not
+   write to Xero and is labelled in the UI as synthetic data.
 
 If you already have OAuth tokens, skip the browser flow:
 
@@ -99,6 +102,17 @@ curl -X POST http://localhost:8000/api/sync
 `scripts/import_xero_tokens.py` reads `.env`/shell values and prints only status,
 tenant, and expiry metadata. It never prints access or refresh tokens. Use
 `--overwrite` only when you intentionally want to replace the locally saved token set.
+
+Synthetic portfolio seed:
+
+```bash
+curl -X POST http://localhost:8000/api/synthetic/seed
+curl http://localhost:8000/api/data_source
+```
+
+The seed uses public company names with generated invoices and generated payment
+history. It is for judging/demo flow only and is not presented as actual Xero
+financial data.
 
 ## Research monitor
 

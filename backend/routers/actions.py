@@ -14,6 +14,7 @@ from services.state import (
     reset_state,
     save_state,
 )
+from services.synthetic_portfolio import build_synthetic_portfolio
 from services.xero_auth import get_connection_summary, get_token_status
 from services.xero_sync import sync_from_xero
 
@@ -95,6 +96,20 @@ def sync() -> dict:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@router.post("/synthetic/seed")
+def seed_synthetic_portfolio() -> dict:
+    cash_floor = max(get_settings().cash_floor, 35000)
+    state = build_synthetic_portfolio(cash_floor=cash_floor)
+    save_state(state)
+    return {
+        "status": "seeded",
+        "contacts": len(state["contacts"]),
+        "invoices": len(state["invoices"]),
+        "proposals": len(state["proposals"]),
+        "source": state["data_source"],
+    }
+
+
 @router.get("/xero/status")
 def xero_status() -> dict:
     return get_connection_summary()
@@ -123,6 +138,6 @@ def patch_settings(request: SettingsPatch) -> dict:
         raise HTTPException(status_code=400, detail="cash_floor must be non-negative")
     state = get_state()
     state.setdefault("settings", {})["cash_floor"] = request.cash_floor
-    append_log(state, "You", f"Cash floor changed to ${request.cash_floor:,}")
+    append_log(state, "You", f"Cash floor changed to GBP {request.cash_floor:,}")
     save_state(state)
     return state["settings"]

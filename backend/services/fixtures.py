@@ -25,6 +25,12 @@ def load_demo_state() -> dict[str, Any]:
         "action_log": load_fixture("action_log"),
         "outbox": [],
         "settings": {"cash_floor": load_fixture("forecast")["cash_floor"]},
+        "data_source": {
+            "mode": "fixture",
+            "label": "Fixture portfolio",
+            "detail": "Bundled local fixtures for offline demos.",
+            "generated_at": None,
+        },
     }
 
 
