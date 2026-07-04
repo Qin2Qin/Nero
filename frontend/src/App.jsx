@@ -411,6 +411,7 @@ function ForecastChart({ forecast }) {
               legendType="none"
             />
             <Line
+              className="forecast-line due-line"
               name="By due dates"
               type="monotone"
               dataKey="due"
@@ -420,6 +421,7 @@ function ForecastChart({ forecast }) {
               dot={false}
             />
             <Line
+              className="forecast-line predicted-line"
               name="Predicted (Nero)"
               type="monotone"
               dataKey="predicted"
@@ -429,6 +431,7 @@ function ForecastChart({ forecast }) {
               activeDot={{ r: 5 }}
             />
             <Line
+              className="forecast-line accelerated-line"
               name="After Nero actions"
               type="monotone"
               dataKey="accelerated"
@@ -540,11 +543,14 @@ function DataSourceBanner({ source, xeroStatus }) {
     : "Cash timing and payer behaviour from your accounting data.";
   return (
     <section className="source-banner">
-      <div>
+      <div className="source-copy">
         <strong>{businessNameFor(source)}</strong>
         <p>{detail}</p>
+        {liveConnected && <span className="badge badge-success success">Xero connected</span>}
       </div>
-      {liveConnected && <span className="badge badge-success success">Xero connected</span>}
+      <figure className="source-visual-frame">
+        <img src="/visuals/nero-cashflow-preview.png" alt="Nero cash forecast board preview" />
+      </figure>
     </section>
   );
 }
