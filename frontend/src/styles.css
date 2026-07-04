@@ -207,6 +207,17 @@ h2 {
   stroke: #d7deea;
 }
 
+.grid-line {
+  stroke: #eef1f6;
+  stroke-width: 1;
+}
+
+.y-label {
+  fill: #94a3b8;
+  font-size: 12px;
+  text-anchor: end;
+}
+
 .gap-fill {
   fill: rgba(124, 58, 237, 0.09);
 }
@@ -243,6 +254,15 @@ h2 {
 .x-label {
   fill: #64748b;
   font-size: 12px;
+}
+
+.floor-label {
+  fill: #ef4444;
+  font-weight: 600;
+}
+
+.x-label {
+  text-anchor: middle;
 }
 
 .predicted-dot {
@@ -435,6 +455,37 @@ tbody tr {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
   gap: 16px;
+}
+
+.panel-sub {
+  margin: 2px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.exposure-cell {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.trend-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.trend-up {
+  color: #ef4444;
+}
+
+.trend-down {
+  color: #0f9f8f;
+}
+
+.trend-flat {
+  color: #94a3b8;
 }
 
 .selected-row {
