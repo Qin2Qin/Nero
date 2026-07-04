@@ -3,11 +3,15 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import httpx
+from fastapi.testclient import TestClient
+
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
 
 from db import connect
+from main import create_app
 from services.xero_auth import bootstrap_tokens_from_env, get_saved_tokens, get_token_status, save_token_set
 
 
@@ -85,3 +89,42 @@ def test_bootstrap_tokens_from_env_does_not_overwrite_by_default(tmp_path: Path,
     assert saved["access_token"] == "saved-access"
     assert saved["refresh_token"] == "saved-refresh"
     assert saved["tenant_id"] == "saved-tenant"
+
+
+def test_auth_callback_reports_denied_authorization() -> None:
+    client = TestClient(create_app(), raise_server_exceptions=False)
+
+    response = client.get("/auth/callback?error=access_denied&error_description=Denied")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Xero authorization failed: access_denied - Denied"
+
+
+def test_auth_callback_requires_code() -> None:
+    client = TestClient(create_app(), raise_server_exceptions=False)
+
+    response = client.get("/auth/callback")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Xero authorization failed: missing authorization code"
+
+
+def test_auth_callback_reports_token_exchange_failure(monkeypatch) -> None:
+    def fake_store_callback_tokens(code: str) -> dict:
+        request = httpx.Request("POST", "https://identity.xero.com/connect/token")
+        response = httpx.Response(
+            400,
+            request=request,
+            json={"error": "invalid_grant", "error_description": "Authorization code not found"},
+        )
+        raise httpx.HTTPStatusError("bad request", request=request, response=response)
+
+    import routers.auth as auth_router
+
+    monkeypatch.setattr(auth_router, "store_callback_tokens", fake_store_callback_tokens)
+    client = TestClient(create_app(), raise_server_exceptions=False)
+
+    response = client.get("/auth/callback?code=bad-code")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Xero token exchange failed: invalid_grant - Authorization code not found"
