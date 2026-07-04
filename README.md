@@ -35,6 +35,12 @@ Run tests:
 .venv/bin/python -m pytest backend/tests
 ```
 
+Run a backend API smoke test:
+
+```bash
+DEMO_MODE=true .venv/bin/python scripts/smoke_backend.py
+```
+
 ## Credentials needed for real Xero/LLM mode
 
 Demo mode needs no credentials. For live integration, provide these in `.env`:
@@ -49,6 +55,15 @@ DEMO_MODE=false
 ```
 
 Register the same callback URL in the Xero developer app.
+
+Live Xero flow:
+
+1. Set `DEMO_MODE=false` and the Xero client credentials in `.env`.
+2. Start the backend.
+3. Visit `http://localhost:8000/auth/login` and approve the demo organisation.
+4. Check `GET /api/xero/status`.
+5. Run `POST /api/sync` to pull raw Xero contacts, authorised/paid invoices,
+   and payments into SQLite.
 
 ## Research monitor
 
