@@ -3,48 +3,39 @@ set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOG_DIR="${NERO_LOOP_LOG_DIR:-/tmp/nero-agent-loop}"
-INTERVAL_SECONDS="${NERO_LOOP_INTERVAL_SECONDS:-1800}"
-RUN_ONCE=0
 RUN_AGENT="${NERO_LOOP_AGENT:-0}"
 RUN_FULL="${NERO_LOOP_FULL:-0}"
 PUSH_CHANGES="${NERO_LOOP_PUSH:-0}"
 UNTIL_AT="${NERO_LOOP_UNTIL:-}"
 PR_NUMBER="${NERO_LOOP_PR:-8}"
 BRANCH="${NERO_LOOP_BRANCH:-redesign/investmentsoc-visual-system}"
-MODEL="${NERO_LOOP_MODEL:-openrouter/auto:free}"
 
 usage() {
   cat <<'USAGE'
 Usage: scripts/autonomous_loop.sh [options]
 
-Runs an unattended Nero engineering loop with safe defaults.
+Runs one Nero engineering pass with safe defaults.
 
 Options:
-  --once                 Run one cycle and exit.
+  --once                 Compatibility flag; one cycle is now the default.
   --agent                Run `codex exec` for one bounded implementation pass each cycle.
   --push                 Push auto-committed loop work to the current branch.
   --full                 Include the browser UI smoke test every cycle.
-  --interval SECONDS     Sleep interval between cycles. Default: 1800.
   --until "YYYY-MM-DD HH:MM"
                          Stop once local time reaches this timestamp.
   --pr NUMBER            PR number for status logging. Default: 8.
   --branch NAME          Expected branch. Default: redesign/investmentsoc-visual-system.
-  --model NAME           Optional Codex model override for agent mode.
-                         OpenRouter models must end in :free. Non-OpenRouter
-                         models are refused unless NERO_LOOP_ALLOW_NON_OPENROUTER=1.
   --help                 Show this message.
 
 Environment equivalents:
   NERO_LOOP_AGENT=1 NERO_LOOP_PUSH=1 NERO_LOOP_FULL=1
-  NERO_LOOP_INTERVAL_SECONDS=1800 NERO_LOOP_UNTIL="2026-07-06 10:00"
-  NERO_LOOP_MODEL="openrouter/auto:free"
+  NERO_LOOP_UNTIL="2026-07-06 10:00"
 USAGE
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --once)
-      RUN_ONCE=1
       shift
       ;;
     --agent)
@@ -59,10 +50,6 @@ while [[ $# -gt 0 ]]; do
       RUN_FULL=1
       shift
       ;;
-    --interval)
-      INTERVAL_SECONDS="$2"
-      shift 2
-      ;;
     --until)
       UNTIL_AT="$2"
       shift 2
@@ -73,10 +60,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --branch)
       BRANCH="$2"
-      shift 2
-      ;;
-    --model)
-      MODEL="$2"
       shift 2
       ;;
     --help)
@@ -121,6 +104,33 @@ past_deadline() {
   local epoch
   epoch="$(until_epoch)"
   [[ -n "$epoch" && "$(date +%s)" -ge "$epoch" ]]
+}
+
+called_from_cron() {
+  if [[ "${NERO_LOOP_SIMULATE_CRON:-0}" == "1" ]]; then
+    return 0
+  fi
+
+  local pid="$$"
+  local depth=0
+  while [[ "$pid" != "1" && "$depth" -lt 8 ]]; do
+    local parent
+    parent="$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d '[:space:]')"
+    [[ -z "$parent" ]] && break
+
+    local command
+    command="$(ps -o comm= -p "$parent" 2>/dev/null || true)"
+    case "$command" in
+      *cron*)
+        return 0
+        ;;
+    esac
+
+    pid="$parent"
+    depth=$((depth + 1))
+  done
+
+  return 1
 }
 
 run_logged() {
@@ -176,13 +186,14 @@ Current product direction:
 - Real Xero API integration stays intact; synthetic data must be clearly local/demo-only.
 - UI should be polished, simple, Raleway typography, simple symbolic icons.
 - No visible demo-only controls in normal user-facing flows.
+- Optimize for Encode/Xero judging: Xero is central, API use is visible, and
+  the architecture is reliable enough to defend.
 - Keep clear, small commits and avoid unrelated churn.
 
 Hard constraints:
 - Never print, commit, or expose secrets or tokens.
-- If using OpenRouter, use only free models/providers. Do not select or call
-  paid OpenRouter models. In this loop, OpenRouter model names must end with
-  the `:free` suffix.
+- Do not use OpenRouter or app-runtime inference credentials for development
+  automation. This loop runs inside the local Codex harness only.
 - Do not stage/commit .env, .env.*, xero-opportunity-research/**, or unrelated dirty files.
 - Prefer existing repo patterns and focused tests.
 - If there is no safe code change, improve tests, docs, or product copy.
@@ -190,58 +201,28 @@ Hard constraints:
 PROMPT
 }
 
-model_cache_key() {
-  printf "%s" "$MODEL" | tr -c 'A-Za-z0-9_.-' '_'
-}
-
 ensure_agent_route() {
   if ! command -v codex >/dev/null 2>&1; then
     echo "[$(timestamp)] codex CLI is unavailable; disabling agent mode." | tee -a "$RUN_LOG"
     return 1
   fi
+}
 
-  if [[ "$MODEL" == *openrouter* ]]; then
-    if [[ "$MODEL" != *:free ]]; then
-      echo "[$(timestamp)] Refusing OpenRouter model without :free suffix: $MODEL" | tee -a "$RUN_LOG"
-      return 1
-    fi
+codex_harness_exec() {
+  local prompt_path="$1"
+  local summary_path="$2"
+  local codex_args=(-C "$ROOT" --sandbox danger-full-access --ask-for-approval never --search exec --output-last-message "$summary_path" -)
 
-    local cache_key probe_ok probe_prompt probe_log probe_tmp status
-    cache_key="$(model_cache_key)"
-    probe_ok="$LOG_DIR/openrouter-probe-$cache_key.ok"
-    probe_prompt="$LOG_DIR/openrouter-probe-$cache_key.prompt"
-    probe_log="$LOG_DIR/openrouter-probe-$cache_key.log"
-    probe_tmp="$LOG_DIR/openrouter-probe-$cache_key.tmp"
-
-    if [[ -f "$probe_ok" ]]; then
-      return 0
-    fi
-
-    printf "Reply with exactly: OK\n" > "$probe_prompt"
-    echo "[$(timestamp)] Probing Codex route for free OpenRouter model: $MODEL" | tee -a "$RUN_LOG"
-    set +e
-    codex -C "$ROOT" --sandbox read-only --ask-for-approval never --search exec \
-      --ephemeral --model "$MODEL" - < "$probe_prompt" > "$probe_tmp" 2>&1
-    status=$?
-    set -e
-    redact < "$probe_tmp" > "$probe_log"
-    rm -f "$probe_tmp"
-
-    if [[ "$status" -ne 0 ]]; then
-      echo "[$(timestamp)] Free OpenRouter route unavailable for $MODEL; disabling agent mode instead of falling back." | tee -a "$RUN_LOG"
-      echo "[$(timestamp)] Probe log: $probe_log" | tee -a "$RUN_LOG"
-      return 1
-    fi
-
-    touch "$probe_ok"
-    return 0
+  # OpenRouter belongs to app/runtime features, not the development loop.
+  unset OPENROUTER_API_KEY
+  if [[ "${OPENAI_BASE_URL:-}" == *openrouter* ]]; then
+    unset OPENAI_BASE_URL
+  fi
+  if [[ "${OPENAI_API_KEY:-}" == sk-or-v1-* ]]; then
+    unset OPENAI_API_KEY
   fi
 
-  if [[ "${NERO_LOOP_ALLOW_NON_OPENROUTER:-0}" != "1" ]]; then
-    echo "[$(timestamp)] Refusing non-OpenRouter agent model by default: $MODEL" | tee -a "$RUN_LOG"
-    echo "[$(timestamp)] Set NERO_LOOP_ALLOW_NON_OPENROUTER=1 only if you intentionally want that route." | tee -a "$RUN_LOG"
-    return 1
-  fi
+  codex "${codex_args[@]}" < "$prompt_path"
 }
 
 run_cycle() {
@@ -292,12 +273,7 @@ run_cycle() {
 
   if [[ "$RUN_AGENT" == "1" ]]; then
     write_agent_prompt "$agent_prompt"
-    local codex_args=(-C "$ROOT" --sandbox danger-full-access --ask-for-approval never --search exec --output-last-message "$agent_summary")
-    if [[ -n "$MODEL" ]]; then
-      codex_args+=("--model" "$MODEL")
-    fi
-    codex_args+=("-")
-    run_logged codex "${codex_args[@]}" < "$agent_prompt" || true
+    run_logged codex_harness_exec "$agent_prompt" "$agent_summary" || true
 
     run_logged "${ROOT}/.venv/bin/python" -m pytest backend/tests || true
     run_logged npm --prefix frontend run build || true
@@ -320,22 +296,17 @@ run_cycle() {
 }
 
 main() {
+  if called_from_cron && [[ "${NERO_LOOP_ALLOW_CRON:-0}" != "1" ]]; then
+    echo "[$(timestamp)] Scheduled cron invocation disabled. Persistent Codex goal owns ongoing work."
+    exit 0
+  fi
+
   if past_deadline; then
     echo "[$(timestamp)] Deadline reached ($UNTIL_AT). Nothing to do."
     exit 0
   fi
 
-  while true; do
-    run_cycle
-    if [[ "$RUN_ONCE" == "1" ]]; then
-      break
-    fi
-    if past_deadline; then
-      echo "[$(timestamp)] Deadline reached ($UNTIL_AT). Stopping."
-      break
-    fi
-    sleep "$INTERVAL_SECONDS"
-  done
+  run_cycle
 }
 
 main

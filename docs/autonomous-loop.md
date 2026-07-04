@@ -1,14 +1,19 @@
-# Autonomous Loop
+# Autonomous Pass
 
-Nero includes a small unattended loop for overnight hardening. It is deliberately
+Nero includes a small one-shot engineering pass for hardening. It is deliberately
 boring by default: it runs the same verification commands, records logs, and only
-commits files created during that loop cycle. Existing dirty files are snapshotted
-before each cycle and left alone.
+commits files created during that pass. Existing dirty files are snapshotted
+before the pass and left alone.
 
-## Run One Verification Cycle
+There is no cron job or scheduled Codex worker. Ongoing work is managed by the
+persistent Codex goal in the active thread. The script refuses cron-launched
+execution unless `NERO_LOOP_ALLOW_CRON=1` is set, so stale local cron entries
+cannot keep spending development cycles in the background.
+
+## Run One Verification Pass
 
 ```bash
-bash scripts/autonomous_loop.sh --once --full
+bash scripts/autonomous_loop.sh --full
 ```
 
 This runs:
@@ -23,38 +28,22 @@ This runs:
 ## Run With Codex Agent Mode
 
 ```bash
-bash scripts/autonomous_loop.sh --once --agent --full
+bash scripts/autonomous_loop.sh --agent --full
 ```
 
 Agent mode calls `codex exec` once with a bounded prompt. The prompt tells Codex
 to make one focused product improvement, run checks, and avoid secrets,
 `.env*`, `xero-opportunity-research/**`, and unrelated dirty files.
 
-OpenRouter policy: the loop defaults to `openrouter/auto:free`. Any OpenRouter
-model must end in `:free`; otherwise agent mode is refused. The loop probes the
-route before running an unattended agent pass. If this Codex installation cannot
-use the configured free OpenRouter model, it keeps running verification cycles
-and does not fall back to a paid or non-free model. A non-OpenRouter model is
-refused unless `NERO_LOOP_ALLOW_NON_OPENROUTER=1` is set deliberately.
+Development inference policy: the loop uses the local Codex harness only. It
+does not accept a model override and it clears OpenRouter-style environment
+variables before invoking `codex exec`, so app-runtime inference credentials are
+not spent on development automation. OpenRouter or other app inference providers
+may still be wired into Nero itself if needed for product features.
 
-## Install Cron Until Tomorrow 10:00
-
-```bash
-bash scripts/install_agent_loop_cron.sh --agent --push --full
-```
-
-By default the installer schedules a user crontab entry every 30 minutes and
-sets the stop time to tomorrow at 10:00 local time. To choose an exact stop time:
-
-```bash
-bash scripts/install_agent_loop_cron.sh --agent --push --full --until "2026-07-06 10:00"
-```
-
-Check or remove it:
-
-```bash
-bash scripts/install_agent_loop_cron.sh --status
-bash scripts/install_agent_loop_cron.sh --uninstall
-```
+Hackathon focus: each agent pass is constrained to small, defensible changes
+that improve the Xero-centered cash-flow product. Avoid bloat; optimize for the
+Encode/Xero judging criteria: strong Xero connection, meaningful API use, and
+production-ready architecture.
 
 Logs are written to `/tmp/nero-agent-loop`.
