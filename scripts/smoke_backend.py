@@ -28,6 +28,7 @@ def main() -> None:
         "/api/data_source",
         "/api/app_store/readiness",
         "/api/xero/status",
+        "/api/xero/tenants",
     ]
     for endpoint in endpoints:
         response = client.get(endpoint)

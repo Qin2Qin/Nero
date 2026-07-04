@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / "backend"))
 
 from db import connect
 from main import create_app
+import services.xero_auth as xero_auth
 from services.xero_auth import bootstrap_tokens_from_env, get_saved_tokens, get_token_status, save_token_set
 
 
@@ -128,3 +129,25 @@ def test_auth_callback_reports_token_exchange_failure(monkeypatch) -> None:
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Xero token exchange failed: invalid_grant - Authorization code not found"
+
+
+def test_store_callback_tokens_prefers_demo_company(monkeypatch, tmp_path: Path) -> None:
+    conn = connect(tmp_path / "nero.db")
+    monkeypatch.setattr(xero_auth, "connect", lambda: conn)
+    monkeypatch.setattr(
+        xero_auth,
+        "exchange_code",
+        lambda code: {"access_token": "access", "refresh_token": "refresh", "expires_in": 1800},
+    )
+    monkeypatch.setattr(
+        xero_auth,
+        "list_connections",
+        lambda access_token: [
+            {"tenantId": "imperial", "tenantName": "Imperial", "tenantType": "ORGANISATION"},
+            {"tenantId": "demo", "tenantName": "Demo Company (UK)", "tenantType": "ORGANISATION"},
+        ],
+    )
+
+    status = xero_auth.store_callback_tokens("code")
+
+    assert status["tenant_id"] == "demo"

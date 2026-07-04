@@ -37,6 +37,7 @@ import {
   runAgent,
   scanResearch,
   seedSyntheticPortfolio,
+  selectXeroTenant,
   syncXero,
   updateCashFloor
 } from "./api.js";
@@ -157,6 +158,9 @@ function syncSummary(result) {
   }
   if (result.status === "seeded") {
     return `Seeded ${result.contacts ?? 0} companies, ${result.invoices ?? 0} invoices and ${result.proposals ?? 0} proposed actions.`;
+  }
+  if (result.status === "selected") {
+    return `Selected ${result.tenant?.tenant_name || "Xero organisation"}. Run Sync Xero to pull its records.`;
   }
   return result.detail || result.status || "Sync checked.";
 }
@@ -345,9 +349,11 @@ function ForecastChart({ forecast }) {
   );
 }
 
-function XeroConnection({ status, source, syncResult, onSyncXero, onSeedPortfolio, busy }) {
+function XeroConnection({ status, source, tenants, syncResult, onSyncXero, onSeedPortfolio, onSelectTenant, busy }) {
   const badge = xeroBadge(status);
   const canSync = status?.demo_mode || status?.connected;
+  const tenantOptions = tenants?.tenants || [];
+  const activeTenant = tenantOptions.find((tenant) => tenant.is_active);
   const credentialState = status?.client_credentials_configured ? "Ready" : "Missing";
   const tokenState = status?.connected
     ? "Stored"
@@ -364,10 +370,27 @@ function XeroConnection({ status, source, syncResult, onSyncXero, onSeedPortfoli
       <dl className="status-list">
         <div><dt>Credentials</dt><dd>{credentialState}</dd></div>
         <div><dt>OAuth token</dt><dd>{tokenState}</dd></div>
-        <div><dt>Tenant</dt><dd>{status?.tenant_id || "Not selected"}</dd></div>
+        <div><dt>Tenant</dt><dd>{activeTenant?.tenant_name || status?.tenant_id || "Not selected"}</dd></div>
         <div><dt>Expires</dt><dd>{formatDate(status?.expires_at)}</dd></div>
         <div><dt>Dashboard data</dt><dd>{source?.label || "Unknown"}</dd></div>
       </dl>
+      {tenantOptions.length > 1 && (
+        <label className="tenant-picker">
+          <span>Xero organisation</span>
+          <select
+            className="select select-bordered select-sm"
+            value={tenants.active_tenant_id || ""}
+            onChange={(event) => onSelectTenant(event.target.value)}
+            disabled={busy}
+          >
+            {tenantOptions.map((tenant) => (
+              <option key={tenant.tenant_id} value={tenant.tenant_id}>
+                {tenant.is_demo ? "Demo - " : ""}{tenant.tenant_name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <div className="mini-actions">
         <button className="button primary btn btn-primary btn-sm" onClick={onSyncXero} disabled={busy || !canSync}>
           <RefreshCw size={16} /> {status?.demo_mode ? "Check demo sync" : "Sync Xero"}
@@ -438,6 +461,7 @@ function Dashboard({
   onScanResearch,
   onSyncXero,
   onSeedPortfolio,
+  onSelectTenant,
   onUpdateCashFloor,
   syncResult,
   busy
@@ -548,9 +572,11 @@ function Dashboard({
           <XeroConnection
             status={data.xeroStatus}
             source={data.dataSource}
+            tenants={data.xeroTenants}
             syncResult={syncResult}
             onSyncXero={onSyncXero}
             onSeedPortfolio={onSeedPortfolio}
+            onSelectTenant={onSelectTenant}
             busy={busy}
           />
           <ResearchSignals sources={researchSources} onScanResearch={onScanResearch} busy={busy} />
@@ -797,6 +823,7 @@ export function App() {
           onScanResearch={() => act(scanResearch)}
           onSyncXero={() => act(async () => setSyncResult(await syncXero()))}
           onSeedPortfolio={() => act(async () => setSyncResult(await seedSyntheticPortfolio()))}
+          onSelectTenant={(tenantId) => act(async () => setSyncResult(await selectXeroTenant(tenantId)))}
           onUpdateCashFloor={(cashFloor) => act(() => updateCashFloor(cashFloor))}
           syncResult={syncResult}
         />

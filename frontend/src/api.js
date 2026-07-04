@@ -77,7 +77,8 @@ const localState = {
     env_tokens_configured: false,
     env_refresh_token_configured: false,
     redirect_uri: "http://localhost:8000/auth/callback"
-  }
+  },
+  xeroTenants: { active_tenant_id: null, tenants: [] }
 };
 
 function nowIso() {
@@ -95,6 +96,14 @@ async function request(path, options = {}) {
   });
   if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
   return response.json();
+}
+
+async function optionalRequest(path, fallback) {
+  try {
+    return await request(path);
+  } catch {
+    return fallback;
+  }
 }
 
 function buildLocalForecast() {
@@ -137,7 +146,8 @@ export async function fetchAll() {
       settings: localState.settings,
       dataSource: localState.dataSource,
       appStoreReadiness: localState.appStoreReadiness,
-      xeroStatus: localState.xeroStatus
+      xeroStatus: localState.xeroStatus,
+      xeroTenants: localState.xeroTenants
     };
   }
 
@@ -153,7 +163,8 @@ export async function fetchAll() {
     settingsData,
     dataSourceData,
     appStoreReadinessData,
-    xeroStatusData
+    xeroStatusData,
+    xeroTenantsData
   ] =
     await Promise.all([
       request("/api/contacts"),
@@ -167,7 +178,8 @@ export async function fetchAll() {
       request("/api/settings"),
       request("/api/data_source"),
       request("/api/app_store/readiness"),
-      request("/api/xero/status")
+      request("/api/xero/status"),
+      optionalRequest("/api/xero/tenants", { active_tenant_id: null, tenants: [] })
     ]);
 
   return {
@@ -182,7 +194,8 @@ export async function fetchAll() {
     settings: settingsData,
     dataSource: dataSourceData,
     appStoreReadiness: appStoreReadinessData,
-    xeroStatus: xeroStatusData
+    xeroStatus: xeroStatusData,
+    xeroTenants: xeroTenantsData
   };
 }
 
@@ -277,6 +290,17 @@ export async function syncXero() {
     proposals: localState.proposals.length,
     detail: "Fixture-backed demo state is active."
   };
+}
+
+export async function selectXeroTenant(tenantId) {
+  if (!USE_FIXTURES) {
+    return request("/api/xero/tenant", {
+      method: "POST",
+      body: JSON.stringify({ tenant_id: tenantId })
+    });
+  }
+  localState.xeroTenants.active_tenant_id = tenantId;
+  return { status: "selected", tenant: { tenant_id: tenantId } };
 }
 
 export async function updateCashFloor(cashFloor) {

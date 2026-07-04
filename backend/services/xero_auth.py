@@ -16,6 +16,29 @@ CONNECTIONS_URL = "https://api.xero.com/connections"
 SCOPES = "openid profile email accounting.invoices accounting.contacts accounting.payments accounting.settings offline_access"
 
 
+def _summarize_connection(connection: dict, active_tenant_id: str | None = None) -> dict:
+    tenant_id = connection.get("tenantId")
+    tenant_name = connection.get("tenantName") or "Unnamed Xero organisation"
+    return {
+        "tenant_id": tenant_id,
+        "tenant_name": tenant_name,
+        "tenant_type": connection.get("tenantType"),
+        "is_active": bool(active_tenant_id and tenant_id == active_tenant_id),
+        "is_demo": "demo" in tenant_name.lower(),
+    }
+
+
+def _preferred_tenant_id(connections: list[dict], explicit_tenant_id: str = "") -> str | None:
+    if explicit_tenant_id:
+        return explicit_tenant_id
+    demo = next((item for item in connections if "demo" in str(item.get("tenantName", "")).lower()), None)
+    if demo:
+        return demo.get("tenantId")
+    if connections:
+        return connections[0].get("tenantId")
+    return None
+
+
 def login_url(state: str = "nero") -> str:
     settings = get_settings()
     if not settings.xero_client_id or not settings.xero_client_secret:
@@ -200,10 +223,10 @@ def bootstrap_tokens_from_env(
 def store_callback_tokens(code: str) -> dict:
     tokens = exchange_code(code)
     tenant_id = get_settings().xero_tenant_id
+    connections: list[dict] = []
     if not tenant_id:
         connections = list_connections(tokens["access_token"])
-        if connections:
-            tenant_id = connections[0].get("tenantId")
+        tenant_id = _preferred_tenant_id(connections)
     return save_token_set(tokens, tenant_id=tenant_id)
 
 
@@ -238,6 +261,35 @@ def get_valid_access(conn: sqlite3.Connection | None = None) -> dict:
             tokens = get_saved_tokens(conn)
 
         return tokens
+    finally:
+        if owns_conn:
+            conn.close()
+
+
+def authorized_tenants(conn: sqlite3.Connection | None = None) -> dict:
+    tokens = get_valid_access(conn)
+    connections = list_connections(tokens["access_token"])
+    return {
+        "active_tenant_id": tokens.get("tenant_id"),
+        "tenants": [_summarize_connection(item, tokens.get("tenant_id")) for item in connections],
+    }
+
+
+def select_authorized_tenant(tenant_id: str, conn: sqlite3.Connection | None = None) -> dict:
+    owns_conn = conn is None
+    conn = conn or connect()
+    try:
+        tokens = get_valid_access(conn)
+        connections = list_connections(tokens["access_token"])
+        selected = next((item for item in connections if item.get("tenantId") == tenant_id), None)
+        if selected is None:
+            raise RuntimeError("Xero tenant is not authorised for this app. Reconnect via /auth/login.")
+        status = save_token_set(tokens, tenant_id=tenant_id, conn=conn)
+        return {
+            "status": "selected",
+            "xero": status,
+            "tenant": _summarize_connection(selected, tenant_id),
+        }
     finally:
         if owns_conn:
             conn.close()

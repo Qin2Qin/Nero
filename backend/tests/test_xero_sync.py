@@ -50,3 +50,50 @@ def test_sync_from_xero_stores_raw_payloads(monkeypatch, tmp_path: Path) -> None
     assert result["status"] == "synced"
     assert result["fetched"] == {"contacts": 1, "invoices": 1, "payments": 1}
     assert result["stored"] == {"contacts": 1, "invoices": 1, "payments": 1}
+
+
+def test_build_state_from_xero_materializes_dashboard_state() -> None:
+    contacts = [{"ContactID": "contact-1", "Name": "Demo Retail"}]
+    invoices = []
+    for idx, days_late in enumerate([4, 7, 10]):
+        invoices.append(
+            {
+                "InvoiceID": f"paid-{idx}",
+                "InvoiceNumber": f"PAID-{idx}",
+                "Status": "PAID",
+                "Contact": {"ContactID": "contact-1", "Name": "Demo Retail"},
+                "DateString": f"2026-0{idx + 1}-01",
+                "DueDateString": f"2026-0{idx + 1}-15",
+                "FullyPaidOnDate": f"2026-0{idx + 1}-{15 + days_late}",
+                "Total": 1000,
+                "AmountPaid": 1000,
+            }
+        )
+    invoices.append(
+        {
+            "InvoiceID": "open-1",
+            "InvoiceNumber": "OPEN-1",
+            "Status": "AUTHORISED",
+            "Contact": {"ContactID": "contact-1", "Name": "Demo Retail"},
+            "DateString": "2026-06-01",
+            "DueDateString": "2026-07-10",
+            "AmountDue": 2500,
+            "Total": 2500,
+        }
+    )
+
+    state = xero_sync.build_state_from_xero(
+        contacts=contacts,
+        invoices=invoices,
+        payments=[],
+        tenant_id="demo-tenant",
+        tenant_name="Demo Company (UK)",
+        cash_floor=5000,
+    )
+
+    assert state["data_source"]["mode"] == "xero"
+    assert state["data_source"]["label"] == "Xero: Demo Company (UK)"
+    assert state["contacts"][0]["name"] == "Demo Retail"
+    assert state["invoices"][0]["invoice_number"] == "OPEN-1"
+    assert state["invoices"][0]["predicted_paid_date"] > state["invoices"][0]["due_date"]
+    assert state["forecast"]["cash_floor"] == 5000

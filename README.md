@@ -87,9 +87,23 @@ Live Xero flow:
 4. Check `GET /api/xero/status`.
 5. Run `POST /api/sync` to pull raw Xero contacts, authorised/paid invoices,
    and payments into SQLite.
-6. If the connected organisation is empty, run `POST /api/synthetic/seed` to
+6. Check `GET /api/xero/tenants`. If multiple organisations are authorised,
+   select one with `POST /api/xero/tenant`.
+7. If the connected organisation is empty, run `POST /api/synthetic/seed` to
    populate the local dashboard with generated UK portfolio data. This does not
    write to Xero and is labelled in the UI as synthetic data.
+
+Xero demo company flow:
+
+1. Log in to Xero, open the organisation menu, select **My Xero**, then click
+   **Try the Demo Company**.
+2. Visit `http://localhost:8000/auth/login` and approve FlowCast for the demo
+   company.
+3. Open `http://localhost:5173`. If more than one Xero organisation is
+   authorised, choose the demo company in the Xero connection card.
+4. Click **Sync Xero**. Non-empty Xero records are materialised into the
+   dashboard as payer profiles, open invoices, forecast buckets and proposed
+   actions.
 
 If you already have OAuth tokens, skip the browser flow:
 

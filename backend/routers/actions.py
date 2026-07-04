@@ -15,7 +15,7 @@ from services.state import (
     save_state,
 )
 from services.synthetic_portfolio import build_synthetic_portfolio
-from services.xero_auth import get_connection_summary, get_token_status
+from services.xero_auth import authorized_tenants, get_connection_summary, get_token_status, select_authorized_tenant
 from services.xero_sync import sync_from_xero
 
 
@@ -32,6 +32,10 @@ class MarkPaidRequest(BaseModel):
 
 class SettingsPatch(BaseModel):
     cash_floor: int
+
+
+class XeroTenantPatch(BaseModel):
+    tenant_id: str
 
 
 @router.post("/proposals/{proposal_id}/approve")
@@ -113,6 +117,29 @@ def seed_synthetic_portfolio() -> dict:
 @router.get("/xero/status")
 def xero_status() -> dict:
     return get_connection_summary()
+
+
+@router.get("/xero/tenants")
+def xero_tenants() -> dict:
+    if get_settings().demo_mode:
+        return {"active_tenant_id": None, "tenants": []}
+    status = get_token_status()
+    if not status["connected"]:
+        raise HTTPException(status_code=401, detail="Xero is not connected. Visit /auth/login first.")
+    try:
+        return authorized_tenants()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/xero/tenant")
+def select_xero_tenant(request: XeroTenantPatch) -> dict:
+    if get_settings().demo_mode:
+        raise HTTPException(status_code=400, detail="Tenant selection is only available in live Xero mode.")
+    try:
+        return select_authorized_tenant(request.tenant_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/demo/reset")
