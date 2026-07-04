@@ -16,6 +16,51 @@ const localState = {
   outbox: [],
   metrics: { cash_accelerated_dollars: 0, avg_days_accelerated: 0 },
   research: { generated_at: null, sources: {}, files: [] },
+  settings: { cash_floor: forecast.cash_floor },
+  appStoreReadiness: {
+    status: "draft",
+    ready_count: 3,
+    total_count: 6,
+    source_url: "https://developer.xero.com/documentation/xero-app-store/app-partner-guides/certification-checkpoints/",
+    items: [
+      {
+        id: "sign-up-with-xero",
+        label: "Sign Up with Xero",
+        status: "blocked",
+        detail: "Add XERO_CLIENT_ID and XERO_CLIENT_SECRET."
+      },
+      {
+        id: "connection",
+        label: "Connection management",
+        status: "demo",
+        detail: "Demo connection is active."
+      },
+      {
+        id: "scopes",
+        label: "OAuth scopes",
+        status: "ready",
+        detail: "openid profile email accounting.transactions accounting.contacts accounting.settings offline_access"
+      },
+      {
+        id: "data-integrity",
+        label: "Data integrity",
+        status: "ready",
+        detail: "Reads contacts, invoices, payments and keeps writes in a sandbox outbox."
+      },
+      {
+        id: "listing",
+        label: "App Store listing",
+        status: "todo",
+        detail: "Prepare category, screenshots, pricing, support URL, privacy URL and advisor-facing recommendation copy."
+      },
+      {
+        id: "support-security",
+        label: "Support and security",
+        status: "todo",
+        detail: "Add support docs, data retention notes, error recovery copy and security self-assessment evidence."
+      }
+    ]
+  },
   xeroStatus: {
     connected: false,
     tenant_id: null,
@@ -47,7 +92,15 @@ async function request(path, options = {}) {
 }
 
 function buildLocalForecast() {
-  return localState.forecast;
+  const cashFloor = localState.settings.cash_floor;
+  return {
+    ...localState.forecast,
+    cash_floor: cashFloor,
+    buckets: localState.forecast.buckets.map((bucket) => ({
+      ...bucket,
+      below_floor: bucket.cumulative_predicted < cashFloor
+    }))
+  };
 }
 
 function recomputeLocalMetrics() {
@@ -75,6 +128,8 @@ export async function fetchAll() {
       outbox: localState.outbox,
       metrics: localState.metrics,
       research: localState.research,
+      settings: localState.settings,
+      appStoreReadiness: localState.appStoreReadiness,
       xeroStatus: localState.xeroStatus
     };
   }
@@ -88,6 +143,8 @@ export async function fetchAll() {
     outboxData,
     metricsData,
     researchData,
+    settingsData,
+    appStoreReadinessData,
     xeroStatusData
   ] =
     await Promise.all([
@@ -99,6 +156,8 @@ export async function fetchAll() {
       request("/api/outbox"),
       request("/api/metrics"),
       request("/api/research/status"),
+      request("/api/settings"),
+      request("/api/app_store/readiness"),
       request("/api/xero/status")
     ]);
 
@@ -111,6 +170,8 @@ export async function fetchAll() {
     outbox: outboxData,
     metrics: metricsData,
     research: researchData,
+    settings: settingsData,
+    appStoreReadiness: appStoreReadinessData,
     xeroStatus: xeroStatusData
   };
 }
@@ -206,6 +267,24 @@ export async function syncXero() {
     proposals: localState.proposals.length,
     detail: "Fixture-backed demo state is active."
   };
+}
+
+export async function updateCashFloor(cashFloor) {
+  const payload = { cash_floor: Math.max(0, Number(cashFloor || 0)) };
+  if (!USE_FIXTURES) {
+    return request("/api/settings", {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    });
+  }
+  localState.settings.cash_floor = payload.cash_floor;
+  localState.action_log.unshift({
+    id: `cash-floor-${Date.now()}`,
+    timestamp: nowIso(),
+    actor: "You",
+    event: `Cash floor changed to $${money(payload.cash_floor)}`
+  });
+  return localState.settings;
 }
 
 export { money };

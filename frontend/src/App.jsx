@@ -15,6 +15,18 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
+  Area,
+  CartesianGrid,
+  ComposedChart,
+  Legend,
+  Line,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis
+} from "recharts";
+import {
   approveProposal,
   dismissProposal,
   editProposal,
@@ -23,7 +35,8 @@ import {
   money,
   runAgent,
   scanResearch,
-  syncXero
+  syncXero,
+  updateCashFloor
 } from "./api.js";
 
 const TABS = [
@@ -74,6 +87,14 @@ function formatDate(value) {
   }).format(new Date(value));
 }
 
+function formatWeekLabel(value) {
+  if (!value || value === "later") return "Later";
+  return new Intl.DateTimeFormat("en-GB", {
+    month: "short",
+    day: "numeric"
+  }).format(parseDate(value));
+}
+
 function gradeClass(grade) {
   return `grade grade-${String(grade).charAt(0).toLowerCase()}`;
 }
@@ -119,9 +140,9 @@ function compactMoney(value) {
 }
 
 function xeroBadge(status) {
-  if (status?.connected) return { className: "badge success", label: "Connected" };
-  if (status?.demo_mode) return { className: "badge neutral", label: "Demo mode" };
-  return { className: "badge danger", label: "Not connected" };
+  if (status?.connected) return { className: "badge badge-success success", label: "Connected" };
+  if (status?.demo_mode) return { className: "badge badge-neutral neutral", label: "Demo mode" };
+  return { className: "badge badge-error danger", label: "Not connected" };
 }
 
 function syncSummary(result) {
@@ -135,84 +156,180 @@ function syncSummary(result) {
   return result.detail || result.status || "Sync checked.";
 }
 
+function readinessBadge(status) {
+  if (status === "ready") return "badge badge-success success";
+  if (status === "blocked") return "badge badge-error danger";
+  if (status === "demo") return "badge badge-info";
+  return "badge badge-outline neutral";
+}
+
+function AppStoreReadiness({ readiness }) {
+  const items = readiness?.items || [];
+
+  return (
+    <section className="signal-section app-store-readiness">
+      <div className="panel-head compact">
+        <h2>Xero App Store</h2>
+        <span className="badge badge-outline neutral">
+          {readiness?.ready_count ?? 0}/{readiness?.total_count ?? items.length} ready
+        </span>
+      </div>
+      <div className="readiness-list">
+        {items.map((item) => (
+          <div className="readiness-item" key={item.id}>
+            <div>
+              <strong>{item.label}</strong>
+              <p>{item.detail}</p>
+            </div>
+            <span className={readinessBadge(item.status)}>{item.status}</span>
+          </div>
+        ))}
+      </div>
+      {readiness?.source_url && (
+        <a className="readiness-link" href={readiness.source_url} target="_blank" rel="noreferrer">
+          <ExternalLink size={14} /> Certification checkpoints
+        </a>
+      )}
+    </section>
+  );
+}
+
+function CashFloorControl({ value, forecast, onUpdateCashFloor, busy }) {
+  const [draft, setDraft] = useState(value || 0);
+  const warningCount = forecast?.buckets?.filter((bucket) => bucket.cumulative_predicted < draft).length || 0;
+  const isChanged = Number(draft) !== Number(value || 0);
+
+  useEffect(() => {
+    setDraft(value || 0);
+  }, [value]);
+
+  function setPreset(nextValue) {
+    setDraft(nextValue);
+  }
+
+  return (
+    <section className="signal-section cash-floor-control">
+      <div className="panel-head compact">
+        <h2>Cash floor</h2>
+        <span className={warningCount ? "badge badge-error danger" : "badge badge-success success"}>
+          {warningCount ? `${warningCount} weeks below` : "Covered"}
+        </span>
+      </div>
+      <div className="cash-floor-readout">
+        <strong>{formatCurrency(draft)}</strong>
+        <span>Operating minimum</span>
+      </div>
+      <input
+        className="range range-primary range-sm range-input"
+        type="range"
+        min="0"
+        max="15000"
+        step="500"
+        value={draft}
+        onChange={(event) => setDraft(Number(event.target.value))}
+        aria-label="Cash floor"
+      />
+      <div className="preset-row" aria-label="Cash floor presets">
+        {[5000, 7500, 10000].map((preset) => (
+          <button
+            className={draft === preset ? "preset-chip btn btn-xs active" : "preset-chip btn btn-xs"}
+            key={preset}
+            type="button"
+            onClick={() => setPreset(preset)}
+          >
+            {compactMoney(preset)}
+          </button>
+        ))}
+      </div>
+      <button className="button primary btn btn-primary btn-sm block" onClick={() => onUpdateCashFloor(draft)} disabled={busy || !isChanged}>
+        Apply floor
+      </button>
+    </section>
+  );
+}
+
 function ForecastChart({ forecast }) {
   const buckets = forecast?.buckets?.filter((bucket) => bucket.week_start !== "later") || [];
   if (!buckets.length) return <div className="empty">No forecast data</div>;
 
-  const width = 820;
-  const height = 340;
-  const pad = { top: 24, right: 28, bottom: 44, left: 70 };
-  const rawMax = Math.max(
-    forecast.cash_floor,
-    ...buckets.flatMap((bucket) => [
-      bucket.cumulative_due,
-      bucket.cumulative_predicted,
-      bucket.cumulative_accelerated ?? bucket.cumulative_predicted
-    ])
-  );
-  // Round the axis up to a clean value so the dollar ticks read nicely.
-  const tickStep = rawMax > 12000 ? 5000 : rawMax > 4000 ? 2000 : 1000;
-  const maxValue = Math.ceil(rawMax / tickStep) * tickStep;
-  const ticks = [];
-  for (let t = 0; t <= maxValue; t += tickStep) ticks.push(t);
-  const x = (idx) => pad.left + (idx * (width - pad.left - pad.right)) / Math.max(buckets.length - 1, 1);
-  const y = (value) => height - pad.bottom - (value / maxValue) * (height - pad.top - pad.bottom);
-  const path = (key) =>
-    buckets
-      .map((bucket, idx) => {
-        const value = key === "cumulative_accelerated" ? bucket[key] ?? bucket.cumulative_predicted : bucket[key];
-        return `${idx === 0 ? "M" : "L"} ${x(idx)} ${y(value)}`;
-      })
-      .join(" ");
-  const gapPoints = [
-    ...buckets.map((bucket, idx) => `${x(idx)},${y(bucket.cumulative_due)}`),
-    ...buckets
-      .slice()
-      .reverse()
-      .map((bucket, idx) => `${x(buckets.length - 1 - idx)},${y(bucket.cumulative_predicted)}`)
-  ].join(" ");
-  const floorY = y(forecast.cash_floor);
+  const data = buckets.map((bucket) => ({
+    week: formatWeekLabel(bucket.week_start),
+    due: bucket.cumulative_due,
+    predicted: bucket.cumulative_predicted,
+    accelerated: bucket.cumulative_accelerated ?? bucket.cumulative_predicted,
+    cashFloor: forecast.cash_floor
+  }));
 
   return (
     <div className="chart-wrap">
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Cash forecast">
-        {ticks.map((tick) => (
-          <g key={tick}>
-            <line className="grid-line" x1={pad.left} y1={y(tick)} x2={width - pad.right} y2={y(tick)} />
-            <text className="y-label" x={pad.left - 10} y={y(tick) + 4} textAnchor="end">{compactMoney(tick)}</text>
-          </g>
-        ))}
-        <line className="axis" x1={pad.left} y1={height - pad.bottom} x2={width - pad.right} y2={height - pad.bottom} />
-        <line className="axis" x1={pad.left} y1={pad.top} x2={pad.left} y2={height - pad.bottom} />
-        <polygon className="gap-fill" points={gapPoints} />
-        <line className="cash-floor" x1={pad.left} y1={floorY} x2={width - pad.right} y2={floorY} />
-        <text
-          className="floor-label"
-          x={pad.left + (width - pad.left - pad.right) * 0.6}
-          y={floorY - 9}
-          textAnchor="middle"
-        >
-          Cash floor {compactMoney(forecast.cash_floor)}
-        </text>
-        <path className="due-line" d={path("cumulative_due")} />
-        <path className="predicted-line" d={path("cumulative_predicted")} />
-        <path className="accelerated-line" d={path("cumulative_accelerated")} />
-        {buckets.map((bucket, idx) => (
-          <g key={bucket.week_start}>
-            <circle className="predicted-dot" cx={x(idx)} cy={y(bucket.cumulative_predicted)} r="4" />
-            {(bucket.cumulative_predicted ?? 0) < forecast.cash_floor && (
-              <circle className="warning-dot" cx={x(idx)} cy={y(bucket.cumulative_predicted) - 13} r="5" />
-            )}
-            <text className="x-label" x={x(idx)} y={height - 18}>
-              {bucket.week_start.slice(5)}
-            </text>
-          </g>
-        ))}
-      </svg>
-      <div className="legend">
-        <span><i className="legend-due" /> By due dates</span>
-        <span><i className="legend-predicted" /> Predicted (Nero)</span>
-        <span><i className="legend-accelerated" /> After Nero actions</span>
+      <div className="chart-renderer" role="img" aria-label="Cash forecast">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={data} margin={{ top: 14, right: 16, bottom: 8, left: 8 }}>
+            <CartesianGrid stroke="#eaeef2" vertical={false} />
+            <XAxis dataKey="week" tick={{ fill: "#59636e", fontSize: 12 }} tickLine={false} axisLine={false} />
+            <YAxis
+              tickFormatter={compactMoney}
+              tick={{ fill: "#59636e", fontSize: 12 }}
+              tickLine={false}
+              axisLine={false}
+              width={54}
+            />
+            <Tooltip
+              formatter={(value) => formatCurrency(value)}
+              labelFormatter={(label) => `Week of ${label}`}
+              contentStyle={{
+                border: "1px solid #d0d7de",
+                borderRadius: 6,
+                boxShadow: "0 8px 24px rgba(140, 149, 159, 0.2)"
+              }}
+            />
+            <Legend wrapperStyle={{ color: "#59636e", fontSize: 13 }} />
+            <ReferenceLine
+              y={forecast.cash_floor}
+              stroke="#cf222e"
+              strokeDasharray="4 5"
+              label={{ value: `Cash floor ${compactMoney(forecast.cash_floor)}`, fill: "#cf222e", fontSize: 12 }}
+            />
+            <Area
+              name="Due envelope"
+              type="monotone"
+              dataKey="due"
+              fill="#ddf4ff"
+              fillOpacity={0.45}
+              stroke="#59636e"
+              strokeOpacity={0}
+              activeDot={false}
+              legendType="none"
+            />
+            <Line
+              name="By due dates"
+              type="monotone"
+              dataKey="due"
+              stroke="#6e7781"
+              strokeWidth={2.5}
+              strokeDasharray="7 6"
+              dot={false}
+            />
+            <Line
+              name="Predicted (Nero)"
+              type="monotone"
+              dataKey="predicted"
+              stroke="#0969da"
+              strokeWidth={2.8}
+              dot={{ r: 3, fill: "#0969da", strokeWidth: 0 }}
+              activeDot={{ r: 5 }}
+            />
+            <Line
+              name="After Nero actions"
+              type="monotone"
+              dataKey="accelerated"
+              stroke="#1a7f37"
+              strokeWidth={2.8}
+              dot={{ r: 3, fill: "#1a7f37", strokeWidth: 0 }}
+              activeDot={{ r: 5 }}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );
@@ -241,11 +358,11 @@ function XeroConnection({ status, syncResult, onSyncXero, busy }) {
         <div><dt>Expires</dt><dd>{formatDate(status?.expires_at)}</dd></div>
       </dl>
       <div className="mini-actions">
-        <button className="button primary" onClick={onSyncXero} disabled={busy || !canSync}>
+        <button className="button primary btn btn-primary btn-sm" onClick={onSyncXero} disabled={busy || !canSync}>
           <RefreshCw size={16} /> {status?.demo_mode ? "Check demo sync" : "Sync Xero"}
         </button>
         {!status?.demo_mode && !status?.connected && status?.client_credentials_configured && (
-          <a className="button ghost" href="/auth/login">
+          <a className="button ghost btn btn-ghost btn-sm" href="/auth/login">
             <ExternalLink size={16} /> Connect
           </a>
         )}
@@ -263,7 +380,7 @@ function ResearchSignals({ sources, onScanResearch, busy }) {
     <section className="signal-section">
       <div className="panel-head compact">
         <h2>Opportunity monitor</h2>
-        <button className="icon-button" onClick={onScanResearch} disabled={busy} title="Scan research">
+        <button className="icon-button btn btn-square btn-ghost btn-sm" onClick={onScanResearch} disabled={busy} title="Scan research">
           <RefreshCw size={16} />
         </button>
       </div>
@@ -282,7 +399,17 @@ function ResearchSignals({ sources, onScanResearch, busy }) {
   );
 }
 
-function Dashboard({ data, cashDisplay, onRunAgent, onMarkPaid, onScanResearch, onSyncXero, syncResult, busy }) {
+function Dashboard({
+  data,
+  cashDisplay,
+  onRunAgent,
+  onMarkPaid,
+  onScanResearch,
+  onSyncXero,
+  onUpdateCashFloor,
+  syncResult,
+  busy
+}) {
   const cutoff = addDays(TODAY, 30);
   const dueNext30 = data.invoices
     .filter((invoice) => parseDate(invoice.due_date) <= cutoff)
@@ -291,6 +418,7 @@ function Dashboard({ data, cashDisplay, onRunAgent, onMarkPaid, onScanResearch, 
     .filter((invoice) => parseDate(invoice.predicted_paid_date) <= cutoff)
     .reduce((sum, invoice) => sum + invoice.amount_due, 0);
   const warningBuckets = data.forecast.buckets.filter((bucket) => bucket.cumulative_predicted < data.forecast.cash_floor);
+  const firstWarning = warningBuckets.find((bucket) => bucket.week_start !== "later");
   const researchSources = Object.entries(data.research?.sources || {});
 
   return (
@@ -300,7 +428,7 @@ function Dashboard({ data, cashDisplay, onRunAgent, onMarkPaid, onScanResearch, 
           <p className="eyebrow">Harbour & Co</p>
           <h1>Nero</h1>
         </div>
-        <button className="button primary" onClick={onRunAgent} disabled={busy}>
+        <button className="button primary btn btn-primary btn-sm" onClick={onRunAgent} disabled={busy}>
           <Play size={16} /> Run agent
         </button>
       </div>
@@ -325,13 +453,21 @@ function Dashboard({ data, cashDisplay, onRunAgent, onMarkPaid, onScanResearch, 
           <div className="panel-head">
             <div>
               <h2>Cash forecast</h2>
-              {warningBuckets.length > 0 && <span className="badge danger">Week 3 below floor</span>}
+              {firstWarning && (
+                <span className="badge badge-error danger">{formatWeekLabel(firstWarning.week_start)} below floor</span>
+              )}
             </div>
           </div>
           <ForecastChart forecast={data.forecast} />
         </div>
 
         <aside className="panel signal-panel">
+          <CashFloorControl
+            value={data.settings?.cash_floor ?? data.forecast.cash_floor}
+            forecast={data.forecast}
+            onUpdateCashFloor={onUpdateCashFloor}
+            busy={busy}
+          />
           <XeroConnection
             status={data.xeroStatus}
             syncResult={syncResult}
@@ -339,6 +475,7 @@ function Dashboard({ data, cashDisplay, onRunAgent, onMarkPaid, onScanResearch, 
             busy={busy}
           />
           <ResearchSignals sources={researchSources} onScanResearch={onScanResearch} busy={busy} />
+          <AppStoreReadiness readiness={data.appStoreReadiness} />
         </aside>
       </section>
 
@@ -347,7 +484,7 @@ function Dashboard({ data, cashDisplay, onRunAgent, onMarkPaid, onScanResearch, 
           <h2>Open invoices</h2>
         </div>
         <div className="table-wrap">
-          <table>
+          <table className="table table-sm">
             <thead>
               <tr>
                 <th>Invoice</th>
@@ -367,7 +504,7 @@ function Dashboard({ data, cashDisplay, onRunAgent, onMarkPaid, onScanResearch, 
                   <td>{invoice.accelerated_paid_date || invoice.predicted_paid_date}</td>
                   <td>{formatCurrency(invoice.amount_due)}</td>
                   <td className="right">
-                    <button className="button ghost" onClick={() => onMarkPaid(invoice.id)}>Mark paid</button>
+                    <button className="button ghost btn btn-ghost btn-sm" onClick={() => onMarkPaid(invoice.id)}>Mark paid</button>
                   </td>
                 </tr>
               ))}
@@ -411,7 +548,7 @@ function Payers({ contacts, invoices = [] }) {
           </div>
         </div>
         <div className="table-wrap">
-          <table>
+          <table className="table table-sm">
             <thead>
               <tr>
                 <th>Name</th>
@@ -479,7 +616,7 @@ function AgentQueue({ proposals, onApprove, onDismiss, onEdit, busy }) {
           return (
             <article className="proposal-card" key={proposal.id}>
               <div className="proposal-top">
-                <span className="badge">{proposal.type.replaceAll("_", " ")}</span>
+                <span className="badge badge-neutral">{proposal.type.replaceAll("_", " ")}</span>
                 <strong>{proposal.contact_name}</strong>
               </div>
               <blockquote>{proposal.reasoning_text}</blockquote>
@@ -497,15 +634,15 @@ function AgentQueue({ proposals, onApprove, onDismiss, onEdit, busy }) {
               )}
               {proposal.recommendation_detail && <p className="recommendation">{proposal.recommendation_detail}</p>}
               <div className="actions">
-                <button className="button primary" disabled={busy} onClick={() => onApprove(proposal.id)}>
+                <button className="button primary btn btn-primary btn-sm" disabled={busy} onClick={() => onApprove(proposal.id)}>
                   <Check size={16} /> Approve
                 </button>
                 {proposal.draft_subject && (
-                  <button className="button ghost" disabled={busy} onClick={() => onEdit(proposal.id, draftBody)}>
+                  <button className="button ghost btn btn-ghost btn-sm" disabled={busy} onClick={() => onEdit(proposal.id, draftBody)}>
                     Edit
                   </button>
                 )}
-                <button className="icon-button danger-icon" disabled={busy} onClick={() => onDismiss(proposal.id)} title="Dismiss">
+                <button className="icon-button danger-icon btn btn-square btn-ghost btn-sm" disabled={busy} onClick={() => onDismiss(proposal.id)} title="Dismiss">
                   <X size={16} />
                 </button>
               </div>
@@ -524,7 +661,7 @@ function Outbox({ outbox }) {
       <div className="panel-head page-head">
         <div>
           <h1>Outbox</h1>
-          <span className="badge muted-badge">Sandbox mode: no real emails sent</span>
+          <span className="badge badge-outline muted-badge">Sandbox mode: no real emails sent</span>
         </div>
       </div>
       <div className="list-stack">
@@ -607,6 +744,7 @@ export function App() {
           onMarkPaid={(id) => act(() => markPaid(id))}
           onScanResearch={() => act(scanResearch)}
           onSyncXero={() => act(async () => setSyncResult(await syncXero()))}
+          onUpdateCashFloor={(cashFloor) => act(() => updateCashFloor(cashFloor))}
           syncResult={syncResult}
         />
       );
@@ -628,7 +766,7 @@ export function App() {
   }, [activeTab, data, cashDisplay, busy, syncResult]);
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" data-theme="corporate">
       <aside className="sidebar">
         <div className="brand">
           <span>N</span>

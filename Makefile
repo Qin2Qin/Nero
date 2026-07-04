@@ -1,4 +1,4 @@
-.PHONY: backend frontend dev reset-demo test
+.PHONY: backend frontend dev reset-demo test smoke-ui
 
 backend:
 	cd backend && DEMO_MODE=true uvicorn main:app --reload --host 0.0.0.0 --port 8000
@@ -17,3 +17,6 @@ reset-demo:
 
 test:
 	python3 -m pytest backend/tests
+
+smoke-ui:
+	cd frontend && npm run smoke:ui
