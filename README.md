@@ -61,6 +61,24 @@ DEMO_MODE=false
 
 Register the same callback URL in the Xero developer app.
 
+If Xero shows `invalid_request` / `Invalid redirect_uri`, the client ID is
+valid but the callback URL is not registered for that Xero app. Add this exact
+value in Xero Developer > My Apps > your app > Configuration:
+
+```text
+http://localhost:8000/auth/callback
+```
+
+Then rerun:
+
+```bash
+.venv/bin/python scripts/check_xero_auth.py --probe-common-redirects
+```
+
+The check prints no secrets or tokens. A healthy local OAuth setup reports that
+the authorize redirect is accepted and token client auth rejects the fake code as
+`invalid_grant`.
+
 Live Xero flow:
 
 1. Set `DEMO_MODE=false` and the Xero client credentials in `.env`.
