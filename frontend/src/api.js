@@ -15,7 +15,18 @@ const localState = {
   action_log: structuredClone(actionLog),
   outbox: [],
   metrics: { cash_accelerated_dollars: 0, avg_days_accelerated: 0 },
-  research: { generated_at: null, sources: {}, files: [] }
+  research: { generated_at: null, sources: {}, files: [] },
+  xeroStatus: {
+    connected: false,
+    tenant_id: null,
+    expires_at: null,
+    needs_tenant: false,
+    demo_mode: true,
+    client_credentials_configured: false,
+    env_tokens_configured: false,
+    env_refresh_token_configured: false,
+    redirect_uri: "http://localhost:8000/auth/callback"
+  }
 };
 
 function nowIso() {
@@ -63,11 +74,22 @@ export async function fetchAll() {
       actionLog: localState.action_log,
       outbox: localState.outbox,
       metrics: localState.metrics,
-      research: localState.research
+      research: localState.research,
+      xeroStatus: localState.xeroStatus
     };
   }
 
-  const [contactsData, invoicesData, forecastData, proposalsData, logData, outboxData, metricsData, researchData] =
+  const [
+    contactsData,
+    invoicesData,
+    forecastData,
+    proposalsData,
+    logData,
+    outboxData,
+    metricsData,
+    researchData,
+    xeroStatusData
+  ] =
     await Promise.all([
       request("/api/contacts"),
       request("/api/invoices"),
@@ -76,7 +98,8 @@ export async function fetchAll() {
       request("/api/action_log"),
       request("/api/outbox"),
       request("/api/metrics"),
-      request("/api/research/status")
+      request("/api/research/status"),
+      request("/api/xero/status")
     ]);
 
   return {
@@ -87,7 +110,8 @@ export async function fetchAll() {
     actionLog: logData,
     outbox: outboxData,
     metrics: metricsData,
-    research: researchData
+    research: researchData,
+    xeroStatus: xeroStatusData
   };
 }
 
@@ -171,6 +195,17 @@ export async function markPaid(invoiceId) {
 export async function scanResearch() {
   if (!USE_FIXTURES) return request("/api/research/scan", { method: "POST" });
   return localState.research;
+}
+
+export async function syncXero() {
+  if (!USE_FIXTURES) return request("/api/sync", { method: "POST" });
+  return {
+    status: "demo",
+    contacts: localState.contacts.length,
+    invoices: localState.invoices.length,
+    proposals: localState.proposals.length,
+    detail: "Fixture-backed demo state is active."
+  };
 }
 
 export { money };

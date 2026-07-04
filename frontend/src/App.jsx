@@ -2,6 +2,7 @@ import {
   Bot,
   Check,
   ClipboardList,
+  ExternalLink,
   LayoutDashboard,
   Minus,
   Play,
@@ -21,7 +22,8 @@ import {
   markPaid,
   money,
   runAgent,
-  scanResearch
+  scanResearch,
+  syncXero
 } from "./api.js";
 
 const TABS = [
@@ -54,6 +56,16 @@ function formatHeroCurrency(value) {
 
 function formatDateTime(value) {
   if (!value) return "";
+  return new Intl.DateTimeFormat("en-GB", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(value));
+}
+
+function formatDate(value) {
+  if (!value) return "Not saved";
   return new Intl.DateTimeFormat("en-GB", {
     month: "short",
     day: "numeric",
@@ -104,6 +116,23 @@ function compactMoney(value) {
   const v = Number(value || 0);
   if (Math.abs(v) >= 1000) return `$${Math.round(v / 1000)}k`;
   return `$${Math.round(v)}`;
+}
+
+function xeroBadge(status) {
+  if (status?.connected) return { className: "badge success", label: "Connected" };
+  if (status?.demo_mode) return { className: "badge neutral", label: "Demo mode" };
+  return { className: "badge danger", label: "Not connected" };
+}
+
+function syncSummary(result) {
+  if (!result) return "";
+  if (result.status === "synced") {
+    return `Synced ${result.fetched?.contacts ?? 0} contacts, ${result.fetched?.invoices ?? 0} invoices, ${result.fetched?.payments ?? 0} payments.`;
+  }
+  if (result.status === "demo") {
+    return `Demo sync checked ${result.contacts ?? 0} contacts and ${result.invoices ?? 0} invoices.`;
+  }
+  return result.detail || result.status || "Sync checked.";
 }
 
 function ForecastChart({ forecast }) {
@@ -189,7 +218,71 @@ function ForecastChart({ forecast }) {
   );
 }
 
-function Dashboard({ data, cashDisplay, onRunAgent, onMarkPaid, onScanResearch, busy }) {
+function XeroConnection({ status, syncResult, onSyncXero, busy }) {
+  const badge = xeroBadge(status);
+  const canSync = status?.demo_mode || status?.connected;
+  const credentialState = status?.client_credentials_configured ? "Ready" : "Missing";
+  const tokenState = status?.connected
+    ? "Stored"
+    : status?.env_tokens_configured || status?.env_refresh_token_configured
+      ? "Available in env"
+      : "Missing";
+
+  return (
+    <section className="signal-section">
+      <div className="panel-head compact">
+        <h2>Xero connection</h2>
+        <span className={badge.className}>{badge.label}</span>
+      </div>
+      <dl className="status-list">
+        <div><dt>Credentials</dt><dd>{credentialState}</dd></div>
+        <div><dt>OAuth token</dt><dd>{tokenState}</dd></div>
+        <div><dt>Tenant</dt><dd>{status?.tenant_id || "Not selected"}</dd></div>
+        <div><dt>Expires</dt><dd>{formatDate(status?.expires_at)}</dd></div>
+      </dl>
+      <div className="mini-actions">
+        <button className="button primary" onClick={onSyncXero} disabled={busy || !canSync}>
+          <RefreshCw size={16} /> {status?.demo_mode ? "Check demo sync" : "Sync Xero"}
+        </button>
+        {!status?.demo_mode && !status?.connected && status?.client_credentials_configured && (
+          <a className="button ghost" href="/auth/login">
+            <ExternalLink size={16} /> Connect
+          </a>
+        )}
+      </div>
+      {syncResult && <p className="sync-result">{syncSummary(syncResult)}</p>}
+      {!status?.demo_mode && !status?.connected && !status?.client_credentials_configured && (
+        <p className="muted compact-note">Live credentials missing.</p>
+      )}
+    </section>
+  );
+}
+
+function ResearchSignals({ sources, onScanResearch, busy }) {
+  return (
+    <section className="signal-section">
+      <div className="panel-head compact">
+        <h2>Opportunity monitor</h2>
+        <button className="icon-button" onClick={onScanResearch} disabled={busy} title="Scan research">
+          <RefreshCw size={16} />
+        </button>
+      </div>
+      <div className="research-list">
+        {sources.length === 0 && <p className="muted">No raw research files indexed.</p>}
+        {sources.map(([source, summary]) => (
+          <div className="research-row" key={source}>
+            <strong>{source}</strong>
+            <span>{summary.files} files</span>
+            <span>{summary.records} records</span>
+            <em>{summary.changed_files} changed</em>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function Dashboard({ data, cashDisplay, onRunAgent, onMarkPaid, onScanResearch, onSyncXero, syncResult, busy }) {
   const cutoff = addDays(TODAY, 30);
   const dueNext30 = data.invoices
     .filter((invoice) => parseDate(invoice.due_date) <= cutoff)
@@ -238,24 +331,14 @@ function Dashboard({ data, cashDisplay, onRunAgent, onMarkPaid, onScanResearch, 
           <ForecastChart forecast={data.forecast} />
         </div>
 
-        <aside className="panel research-panel">
-          <div className="panel-head compact">
-            <h2>Research signals</h2>
-            <button className="icon-button" onClick={onScanResearch} title="Scan research">
-              <RefreshCw size={16} />
-            </button>
-          </div>
-          <div className="research-list">
-            {researchSources.length === 0 && <p className="muted">No raw research files indexed.</p>}
-            {researchSources.map(([source, summary]) => (
-              <div className="research-row" key={source}>
-                <strong>{source}</strong>
-                <span>{summary.files} files</span>
-                <span>{summary.records} records</span>
-                <em>{summary.changed_files} changed</em>
-              </div>
-            ))}
-          </div>
+        <aside className="panel signal-panel">
+          <XeroConnection
+            status={data.xeroStatus}
+            syncResult={syncResult}
+            onSyncXero={onSyncXero}
+            busy={busy}
+          />
+          <ResearchSignals sources={researchSources} onScanResearch={onScanResearch} busy={busy} />
         </aside>
       </section>
 
@@ -324,7 +407,7 @@ function Payers({ contacts, invoices = [] }) {
         <div className="panel-head">
           <div>
             <h2>Payment performance</h2>
-            <p className="panel-sub">Ranked by cash at risk — who to chase first</p>
+            <p className="panel-sub">Ranked by cash at risk: who to chase first</p>
           </div>
         </div>
         <div className="table-wrap">
@@ -486,6 +569,7 @@ export function App() {
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [syncResult, setSyncResult] = useState(null);
 
   async function refresh() {
     const next = await fetchAll();
@@ -522,6 +606,8 @@ export function App() {
           onRunAgent={() => act(runAgent)}
           onMarkPaid={(id) => act(() => markPaid(id))}
           onScanResearch={() => act(scanResearch)}
+          onSyncXero={() => act(async () => setSyncResult(await syncXero()))}
+          syncResult={syncResult}
         />
       );
     }
@@ -539,7 +625,7 @@ export function App() {
     }
     if (activeTab === "outbox") return <Outbox outbox={data.outbox} />;
     return <ActionLog entries={data.actionLog} />;
-  }, [activeTab, data, cashDisplay, busy]);
+  }, [activeTab, data, cashDisplay, busy, syncResult]);
 
   return (
     <div className="app-shell">
