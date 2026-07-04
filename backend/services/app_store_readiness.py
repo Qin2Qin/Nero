@@ -4,7 +4,7 @@ from services.xero_auth import SCOPES, get_connection_summary
 
 
 CHECKPOINT_SOURCE = (
-    "https://developer.xero.com/documentation/xero-app-store/app-partner-guides/certification-checkpoints/"
+    "https://developer.xero.com/documentation/best-practices/overview/cert-matrix/"
 )
 
 
@@ -40,10 +40,22 @@ def app_store_readiness() -> dict:
             "detail": "Reads contacts, invoices, payments and keeps writes in a sandbox outbox.",
         },
         {
+            "id": "api-efficiency",
+            "label": "API efficiency",
+            "status": "ready",
+            "detail": "Sync uses paged Xero reads and backs off on 429 Retry-After responses.",
+        },
+        {
             "id": "listing",
             "label": "App Store listing",
             "status": "todo",
             "detail": "Prepare category, screenshots, pricing, support URL, privacy URL and advisor-facing recommendation copy.",
+        },
+        {
+            "id": "subscriptions-webhooks",
+            "label": "Subscriptions and webhooks",
+            "status": "todo",
+            "detail": "Required for a certified App Store launch, but out of scope for the hackathon demo.",
         },
         {
             "id": "support-security",

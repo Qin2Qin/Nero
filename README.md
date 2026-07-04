@@ -61,6 +61,16 @@ DEMO_MODE=false
 
 Register the same callback URL in the Xero developer app.
 
+The backend currently requests these Xero OAuth scopes:
+
+```text
+openid profile email accounting.invoices accounting.contacts accounting.payments accounting.settings offline_access
+```
+
+These are the granular Accounting API scopes used by the live sync path. The
+older broad scope `accounting.transactions` is deprecated in Xero's current
+OAuth scope documentation.
+
 If Xero shows `invalid_request` / `Invalid redirect_uri`, the client ID is
 valid but the callback URL is not registered for that Xero app. Add this exact
 value in Xero Developer > My Apps > your app > Configuration:
@@ -117,6 +127,29 @@ curl -X POST http://localhost:8000/api/sync
 tenant, and expiry metadata. It never prints access or refresh tokens. Use
 `--overwrite` only when you intentionally want to replace the locally saved token set.
 
+## Xero Remote MCP
+
+Hackathon Remote MCP endpoint:
+
+```text
+https://builders.xero.com/beta/mcp
+```
+
+The local Codex bridge is:
+
+```bash
+scripts/xero_remote_mcp.py
+```
+
+It reuses the saved Xero OAuth token from the backend, refreshes it if needed,
+and launches `mcp-remote` with an `Authorization: Bearer ...` header. The local
+Codex MCP server name is `xero-remote`.
+
+If Xero MCP tools do not appear in the active Codex session after setup, restart
+or reload Codex so it picks up the MCP config. If the remote endpoint returns
+`403 Forbidden`, the Xero Client ID has not been allow-listed for the hackathon
+Remote MCP server.
+
 Synthetic portfolio seed:
 
 ```bash
@@ -143,6 +176,13 @@ python3 scripts/monitor_research.py --watch --interval 30
 ```
 
 The API exposes `GET /api/research/status` and `POST /api/research/scan`.
+
+## Hackathon documentation
+
+The distilled Xero/hackathon notes live in
+[`docs/xero-hackathon-and-mcp.md`](docs/xero-hackathon-and-mcp.md). It captures
+the judging criteria, Bounty 03 fit, Xero API endpoints, OAuth scopes, Remote MCP
+setup, rate limits, and App Store readiness checkpoints.
 
 ## Repo layout
 

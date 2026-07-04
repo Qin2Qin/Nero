@@ -21,8 +21,8 @@ def test_app_store_readiness_exposes_xero_certification_checklist() -> None:
     body = response.json()
     item_ids = {item["id"] for item in body["items"]}
 
-    assert body["source_url"].endswith("/certification-checkpoints/")
-    assert {"sign-up-with-xero", "connection", "scopes", "listing", "support-security"}.issubset(item_ids)
+    assert body["source_url"].endswith("/cert-matrix/")
+    assert {"sign-up-with-xero", "connection", "scopes", "api-efficiency", "listing", "support-security"}.issubset(item_ids)
     scopes = next(item for item in body["items"] if item["id"] == "scopes")["detail"]
     assert "accounting.invoices" in scopes
     assert "accounting.payments" in scopes
