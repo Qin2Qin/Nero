@@ -349,6 +349,15 @@ function CashFloorControl({ value, forecast, onUpdateCashFloor, busy }) {
 function ForecastChart({ forecast }) {
   const buckets = forecast?.buckets?.filter((bucket) => bucket.week_start !== "later") || [];
   if (!buckets.length) return <div className="empty">No forecast data</div>;
+  const chartColors = {
+    grid: "rgba(255,255,255,0.08)",
+    tick: "#cbd5e1",
+    due: "#94a3b8",
+    predicted: "#818cf8",
+    accelerated: "#34d399",
+    floor: "#fb7185",
+    area: "#818cf8"
+  };
 
   const data = buckets.map((bucket) => ({
     week: formatWeekLabel(bucket.week_start),
@@ -363,11 +372,11 @@ function ForecastChart({ forecast }) {
       <div className="chart-renderer" role="img" aria-label="Cash forecast">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data} margin={{ top: 14, right: 16, bottom: 8, left: 8 }}>
-            <CartesianGrid stroke="#eaeef2" vertical={false} />
-            <XAxis dataKey="week" tick={{ fill: "#59636e", fontSize: 12 }} tickLine={false} axisLine={false} />
+            <CartesianGrid stroke={chartColors.grid} vertical={false} />
+            <XAxis dataKey="week" tick={{ fill: chartColors.tick, fontSize: 12 }} tickLine={false} axisLine={false} />
             <YAxis
               tickFormatter={compactMoney}
-              tick={{ fill: "#59636e", fontSize: 12 }}
+              tick={{ fill: chartColors.tick, fontSize: 12 }}
               tickLine={false}
               axisLine={false}
               width={54}
@@ -376,25 +385,27 @@ function ForecastChart({ forecast }) {
               formatter={(value) => formatCurrency(value)}
               labelFormatter={(label) => `Week of ${label}`}
               contentStyle={{
-                border: "1px solid #d0d7de",
-                borderRadius: 6,
-                boxShadow: "0 8px 24px rgba(140, 149, 159, 0.2)"
+                background: "rgba(15, 23, 42, 0.96)",
+                border: "1px solid rgba(255,255,255,0.16)",
+                borderRadius: 12,
+                color: "#f8fafc",
+                boxShadow: "0 18px 44px rgba(0,0,0,0.32)"
               }}
             />
-            <Legend wrapperStyle={{ color: "#59636e", fontSize: 13 }} />
+            <Legend wrapperStyle={{ color: chartColors.tick, fontSize: 13 }} />
             <ReferenceLine
               y={forecast.cash_floor}
-              stroke="#cf222e"
+              stroke={chartColors.floor}
               strokeDasharray="4 5"
-              label={{ value: `Cash floor ${compactMoney(forecast.cash_floor)}`, fill: "#cf222e", fontSize: 12 }}
+              label={{ value: `Cash floor ${compactMoney(forecast.cash_floor)}`, fill: chartColors.floor, fontSize: 12 }}
             />
             <Area
               name="Due envelope"
               type="monotone"
               dataKey="due"
-              fill="#ddf4ff"
-              fillOpacity={0.45}
-              stroke="#59636e"
+              fill={chartColors.area}
+              fillOpacity={0.12}
+              stroke={chartColors.due}
               strokeOpacity={0}
               activeDot={false}
               legendType="none"
@@ -403,7 +414,7 @@ function ForecastChart({ forecast }) {
               name="By due dates"
               type="monotone"
               dataKey="due"
-              stroke="#6e7781"
+              stroke={chartColors.due}
               strokeWidth={2.5}
               strokeDasharray="7 6"
               dot={false}
@@ -412,18 +423,18 @@ function ForecastChart({ forecast }) {
               name="Predicted (Nero)"
               type="monotone"
               dataKey="predicted"
-              stroke="#0969da"
+              stroke={chartColors.predicted}
               strokeWidth={2.8}
-              dot={{ r: 3, fill: "#0969da", strokeWidth: 0 }}
+              dot={{ r: 3, fill: chartColors.predicted, strokeWidth: 0 }}
               activeDot={{ r: 5 }}
             />
             <Line
               name="After Nero actions"
               type="monotone"
               dataKey="accelerated"
-              stroke="#1a7f37"
+              stroke={chartColors.accelerated}
               strokeWidth={2.8}
-              dot={{ r: 3, fill: "#1a7f37", strokeWidth: 0 }}
+              dot={{ r: 3, fill: chartColors.accelerated, strokeWidth: 0 }}
               activeDot={{ r: 5 }}
             />
           </ComposedChart>
@@ -558,6 +569,8 @@ function Dashboard({
     .reduce((sum, invoice) => sum + invoice.amount_due, 0);
   const warningBuckets = data.forecast.buckets.filter((bucket) => bucket.cumulative_predicted < data.forecast.cash_floor);
   const firstWarning = warningBuckets.find((bucket) => bucket.week_start !== "later");
+  const pendingActions = data.proposals.filter((proposal) => proposal.status === "pending").length;
+  const openInvoiceCount = data.invoices.length;
   const sortedInvoices = useMemo(
     () =>
       sortRows(data.invoices, invoiceSort, {
@@ -583,6 +596,21 @@ function Dashboard({
       </div>
 
       <DataSourceBanner source={data.dataSource} xeroStatus={data.xeroStatus} />
+
+      <section className="command-strip" aria-label="Cash control summary">
+        <div>
+          <span>Live cash room</span>
+          <strong>{openInvoiceCount} invoices under watch</strong>
+        </div>
+        <div>
+          <span>Agent queue</span>
+          <strong>{pendingActions} suggested actions</strong>
+        </div>
+        <div>
+          <span>Forecast floor</span>
+          <strong>{formatCurrency(data.settings?.cash_floor ?? data.forecast.cash_floor)}</strong>
+        </div>
+      </section>
 
       <section className="metrics">
         <article>
@@ -810,7 +838,6 @@ function Payers({ contacts, invoices = [] }) {
               <h2>{selected.name}</h2>
               <span className={gradeClass(selected.grade)}>{selected.grade}</span>
             </div>
-            <p>{selected.explanation}</p>
             <dl className="stats-list">
               <div><dt>What they currently owe you</dt><dd>{formatCurrency(selected.exposure)}</dd></div>
               <div><dt>How much business you've done with them (past year)</dt><dd>{formatCurrency(selected.revenue_12m)}</dd></div>
