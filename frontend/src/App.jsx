@@ -3,9 +3,12 @@ import {
   Check,
   ClipboardList,
   LayoutDashboard,
+  Minus,
   Play,
   RefreshCw,
   Send,
+  TrendingDown,
+  TrendingUp,
   Users,
   X
 } from "lucide-react";
@@ -63,10 +66,17 @@ function gradeClass(grade) {
   return `grade grade-${String(grade).charAt(0).toLowerCase()}`;
 }
 
-function trendLabel(slope) {
-  if (slope > 1) return "up";
-  if (slope < -1) return "down";
-  return "flat";
+function TrendCell({ slope }) {
+  if (slope > 1) return <span className="trend-cell trend-up"><TrendingUp size={15} /> worsening</span>;
+  if (slope < -1) return <span className="trend-cell trend-down"><TrendingDown size={15} /> improving</span>;
+  return <span className="trend-cell trend-flat"><Minus size={15} /> steady</span>;
+}
+
+// Cash currently tied up with a payer: the sum of their open invoices.
+function exposureFor(contactId, invoices) {
+  return invoices
+    .filter((invoice) => invoice.contact_id === contactId)
+    .reduce((sum, invoice) => sum + Number(invoice.amount_due || 0), 0);
 }
 
 function useCountUp(value) {
@@ -90,14 +100,20 @@ function useCountUp(value) {
   return display;
 }
 
+function compactMoney(value) {
+  const v = Number(value || 0);
+  if (Math.abs(v) >= 1000) return `$${Math.round(v / 1000)}k`;
+  return `$${Math.round(v)}`;
+}
+
 function ForecastChart({ forecast }) {
   const buckets = forecast?.buckets?.filter((bucket) => bucket.week_start !== "later") || [];
   if (!buckets.length) return <div className="empty">No forecast data</div>;
 
   const width = 820;
-  const height = 300;
-  const pad = { top: 24, right: 28, bottom: 44, left: 62 };
-  const maxValue = Math.max(
+  const height = 340;
+  const pad = { top: 24, right: 28, bottom: 44, left: 70 };
+  const rawMax = Math.max(
     forecast.cash_floor,
     ...buckets.flatMap((bucket) => [
       bucket.cumulative_due,
@@ -105,6 +121,11 @@ function ForecastChart({ forecast }) {
       bucket.cumulative_accelerated ?? bucket.cumulative_predicted
     ])
   );
+  // Round the axis up to a clean value so the dollar ticks read nicely.
+  const tickStep = rawMax > 12000 ? 5000 : rawMax > 4000 ? 2000 : 1000;
+  const maxValue = Math.ceil(rawMax / tickStep) * tickStep;
+  const ticks = [];
+  for (let t = 0; t <= maxValue; t += tickStep) ticks.push(t);
   const x = (idx) => pad.left + (idx * (width - pad.left - pad.right)) / Math.max(buckets.length - 1, 1);
   const y = (value) => height - pad.bottom - (value / maxValue) * (height - pad.top - pad.bottom);
   const path = (key) =>
@@ -126,12 +147,23 @@ function ForecastChart({ forecast }) {
   return (
     <div className="chart-wrap">
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Cash forecast">
+        {ticks.map((tick) => (
+          <g key={tick}>
+            <line className="grid-line" x1={pad.left} y1={y(tick)} x2={width - pad.right} y2={y(tick)} />
+            <text className="y-label" x={pad.left - 10} y={y(tick) + 4} textAnchor="end">{compactMoney(tick)}</text>
+          </g>
+        ))}
         <line className="axis" x1={pad.left} y1={height - pad.bottom} x2={width - pad.right} y2={height - pad.bottom} />
         <line className="axis" x1={pad.left} y1={pad.top} x2={pad.left} y2={height - pad.bottom} />
         <polygon className="gap-fill" points={gapPoints} />
         <line className="cash-floor" x1={pad.left} y1={floorY} x2={width - pad.right} y2={floorY} />
-        <text className="floor-label" x={width - pad.right - 78} y={floorY - 7}>
-          Cash floor
+        <text
+          className="floor-label"
+          x={pad.left + (width - pad.left - pad.right) * 0.6}
+          y={floorY - 9}
+          textAnchor="middle"
+        >
+          Cash floor {compactMoney(forecast.cash_floor)}
         </text>
         <path className="due-line" d={path("cumulative_due")} />
         <path className="predicted-line" d={path("cumulative_predicted")} />
@@ -264,18 +296,36 @@ function Dashboard({ data, cashDisplay, onRunAgent, onMarkPaid, onScanResearch, 
   );
 }
 
-function Payers({ contacts }) {
-  const [selected, setSelected] = useState(contacts[0]);
+function Payers({ contacts, invoices = [] }) {
+  // Rank by cash at risk: the money in open invoices, weighted by how late this
+  // payer runs. Reliable payers (avg late <= 0) drop to the bottom.
+  const ranked = useMemo(() => {
+    return contacts
+      .map((contact) => {
+        const exposure = exposureFor(contact.id, invoices);
+        const risk = exposure * Math.max(contact.avg_days_late, 0);
+        return { ...contact, exposure, risk };
+      })
+      .sort((a, b) => b.risk - a.risk || b.exposure - a.exposure);
+  }, [contacts, invoices]);
+
+  const [selectedId, setSelectedId] = useState(ranked[0]?.id);
+  const selected = ranked.find((contact) => contact.id === selectedId) || ranked[0];
 
   useEffect(() => {
-    if (!selected && contacts.length) setSelected(contacts[0]);
-  }, [contacts, selected]);
+    if (!ranked.find((contact) => contact.id === selectedId) && ranked.length) {
+      setSelectedId(ranked[0].id);
+    }
+  }, [ranked, selectedId]);
 
   return (
     <main className="content payers-layout">
       <section className="panel">
         <div className="panel-head">
-          <h2>Customers</h2>
+          <div>
+            <h2>Payment performance</h2>
+            <p className="panel-sub">Ranked by cash at risk — who to chase first</p>
+          </div>
         </div>
         <div className="table-wrap">
           <table>
@@ -283,25 +333,25 @@ function Payers({ contacts }) {
               <tr>
                 <th>Name</th>
                 <th>Grade</th>
-                <th>Revenue 12m</th>
-                <th>Avg late</th>
+                <th className="right">Open exposure</th>
+                <th className="right">Avg late</th>
                 <th>Trend</th>
-                <th>Invoices</th>
+                <th className="right">Invoices</th>
               </tr>
             </thead>
             <tbody>
-              {contacts.map((contact) => (
+              {ranked.map((contact) => (
                 <tr
                   key={contact.id}
                   className={selected?.id === contact.id ? "selected-row" : ""}
-                  onClick={() => setSelected(contact)}
+                  onClick={() => setSelectedId(contact.id)}
                 >
                   <td>{contact.name}</td>
                   <td><span className={gradeClass(contact.grade)}>{contact.grade}</span></td>
-                  <td>{formatCurrency(contact.revenue_12m)}</td>
-                  <td>{contact.avg_days_late}</td>
-                  <td>{trendLabel(contact.trend_slope)}</td>
-                  <td>{contact.invoice_count}</td>
+                  <td className="right exposure-cell">{formatCurrency(contact.exposure)}</td>
+                  <td className="right">{contact.avg_days_late}d</td>
+                  <td><TrendCell slope={contact.trend_slope} /></td>
+                  <td className="right">{contact.invoice_count}</td>
                 </tr>
               ))}
             </tbody>
@@ -318,10 +368,11 @@ function Payers({ contacts }) {
             </div>
             <p>{selected.explanation}</p>
             <dl className="stats-list">
-              <div><dt>Revenue</dt><dd>{formatCurrency(selected.revenue_12m)}</dd></div>
-              <div><dt>Average days late</dt><dd>{selected.avg_days_late}</dd></div>
-              <div><dt>Variance</dt><dd>{selected.stdev_days_late}</dd></div>
-              <div><dt>Trend slope</dt><dd>{selected.trend_slope}</dd></div>
+              <div><dt>Open exposure</dt><dd>{formatCurrency(selected.exposure)}</dd></div>
+              <div><dt>Revenue (12m)</dt><dd>{formatCurrency(selected.revenue_12m)}</dd></div>
+              <div><dt>Average days late</dt><dd>{selected.avg_days_late}d</dd></div>
+              <div><dt>Variance</dt><dd>{selected.stdev_days_late}d</dd></div>
+              <div><dt>Trend</dt><dd><TrendCell slope={selected.trend_slope} /></dd></div>
             </dl>
           </>
         )}
@@ -474,7 +525,7 @@ export function App() {
         />
       );
     }
-    if (activeTab === "payers") return <Payers contacts={data.contacts} />;
+    if (activeTab === "payers") return <Payers contacts={data.contacts} invoices={data.invoices} />;
     if (activeTab === "queue") {
       return (
         <AgentQueue
