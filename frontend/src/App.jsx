@@ -1,13 +1,18 @@
 import {
+  BookOpen,
   Bot,
   Check,
+  ChevronDown,
+  ChevronUp,
   ClipboardList,
   Database,
   ExternalLink,
+  HelpCircle,
   LayoutDashboard,
   Minus,
   Play,
   RefreshCw,
+  Search,
   Send,
   TrendingDown,
   TrendingUp,
@@ -46,11 +51,11 @@ const TABS = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "payers", label: "Payers", icon: Users },
   { id: "queue", label: "Agent Queue", icon: Bot },
-  { id: "outbox", label: "Outbox", icon: Send },
-  { id: "log", label: "Action Log", icon: ClipboardList }
+  { id: "outbox", label: "Outbox", icon: Send }
 ];
 
 const TODAY = new Date("2026-07-04T00:00:00Z");
+const SUPPORT_EMAIL = "support@placeholder-domain.com";
 
 function parseDate(value) {
   return new Date(`${value}T00:00:00Z`);
@@ -142,6 +147,83 @@ function compactMoney(value) {
   return `£${Math.round(v)}`;
 }
 
+function plural(count, singular, pluralForm = `${singular}s`) {
+  return Number(count) === 1 ? singular : pluralForm;
+}
+
+function trendText(slope) {
+  if (Number(slope || 0) > 1) return "and it's getting slower";
+  if (Number(slope || 0) < -1) return "and it's getting better";
+  return "and that's been steady";
+}
+
+function payerTimingSentence(contact) {
+  const invoiceCount = Number(contact.invoice_count || 0);
+  const avgLate = Math.max(0, Math.round(Number(contact.avg_days_late || 0)));
+  const unpredictable = Number(contact.stdev_days_late || 0) >= 10 ? ", though timing can be unpredictable" : "";
+  return `Based on ${invoiceCount} paid ${plural(invoiceCount, "invoice")}, ${contact.name} pays on average ${avgLate} ${plural(avgLate, "day")} late${unpredictable}, ${trendText(contact.trend_slope)}.`;
+}
+
+function compareSortValues(a, b) {
+  const aMissing = a === null || a === undefined || a === "";
+  const bMissing = b === null || b === undefined || b === "";
+  if (aMissing && bMissing) return 0;
+  if (aMissing) return 1;
+  if (bMissing) return -1;
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
+}
+
+function sortRows(rows, sort, accessors) {
+  const accessor = accessors[sort.key];
+  if (!accessor) return rows;
+  const direction = sort.direction === "desc" ? -1 : 1;
+  return [...rows].sort((a, b) => compareSortValues(accessor(a), accessor(b)) * direction);
+}
+
+function useSort(defaultKey, defaultDirection = "asc") {
+  const [sort, setSort] = useState({ key: defaultKey, direction: defaultDirection });
+  function requestSort(key, firstDirection = "asc") {
+    setSort((current) => {
+      if (current.key !== key) return { key, direction: firstDirection };
+      return { key, direction: current.direction === "asc" ? "desc" : "asc" };
+    });
+  }
+  return [sort, requestSort];
+}
+
+function useDebouncedValue(value, delayMs = 200) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [value, delayMs]);
+  return debounced;
+}
+
+function SortableHeader({ label, sortKey, sort, onSort, align = "left", defaultDirection = "asc" }) {
+  const active = sort.key === sortKey;
+  const Icon = active && sort.direction === "asc" ? ChevronUp : ChevronDown;
+  return (
+    <th className={align === "right" ? "right sortable-th" : "sortable-th"}>
+      <button
+        className={active ? "sort-button active" : "sort-button"}
+        type="button"
+        onClick={() => onSort(sortKey, defaultDirection)}
+      >
+        <span>{label}</span>
+        <Icon className={active ? "sort-icon active" : "sort-icon"} size={13} aria-hidden="true" />
+      </button>
+    </th>
+  );
+}
+
+function businessNameFor(source) {
+  if (source?.business?.name) return source.business.name;
+  if (source?.mode === "xero" && source?.label) return source.label.replace(/^Xero:\s*/i, "");
+  return "Your business";
+}
+
 function xeroBadge(status) {
   if (status?.connected) return { className: "badge badge-success success", label: "Connected" };
   if (status?.demo_mode) return { className: "badge badge-neutral neutral", label: "Demo mode" };
@@ -157,7 +239,9 @@ function syncSummary(result) {
     return `Demo sync checked ${result.contacts ?? 0} contacts and ${result.invoices ?? 0} invoices.`;
   }
   if (result.status === "seeded") {
-    return `Seeded ${result.contacts ?? 0} companies, ${result.invoices ?? 0} invoices and ${result.proposals ?? 0} proposed actions.`;
+    const business = result.source?.business?.name;
+    const prefix = business ? `${business}: ` : "";
+    return `Seeded ${prefix}${result.contacts ?? 0} companies, ${result.invoices ?? 0} invoices and ${result.proposals ?? 0} proposed actions.`;
   }
   if (result.status === "selected") {
     return `Selected ${result.tenant?.tenant_name || "Xero organisation"}. Run Sync Xero to pull its records.`;
@@ -438,17 +522,18 @@ function ResearchSignals({ sources, onScanResearch, busy }) {
 }
 
 function DataSourceBanner({ source, xeroStatus }) {
-  const synthetic = source?.mode === "synthetic";
   const liveConnected = xeroStatus?.connected && !xeroStatus?.demo_mode;
+  const business = source?.business;
+  const detail = business
+    ? `${business.sector} / ${business.country} / ${business.base_currency}`
+    : "Cash timing and payer behaviour from your accounting data.";
   return (
-    <section className={synthetic ? "source-banner synthetic-source" : "source-banner"}>
+    <section className="source-banner">
       <div>
-        <strong>{source?.label || "Dashboard data"}</strong>
-        <p>{source?.detail || "No source metadata available."}</p>
+        <strong>{businessNameFor(source)}</strong>
+        <p>{detail}</p>
       </div>
-      <span className={liveConnected ? "badge badge-success success" : "badge badge-outline neutral"}>
-        {liveConnected ? "Xero live" : "Local"}
-      </span>
+      {liveConnected && <span className="badge badge-success success">Xero connected</span>}
     </section>
   );
 }
@@ -457,15 +542,13 @@ function Dashboard({
   data,
   cashDisplay,
   onRunAgent,
-  onMarkPaid,
-  onScanResearch,
-  onSyncXero,
-  onSeedPortfolio,
-  onSelectTenant,
   onUpdateCashFloor,
+  onViewActivity,
   syncResult,
   busy
 }) {
+  const businessName = businessNameFor(data.dataSource);
+  const [invoiceSort, requestInvoiceSort] = useSort("due_date", "asc");
   const cutoff = addDays(TODAY, 30);
   const dueNext30 = data.invoices
     .filter((invoice) => parseDate(invoice.due_date) <= cutoff)
@@ -475,13 +558,23 @@ function Dashboard({
     .reduce((sum, invoice) => sum + invoice.amount_due, 0);
   const warningBuckets = data.forecast.buckets.filter((bucket) => bucket.cumulative_predicted < data.forecast.cash_floor);
   const firstWarning = warningBuckets.find((bucket) => bucket.week_start !== "later");
-  const researchSources = Object.entries(data.research?.sources || {});
+  const sortedInvoices = useMemo(
+    () =>
+      sortRows(data.invoices, invoiceSort, {
+        invoice_number: (invoice) => invoice.invoice_number,
+        contact_name: (invoice) => invoice.contact_name,
+        due_date: (invoice) => Date.parse(`${invoice.due_date}T00:00:00Z`),
+        predicted_paid_date: (invoice) => Date.parse(`${invoice.accelerated_paid_date || invoice.predicted_paid_date}T00:00:00Z`),
+        amount_due: (invoice) => Number(invoice.amount_due || 0)
+      }),
+    [data.invoices, invoiceSort]
+  );
 
   return (
     <main className="content">
       <div className="topbar">
         <div>
-          <p className="eyebrow">Harbour & Co</p>
+          <p className="eyebrow">{businessName}</p>
           <h1>Nero</h1>
         </div>
         <button className="button primary btn btn-primary btn-sm" onClick={onRunAgent} disabled={busy}>
@@ -528,31 +621,34 @@ function Dashboard({
               <table className="table table-sm">
                 <thead>
                   <tr>
-                    <th>Invoice</th>
-                    <th>Customer</th>
-                    <th>Due</th>
-                    <th>Predicted</th>
-                    <th>Amount</th>
-                    <th></th>
+                    <SortableHeader label="Invoice" sortKey="invoice_number" sort={invoiceSort} onSort={requestInvoiceSort} />
+                    <SortableHeader label="Customer" sortKey="contact_name" sort={invoiceSort} onSort={requestInvoiceSort} />
+                    <SortableHeader label="Due" sortKey="due_date" sort={invoiceSort} onSort={requestInvoiceSort} />
+                    <SortableHeader label="Predicted" sortKey="predicted_paid_date" sort={invoiceSort} onSort={requestInvoiceSort} />
+                    <SortableHeader
+                      label="Amount"
+                      sortKey="amount_due"
+                      sort={invoiceSort}
+                      onSort={requestInvoiceSort}
+                      align="right"
+                      defaultDirection="desc"
+                    />
                   </tr>
                 </thead>
                 <tbody>
-                  {data.invoices.map((invoice) => (
+                  {sortedInvoices.map((invoice) => (
                     <tr key={invoice.id}>
                       <td>{invoice.invoice_number}</td>
                       <td>{invoice.contact_name}</td>
                       <td>{invoice.due_date}</td>
                       <td>{invoice.accelerated_paid_date || invoice.predicted_paid_date}</td>
-                      <td>{formatCurrency(invoice.amount_due)}</td>
-                      <td className="right">
-                        <button className="button ghost btn btn-ghost btn-sm" onClick={() => onMarkPaid(invoice.id)}>Mark paid</button>
-                      </td>
+                      <td className="right">{formatCurrency(invoice.amount_due)}</td>
                     </tr>
                   ))}
                   {data.invoices.length === 0 && (
                     <tr>
-                      <td colSpan="6">
-                        <div className="empty inline-empty">No open invoices. Sync Xero or seed the synthetic portfolio.</div>
+                      <td colSpan="5">
+                        <div className="empty inline-empty">No open invoices. Sync Xero to pull the latest records.</div>
                       </td>
                     </tr>
                   )}
@@ -569,18 +665,8 @@ function Dashboard({
             onUpdateCashFloor={onUpdateCashFloor}
             busy={busy}
           />
-          <XeroConnection
-            status={data.xeroStatus}
-            source={data.dataSource}
-            tenants={data.xeroTenants}
-            syncResult={syncResult}
-            onSyncXero={onSyncXero}
-            onSeedPortfolio={onSeedPortfolio}
-            onSelectTenant={onSelectTenant}
-            busy={busy}
-          />
-          <ResearchSignals sources={researchSources} onScanResearch={onScanResearch} busy={busy} />
-          <AppStoreReadiness readiness={data.appStoreReadiness} />
+          <RecentActivity entries={data.actionLog} onViewAll={onViewActivity} />
+          {syncResult?.status === "synced" && <p className="sync-result">{syncSummary(syncResult)}</p>}
         </aside>
       </section>
     </main>
@@ -588,26 +674,49 @@ function Dashboard({
 }
 
 function Payers({ contacts, invoices = [] }) {
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 200).trim().toLowerCase();
+  const [payerSort, requestPayerSort] = useSort("exposure", "desc");
+
   // Rank by cash at risk: the money in open invoices, weighted by how late this
   // payer runs. Reliable payers (avg late <= 0) drop to the bottom.
-  const ranked = useMemo(() => {
-    return contacts
-      .map((contact) => {
-        const exposure = exposureFor(contact.id, invoices);
-        const risk = exposure * Math.max(contact.avg_days_late, 0);
-        return { ...contact, exposure, risk };
-      })
-      .sort((a, b) => b.risk - a.risk || b.exposure - a.exposure);
-  }, [contacts, invoices]);
+  const ranked = useMemo(
+    () =>
+      contacts
+        .map((contact) => {
+          const exposure = exposureFor(contact.id, invoices);
+          const risk = exposure * Math.max(contact.avg_days_late, 0);
+          return { ...contact, exposure, risk };
+        }),
+    [contacts, invoices]
+  );
 
-  const [selectedId, setSelectedId] = useState(ranked[0]?.id);
-  const selected = ranked.find((contact) => contact.id === selectedId) || ranked[0];
+  const filtered = useMemo(
+    () => ranked.filter((contact) => contact.name.toLowerCase().includes(debouncedSearch)),
+    [ranked, debouncedSearch]
+  );
+
+  const sorted = useMemo(
+    () =>
+      sortRows(filtered, payerSort, {
+        name: (contact) => contact.name,
+        grade: (contact) => contact.grade,
+        exposure: (contact) => Number(contact.exposure || 0),
+        avg_days_late: (contact) => Number(contact.avg_days_late || 0),
+        trend_slope: (contact) => Number(contact.trend_slope || 0),
+        invoice_count: (contact) => Number(contact.invoice_count || 0)
+      }),
+    [filtered, payerSort]
+  );
+
+  const [selectedId, setSelectedId] = useState(sorted[0]?.id);
+  const selected = sorted.find((contact) => contact.id === selectedId) || sorted[0];
 
   useEffect(() => {
-    if (!ranked.find((contact) => contact.id === selectedId) && ranked.length) {
-      setSelectedId(ranked[0].id);
+    if (!sorted.find((contact) => contact.id === selectedId) && sorted.length) {
+      setSelectedId(sorted[0].id);
     }
-  }, [ranked, selectedId]);
+  }, [sorted, selectedId]);
 
   return (
     <main className="content payers-layout">
@@ -615,23 +724,60 @@ function Payers({ contacts, invoices = [] }) {
         <div className="panel-head">
           <div>
             <h2>Payment performance</h2>
-            <p className="panel-sub">Ranked by cash at risk: who to chase first</p>
+            <p className="panel-sub">Sorted by what customers owe you now; click a header to change it</p>
           </div>
         </div>
+        <label className="search-field">
+          <Search size={16} aria-hidden="true" />
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search customers..."
+            aria-label="Search customers"
+          />
+        </label>
         <div className="table-wrap">
           <table className="table table-sm">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Grade</th>
-                <th className="right">Open exposure</th>
-                <th className="right">Avg late</th>
-                <th>Trend</th>
-                <th className="right">Invoices</th>
+                <SortableHeader label="Name" sortKey="name" sort={payerSort} onSort={requestPayerSort} />
+                <SortableHeader label="Grade" sortKey="grade" sort={payerSort} onSort={requestPayerSort} />
+                <SortableHeader
+                  label="Currently owes"
+                  sortKey="exposure"
+                  sort={payerSort}
+                  onSort={requestPayerSort}
+                  align="right"
+                  defaultDirection="desc"
+                />
+                <SortableHeader
+                  label="Usually pays"
+                  sortKey="avg_days_late"
+                  sort={payerSort}
+                  onSort={requestPayerSort}
+                  align="right"
+                  defaultDirection="desc"
+                />
+                <SortableHeader
+                  label="Direction"
+                  sortKey="trend_slope"
+                  sort={payerSort}
+                  onSort={requestPayerSort}
+                  defaultDirection="desc"
+                />
+                <SortableHeader
+                  label="Paid invoices"
+                  sortKey="invoice_count"
+                  sort={payerSort}
+                  onSort={requestPayerSort}
+                  align="right"
+                  defaultDirection="desc"
+                />
               </tr>
             </thead>
             <tbody>
-              {ranked.map((contact) => (
+              {sorted.map((contact) => (
                 <tr
                   key={contact.id}
                   className={selected?.id === contact.id ? "selected-row" : ""}
@@ -640,15 +786,15 @@ function Payers({ contacts, invoices = [] }) {
                   <td>{contact.name}</td>
                   <td><span className={gradeClass(contact.grade)}>{contact.grade}</span></td>
                   <td className="right exposure-cell">{formatCurrency(contact.exposure)}</td>
-                  <td className="right">{contact.avg_days_late}d</td>
+                  <td className="right">{Math.max(0, Math.round(Number(contact.avg_days_late || 0)))} days late</td>
                   <td><TrendCell slope={contact.trend_slope} /></td>
                   <td className="right">{contact.invoice_count}</td>
                 </tr>
               ))}
-              {ranked.length === 0 && (
+              {sorted.length === 0 && (
                 <tr>
                   <td colSpan="6">
-                    <div className="empty inline-empty">No payer profiles yet. Seed a portfolio or sync Xero history.</div>
+                    <div className="empty inline-empty">No matching customers. Clear the search or sync Xero history.</div>
                   </td>
                 </tr>
               )}
@@ -666,12 +812,10 @@ function Payers({ contacts, invoices = [] }) {
             </div>
             <p>{selected.explanation}</p>
             <dl className="stats-list">
-              <div><dt>Open exposure</dt><dd>{formatCurrency(selected.exposure)}</dd></div>
-              <div><dt>Revenue (12m)</dt><dd>{formatCurrency(selected.revenue_12m)}</dd></div>
-              <div><dt>Average days late</dt><dd>{selected.avg_days_late}d</dd></div>
-              <div><dt>Variance</dt><dd>{selected.stdev_days_late}d</dd></div>
-              <div><dt>Trend</dt><dd><TrendCell slope={selected.trend_slope} /></dd></div>
+              <div><dt>What they currently owe you</dt><dd>{formatCurrency(selected.exposure)}</dd></div>
+              <div><dt>How much business you've done with them (past year)</dt><dd>{formatCurrency(selected.revenue_12m)}</dd></div>
             </dl>
+            <p className="payer-summary">{payerTimingSentence(selected)}</p>
           </>
         )}
       </aside>
@@ -734,36 +878,102 @@ function AgentQueue({ proposals, onApprove, onDismiss, onEdit, busy }) {
 }
 
 function Outbox({ outbox }) {
+  const [outboxSort, requestOutboxSort] = useSort("timestamp", "desc");
+  const sorted = useMemo(
+    () =>
+      sortRows(outbox, outboxSort, {
+        timestamp: (entry) => Date.parse(entry.timestamp),
+        to: (entry) => entry.to,
+        subject: (entry) => entry.subject
+      }),
+    [outbox, outboxSort]
+  );
+
   return (
     <main className="content">
       <div className="panel-head page-head">
         <div>
           <h1>Outbox</h1>
-          <span className="badge badge-outline muted-badge">Sandbox mode: no real emails sent</span>
+          <span className="badge badge-outline muted-badge">Approved messages</span>
         </div>
       </div>
-      <div className="list-stack">
-        {outbox.map((entry) => (
-          <details className="list-row" key={entry.id}>
-            <summary>
-              <span>{formatDateTime(entry.timestamp)}</span>
-              <strong>{entry.to}</strong>
-              <em>{entry.subject}</em>
-            </summary>
-            <pre>{entry.body}</pre>
-          </details>
-        ))}
-        {outbox.length === 0 && <div className="empty">No sandbox emails sent</div>}
+      <div className="panel">
+        <div className="table-wrap">
+          <table className="table table-sm">
+            <thead>
+              <tr>
+                <SortableHeader
+                  label="Date"
+                  sortKey="timestamp"
+                  sort={outboxSort}
+                  onSort={requestOutboxSort}
+                  defaultDirection="desc"
+                />
+                <SortableHeader label="Customer" sortKey="to" sort={outboxSort} onSort={requestOutboxSort} />
+                <SortableHeader label="Subject" sortKey="subject" sort={outboxSort} onSort={requestOutboxSort} />
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((entry) => (
+                <tr key={entry.id}>
+                  <td>{formatDateTime(entry.timestamp)}</td>
+                  <td>{entry.to}</td>
+                  <td>
+                    <details className="message-preview">
+                      <summary>{entry.subject}</summary>
+                      <pre>{entry.body}</pre>
+                    </details>
+                  </td>
+                </tr>
+              ))}
+              {sorted.length === 0 && (
+                <tr>
+                  <td colSpan="3">
+                    <div className="empty inline-empty">No approved messages yet</div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </main>
   );
 }
 
-function ActionLog({ entries }) {
+function RecentActivity({ entries, onViewAll }) {
+  const recent = (entries || []).slice(0, 3);
+  return (
+    <section className="signal-section recent-activity">
+      <div className="panel-head compact">
+        <h2>Recent activity</h2>
+        <button className="button ghost btn btn-ghost btn-xs" type="button" onClick={onViewAll}>
+          View all
+        </button>
+      </div>
+      <div className="activity-mini-list">
+        {recent.map((entry) => (
+          <div className="activity-mini-row" key={entry.id}>
+            <span>{formatDateTime(entry.timestamp)}</span>
+            <p>{entry.event}</p>
+          </div>
+        ))}
+        {recent.length === 0 && <p className="muted compact-note">No activity yet.</p>}
+      </div>
+    </section>
+  );
+}
+
+// Product decision: activity stays available for accountability, but it is not
+// a primary tab because owners usually need outcomes before audit trails.
+function ActivityHistory({ entries }) {
   return (
     <main className="content">
       <div className="panel-head page-head">
-        <h1>Action Log</h1>
+        <div>
+          <h1>Activity</h1>
+          <p className="panel-sub">A plain record of approved actions and changes.</p>
+        </div>
       </div>
       <div className="timeline">
         {entries.map((entry) => (
@@ -779,12 +989,108 @@ function ActionLog({ entries }) {
   );
 }
 
+function ModalShell({ title, onClose, children }) {
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
+      <section className="modal-panel" role="dialog" aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()}>
+        <div className="panel-head">
+          <h2>{title}</h2>
+          <button className="icon-button btn btn-square btn-ghost btn-sm" type="button" onClick={onClose} title="Close">
+            <X size={16} />
+          </button>
+        </div>
+        {children}
+      </section>
+    </div>
+  );
+}
+
+function SupportModal({ onClose }) {
+  return (
+    <ModalShell title="Help & Support" onClose={onClose}>
+      <p className="modal-lede">Need help? We're here.</p>
+      <a className="support-link" href={`mailto:${SUPPORT_EMAIL}`}>
+        {SUPPORT_EMAIL}
+      </a>
+      <p className="muted compact-note">Placeholder support address for the hackathon build.</p>
+    </ModalShell>
+  );
+}
+
+function GuideModal({ onClose }) {
+  const steps = [
+    "See who owes you money and when they're likely to actually pay.",
+    "Check the Payers tab to see which customers tend to pay late.",
+    "Look in Agent Queue for suggested actions like reminders or smarter payment terms.",
+    "Review and approve; nothing is sent without your OK.",
+    "Watch your forecast improve as payments come in."
+  ];
+  return (
+    <ModalShell title="How to use Nero" onClose={onClose}>
+      <ol className="guide-list">
+        {steps.map((step) => (
+          <li key={step}>{step}</li>
+        ))}
+      </ol>
+    </ModalShell>
+  );
+}
+
+function DevToolsPanel({
+  data,
+  syncResult,
+  busy,
+  onClose,
+  onSyncXero,
+  onSeedPortfolio,
+  onSelectTenant,
+  onMarkFirstPaid,
+  onScanResearch
+}) {
+  const researchSources = Object.entries(data?.research?.sources || {});
+  const firstInvoice = data?.invoices?.[0];
+  return (
+    <ModalShell title="Developer tools" onClose={onClose}>
+      {/* demo-only, not user-facing: open with Ctrl+Shift+D for hackathon resets and admin checks. */}
+      <p className="modal-lede">Demo-only controls for reset, seeded data, and integration checks.</p>
+      <div className="dev-action-row">
+        <button className="button ghost btn btn-ghost btn-sm" type="button" onClick={onSeedPortfolio} disabled={busy}>
+          <Database size={16} /> Seed portfolio
+        </button>
+        <button className="button ghost btn btn-ghost btn-sm" type="button" onClick={onMarkFirstPaid} disabled={busy || !firstInvoice}>
+          <Check size={16} /> Mark first invoice paid
+        </button>
+        <button className="button ghost btn btn-ghost btn-sm" type="button" onClick={onScanResearch} disabled={busy}>
+          <RefreshCw size={16} /> Scan research
+        </button>
+      </div>
+      {data && (
+        <div className="dev-grid">
+          <XeroConnection
+            status={data.xeroStatus}
+            source={data.dataSource}
+            tenants={data.xeroTenants}
+            syncResult={syncResult}
+            onSyncXero={onSyncXero}
+            onSeedPortfolio={onSeedPortfolio}
+            onSelectTenant={onSelectTenant}
+            busy={busy}
+          />
+          <ResearchSignals sources={researchSources} onScanResearch={onScanResearch} busy={busy} />
+          <AppStoreReadiness readiness={data.appStoreReadiness} />
+        </div>
+      )}
+    </ModalShell>
+  );
+}
+
 export function App() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [syncResult, setSyncResult] = useState(null);
+  const [modal, setModal] = useState(null);
 
   async function refresh() {
     const next = await fetchAll();
@@ -793,6 +1099,17 @@ export function App() {
 
   useEffect(() => {
     refresh().catch((err) => setError(err.message));
+  }, []);
+
+  useEffect(() => {
+    function openDevTools(event) {
+      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "d") {
+        event.preventDefault();
+        setModal("dev");
+      }
+    }
+    window.addEventListener("keydown", openDevTools);
+    return () => window.removeEventListener("keydown", openDevTools);
   }, []);
 
   const cashDisplay = useCountUp(data?.metrics?.cash_accelerated_dollars || 0);
@@ -819,12 +1136,8 @@ export function App() {
           cashDisplay={cashDisplay}
           busy={busy}
           onRunAgent={() => act(runAgent)}
-          onMarkPaid={(id) => act(() => markPaid(id))}
-          onScanResearch={() => act(scanResearch)}
-          onSyncXero={() => act(async () => setSyncResult(await syncXero()))}
-          onSeedPortfolio={() => act(async () => setSyncResult(await seedSyntheticPortfolio()))}
-          onSelectTenant={(tenantId) => act(async () => setSyncResult(await selectXeroTenant(tenantId)))}
           onUpdateCashFloor={(cashFloor) => act(() => updateCashFloor(cashFloor))}
+          onViewActivity={() => setActiveTab("activity")}
           syncResult={syncResult}
         />
       );
@@ -842,7 +1155,7 @@ export function App() {
       );
     }
     if (activeTab === "outbox") return <Outbox outbox={data.outbox} />;
-    return <ActionLog entries={data.actionLog} />;
+    return <ActivityHistory entries={data.actionLog} />;
   }, [activeTab, data, cashDisplay, busy, syncResult]);
 
   return (
@@ -870,9 +1183,42 @@ export function App() {
             );
           })}
         </nav>
+        <div className="sidebar-footer">
+          <button className="nav-item secondary" type="button" onClick={() => setModal("guide")}>
+            <BookOpen size={18} />
+            Guide
+          </button>
+          <button className="nav-item secondary" type="button" onClick={() => setModal("support")}>
+            <HelpCircle size={18} />
+            Help & Support
+          </button>
+          <button
+            className={activeTab === "activity" ? "nav-item secondary active" : "nav-item secondary"}
+            type="button"
+            onClick={() => setActiveTab("activity")}
+          >
+            <ClipboardList size={18} />
+            Activity
+          </button>
+        </div>
         {error && <div className="error-box">{error}</div>}
       </aside>
       {activeContent}
+      {modal === "support" && <SupportModal onClose={() => setModal(null)} />}
+      {modal === "guide" && <GuideModal onClose={() => setModal(null)} />}
+      {modal === "dev" && (
+        <DevToolsPanel
+          data={data}
+          busy={busy}
+          syncResult={syncResult}
+          onClose={() => setModal(null)}
+          onSyncXero={() => act(async () => setSyncResult(await syncXero()))}
+          onSeedPortfolio={() => act(async () => setSyncResult(await seedSyntheticPortfolio()))}
+          onSelectTenant={(tenantId) => act(async () => setSyncResult(await selectXeroTenant(tenantId)))}
+          onMarkFirstPaid={() => data?.invoices?.[0] && act(() => markPaid(data.invoices[0].id))}
+          onScanResearch={() => act(scanResearch)}
+        />
+      )}
     </div>
   );
 }

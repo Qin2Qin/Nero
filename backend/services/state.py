@@ -120,7 +120,7 @@ def approve_proposal(state: dict[str, Any], proposal_id: str) -> dict[str, Any]:
             "proposal_id": proposal["id"],
         }
         state.setdefault("outbox", []).insert(0, outbox_entry)
-        event = f"Approved {proposal['type']} for {proposal['contact_name']} and queued sandbox email"
+        event = f"Approved {proposal['type']} for {proposal['contact_name']} and queued message for review"
     else:
         event = f"Recommendation accepted - apply on next quote for {proposal['contact_name']}"
 

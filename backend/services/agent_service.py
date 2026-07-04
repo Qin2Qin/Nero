@@ -20,7 +20,15 @@ def _impact_days(avg_days_late: float) -> int:
     return max(3, min(15, round(avg_days_late * 0.4)))
 
 
-def _email(contact_name: str, invoice: dict, tone: str, overdue_days: int) -> tuple[str, str]:
+def _email(
+    contact_name: str,
+    invoice: dict,
+    tone: str,
+    overdue_days: int,
+    *,
+    sender_name: str = "Alex",
+    business_name: str = "Harbour & Co",
+) -> tuple[str, str]:
     subject = f"{'Payment date needed' if tone in {'firm', 'final'} else 'Reminder'}: {invoice['invoice_number']}"
     due_phrase = f"{overdue_days} days overdue" if overdue_days > 0 else "due soon"
     body = (
@@ -30,7 +38,7 @@ def _email(contact_name: str, invoice: dict, tone: str, overdue_days: int) -> tu
     )
     if tone in {"firm", "final"}:
         body += " I have attached the current statement for reference."
-    body += "\n\nThanks,\nAlex, Harbour & Co"
+    body += f"\n\nThanks,\n{sender_name}, {business_name}"
     return subject[:60], body
 
 
@@ -42,6 +50,9 @@ def run_agent_cycle(state: dict[str, Any], max_pending: int = 8) -> list[dict]:
     existing_keys = {(proposal["type"], proposal["contact_id"], proposal.get("invoice_id")) for proposal in pending}
     created: list[dict] = []
     today = demo_today()
+    business = state.get("business") or state.get("data_source", {}).get("business") or {}
+    sender_name = business.get("sender_name", "Alex")
+    business_name = business.get("name", "Harbour & Co")
 
     def can_add() -> bool:
         return len([proposal for proposal in state["proposals"] if proposal["status"] == "pending"]) < max_pending
@@ -70,7 +81,14 @@ def run_agent_cycle(state: dict[str, Any], max_pending: int = 8) -> list[dict]:
         key = (action_type, contact["id"], invoice["id"])
         if key in existing_keys:
             continue
-        subject, body = _email(contact["name"], invoice, tone, overdue_days)
+        subject, body = _email(
+            contact["name"],
+            invoice,
+            tone,
+            overdue_days,
+            sender_name=sender_name,
+            business_name=business_name,
+        )
         days = _impact_days(float(contact["avg_days_late"]))
         proposal = {
             "id": f"agent-{action_type}-{invoice['id']}",

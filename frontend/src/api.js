@@ -19,8 +19,8 @@ const localState = {
   settings: { cash_floor: forecast.cash_floor },
   dataSource: {
     mode: "fixture",
-    label: "Fixture portfolio",
-    detail: "Bundled local fixtures for offline demos.",
+    label: "Offline portfolio",
+    detail: "Offline data is loaded because the backend is unavailable.",
     generated_at: null
   },
   appStoreReadiness: {
@@ -39,7 +39,7 @@ const localState = {
         id: "connection",
         label: "Connection management",
         status: "demo",
-        detail: "Demo connection is active."
+        detail: "Local connection check is active."
       },
       {
         id: "scopes",
@@ -51,7 +51,7 @@ const localState = {
         id: "data-integrity",
         label: "Data integrity",
         status: "ready",
-        detail: "Reads contacts, invoices, payments and keeps writes in a sandbox outbox."
+        detail: "Reads contacts, invoices and payments before queuing approved messages for review."
       },
       {
         id: "listing",
@@ -221,7 +221,7 @@ export async function approveProposal(id) {
     actor: "You",
     event:
       proposal.type === "reminder" || proposal.type === "escalation"
-        ? `Approved ${proposal.type} for ${proposal.contact_name} and queued sandbox email`
+        ? `Approved ${proposal.type} for ${proposal.contact_name} and queued message for review`
         : `Recommendation accepted - apply on next quote for ${proposal.contact_name}`
   });
   recomputeLocalMetrics();
@@ -253,7 +253,7 @@ export async function runAgent() {
     id: `agent-${Date.now()}`,
     timestamp: nowIso(),
     actor: "Agent",
-    event: "Agent run complete - fixture proposals already loaded"
+    event: "Agent run complete - existing proposals reviewed"
   });
   return { created: [], pending_count: localState.proposals.filter((item) => item.status === "pending").length };
 }
@@ -288,7 +288,7 @@ export async function syncXero() {
     contacts: localState.contacts.length,
     invoices: localState.invoices.length,
     proposals: localState.proposals.length,
-    detail: "Fixture-backed demo state is active."
+    detail: "Local data is active."
   };
 }
 
