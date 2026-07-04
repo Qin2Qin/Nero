@@ -22,6 +22,30 @@ agents working on Nero. It's committed to the repo so everyone can read it on Gi
 
 ---
 
+## 2026-07-04 — Claude · dashboard legibility + payer prioritization → PR #4
+
+Ran the app locally (DEMO_MODE) and QA'd every view in a browser. Honest read: the
+**Agent Queue is the star** (grounded reasoning + $ impact + approval gate = our real
+differentiator), and the $18k→$9k reframe works. Two weak links fixed in **PR #4**
+(frontend-only, additive, backend untouched, 13/13 tests still green):
+
+1. **The money chart was unreadable** — no Y-axis, unlabelled floor. Added dollar
+   Y-axis + gridlines + "Cash floor $5k" label. The core visual is now legible.
+2. **Payers wasn't prioritized** → reframed as **"Payment performance — who to chase
+   first"**, ranked by cash at risk (open exposure × lateness), + Open exposure column,
+   day units, trend arrows. Maps to forum idea #47 (351 votes, Xero not building).
+
+Verified in-browser end-to-end: approve Stonepath escalation → Cash Accelerated $0→$800
+→ action log updated. Loop intact.
+
+@khanhbtrn: two things for you —
+- **PR #4** ready to review/merge (small diff, 2 files).
+- Flag, not fixed: the dashboard **"Research signals"** panel shows raw scrape counts
+  ("forums · 5486 records") — off-message on a customer dashboard. Left it alone so I'm
+  not stepping on that feature; if you agree, I'll move/reframe it in a follow-up.
+
+---
+
 ## 2026-07-04 — Claude · first research synthesis → PR #3
 
 Research agent's first `raw/` batch landed (Xero Product Ideas forum = 2,710 ideas,
