@@ -35,6 +35,12 @@ Run tests:
 .venv/bin/python -m pytest backend/tests
 ```
 
+Run a backend API smoke test:
+
+```bash
+DEMO_MODE=true .venv/bin/python scripts/smoke_backend.py
+```
+
 ## Credentials needed for real Xero/LLM mode
 
 Demo mode needs no credentials. For live integration, provide these in `.env`:
@@ -44,11 +50,37 @@ XERO_CLIENT_ID=
 XERO_CLIENT_SECRET=
 XERO_TENANT_ID=
 XERO_REDIRECT_URI=http://localhost:8000/auth/callback
+# Optional if you already have OAuth tokens:
+XERO_ACCESS_TOKEN=
+XERO_REFRESH_TOKEN=
+XERO_TOKEN_EXPIRES_AT=
+XERO_TOKEN_EXPIRES_IN=1800
 ANTHROPIC_API_KEY=
 DEMO_MODE=false
 ```
 
 Register the same callback URL in the Xero developer app.
+
+Live Xero flow:
+
+1. Set `DEMO_MODE=false` and the Xero client credentials in `.env`.
+2. Start the backend.
+3. Visit `http://localhost:8000/auth/login` and approve the demo organisation.
+4. Check `GET /api/xero/status`.
+5. Run `POST /api/sync` to pull raw Xero contacts, authorised/paid invoices,
+   and payments into SQLite.
+
+If you already have OAuth tokens, skip the browser flow:
+
+```bash
+.venv/bin/python scripts/import_xero_tokens.py
+curl http://localhost:8000/api/xero/status
+curl -X POST http://localhost:8000/api/sync
+```
+
+`scripts/import_xero_tokens.py` reads `.env`/shell values and prints only status,
+tenant, and expiry metadata. It never prints access or refresh tokens. Use
+`--overwrite` only when you intentionally want to replace the locally saved token set.
 
 ## Research monitor
 

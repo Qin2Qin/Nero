@@ -40,13 +40,13 @@ class XeroClient:
         response.raise_for_status()
         return {}
 
-    def list_contacts(self) -> dict:
-        return self.request("GET", "/Contacts")
+    def list_contacts(self, page: int = 1) -> dict:
+        return self.request("GET", "/Contacts", params={"page": page})
 
-    def list_invoices(self, status: str | None = None, page: int = 1) -> dict:
+    def list_invoices(self, statuses: str | None = None, page: int = 1) -> dict:
         params: dict[str, Any] = {"page": page}
-        if status:
-            params["Statuses"] = status
+        if statuses:
+            params["Statuses"] = statuses
         return self.request("GET", "/Invoices", params=params)
 
     def list_payments(self, page: int = 1) -> dict:

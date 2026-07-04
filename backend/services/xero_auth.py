@@ -1,19 +1,25 @@
 from __future__ import annotations
 
+import sqlite3
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
 import httpx
 
 from config import get_settings
+from db import connect
 
 
 AUTH_URL = "https://login.xero.com/identity/connect/authorize"
 TOKEN_URL = "https://identity.xero.com/connect/token"
+CONNECTIONS_URL = "https://api.xero.com/connections"
 SCOPES = "openid profile email accounting.transactions accounting.contacts accounting.settings offline_access"
 
 
 def login_url(state: str = "nero") -> str:
     settings = get_settings()
+    if not settings.xero_client_id or not settings.xero_client_secret:
+        raise RuntimeError("Xero OAuth credentials are not configured")
     params = {
         "response_type": "code",
         "client_id": settings.xero_client_id,
@@ -22,6 +28,87 @@ def login_url(state: str = "nero") -> str:
         "state": state,
     }
     return f"{AUTH_URL}?{urlencode(params)}"
+
+
+def _expires_at(expires_in: int | str | None) -> str:
+    seconds = int(expires_in or 1800)
+    return (datetime.now(timezone.utc) + timedelta(seconds=max(seconds - 60, 60))).replace(microsecond=0).isoformat()
+
+
+def _token_expires_at(tokens: dict) -> str:
+    expires_at = tokens.get("expires_at")
+    if expires_at:
+        return str(expires_at)
+    return _expires_at(tokens.get("expires_in"))
+
+
+def save_token_set(tokens: dict, tenant_id: str | None = None, conn: sqlite3.Connection | None = None) -> dict:
+    settings = get_settings()
+    tenant = tenant_id or settings.xero_tenant_id or tokens.get("tenant_id")
+    owns_conn = conn is None
+    conn = conn or connect()
+    try:
+        conn.execute(
+            "INSERT INTO oauth_tokens(id, access_token, refresh_token, expires_at, tenant_id) VALUES (1, ?, ?, ?, ?) "
+            "ON CONFLICT(id) DO UPDATE SET access_token = excluded.access_token, "
+            "refresh_token = excluded.refresh_token, expires_at = excluded.expires_at, tenant_id = excluded.tenant_id",
+            (
+                tokens["access_token"],
+                tokens["refresh_token"],
+                _token_expires_at(tokens),
+                tenant,
+            ),
+        )
+        conn.commit()
+        return get_token_status(conn)
+    finally:
+        if owns_conn:
+            conn.close()
+
+
+def get_token_status(conn: sqlite3.Connection | None = None) -> dict:
+    owns_conn = conn is None
+    conn = conn or connect()
+    try:
+        row = conn.execute("SELECT expires_at, tenant_id FROM oauth_tokens WHERE id = 1").fetchone()
+        if row is None:
+            return {"connected": False, "tenant_id": None, "expires_at": None, "needs_tenant": False}
+        expires_at = row["expires_at"]
+        expired = datetime.fromisoformat(expires_at) <= datetime.now(timezone.utc)
+        return {
+            "connected": True,
+            "tenant_id": row["tenant_id"],
+            "expires_at": expires_at,
+            "expired": expired,
+            "needs_tenant": not bool(row["tenant_id"]),
+        }
+    finally:
+        if owns_conn:
+            conn.close()
+
+
+def get_connection_summary(conn: sqlite3.Connection | None = None) -> dict:
+    settings = get_settings()
+    status = get_token_status(conn)
+    return {
+        **status,
+        "demo_mode": settings.demo_mode,
+        "client_credentials_configured": bool(settings.xero_client_id and settings.xero_client_secret),
+        "env_tokens_configured": bool(settings.xero_access_token and settings.xero_refresh_token),
+        "env_refresh_token_configured": bool(settings.xero_refresh_token),
+        "redirect_uri": settings.xero_redirect_uri,
+    }
+
+
+def get_saved_tokens(conn: sqlite3.Connection | None = None) -> dict | None:
+    owns_conn = conn is None
+    conn = conn or connect()
+    try:
+        row = conn.execute("SELECT access_token, refresh_token, expires_at, tenant_id FROM oauth_tokens WHERE id = 1").fetchone()
+        return dict(row) if row else None
+    finally:
+        if owns_conn:
+            conn.close()
 
 
 def exchange_code(code: str) -> dict:
@@ -40,3 +127,117 @@ def exchange_code(code: str) -> dict:
     )
     response.raise_for_status()
     return response.json()
+
+
+def refresh_token(refresh_token: str) -> dict:
+    settings = get_settings()
+    if not settings.xero_client_id or not settings.xero_client_secret:
+        raise RuntimeError("Xero OAuth credentials are not configured")
+    response = httpx.post(
+        TOKEN_URL,
+        data={"grant_type": "refresh_token", "refresh_token": refresh_token},
+        auth=(settings.xero_client_id, settings.xero_client_secret),
+        timeout=30,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def list_connections(access_token: str) -> list[dict]:
+    response = httpx.get(
+        CONNECTIONS_URL,
+        headers={"Authorization": f"Bearer {access_token}", "Accept": "application/json"},
+        timeout=30,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def bootstrap_tokens_from_env(
+    conn: sqlite3.Connection | None = None,
+    *,
+    overwrite: bool = False,
+    allow_refresh: bool = False,
+    resolve_tenant: bool = False,
+) -> dict:
+    settings = get_settings()
+    owns_conn = conn is None
+    conn = conn or connect()
+    try:
+        existing = get_saved_tokens(conn)
+        if existing and not overwrite:
+            return {"imported": False, "reason": "already_connected", "status": get_token_status(conn)}
+
+        tokens: dict | None = None
+        source = "env_tokens"
+        if settings.xero_access_token and settings.xero_refresh_token:
+            tokens = {
+                "access_token": settings.xero_access_token,
+                "refresh_token": settings.xero_refresh_token,
+                "expires_at": settings.xero_token_expires_at,
+                "expires_in": settings.xero_token_expires_in,
+            }
+        elif settings.xero_refresh_token and allow_refresh:
+            tokens = refresh_token(settings.xero_refresh_token)
+            source = "refreshed_env_token"
+
+        if tokens is None:
+            return {"imported": False, "reason": "missing_env_tokens", "status": get_token_status(conn)}
+
+        tenant_id = settings.xero_tenant_id
+        if not tenant_id and resolve_tenant:
+            connections = list_connections(tokens["access_token"])
+            if connections:
+                tenant_id = connections[0].get("tenantId")
+
+        status = save_token_set(tokens, tenant_id=tenant_id, conn=conn)
+        return {"imported": True, "source": source, "status": status}
+    finally:
+        if owns_conn:
+            conn.close()
+
+
+def store_callback_tokens(code: str) -> dict:
+    tokens = exchange_code(code)
+    tenant_id = get_settings().xero_tenant_id
+    if not tenant_id:
+        connections = list_connections(tokens["access_token"])
+        if connections:
+            tenant_id = connections[0].get("tenantId")
+    return save_token_set(tokens, tenant_id=tenant_id)
+
+
+def get_valid_access(conn: sqlite3.Connection | None = None) -> dict:
+    owns_conn = conn is None
+    conn = conn or connect()
+    try:
+        tokens = get_saved_tokens(conn)
+        if tokens is None:
+            raise RuntimeError("Xero OAuth tokens are not configured")
+
+        expires_at = datetime.fromisoformat(tokens["expires_at"])
+        if expires_at <= datetime.now(timezone.utc):
+            refreshed = refresh_token(tokens["refresh_token"])
+            status = save_token_set(refreshed, tenant_id=tokens.get("tenant_id"), conn=conn)
+            tokens = get_saved_tokens(conn)
+            tokens["status"] = status
+
+        if not tokens.get("tenant_id"):
+            connections = list_connections(tokens["access_token"])
+            if not connections:
+                raise RuntimeError("Xero OAuth is connected but no tenant was returned")
+            save_token_set(
+                {
+                    "access_token": tokens["access_token"],
+                    "refresh_token": tokens["refresh_token"],
+                    "expires_in": 1800,
+                },
+                tenant_id=connections[0].get("tenantId"),
+                conn=conn,
+            )
+            tokens = get_saved_tokens(conn)
+
+        return tokens
+    finally:
+        if owns_conn:
+            conn.close()

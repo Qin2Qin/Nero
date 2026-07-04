@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from config import get_settings
 from services.agent_service import run_agent_cycle
 from services.state import (
     append_log,
@@ -13,6 +14,8 @@ from services.state import (
     reset_state,
     save_state,
 )
+from services.xero_auth import get_connection_summary, get_token_status
+from services.xero_sync import sync_from_xero
 
 
 router = APIRouter(prefix="/api", tags=["actions"])
@@ -73,10 +76,28 @@ def run_agent() -> dict:
 
 @router.post("/sync")
 def sync() -> dict:
-    return {
-        "status": "not_configured",
-        "detail": "Real Xero sync needs OAuth credentials. DEMO_MODE serves fixtures and local state.",
-    }
+    if get_settings().demo_mode:
+        state = get_state()
+        return {
+            "status": "demo",
+            "contacts": len(state["contacts"]),
+            "invoices": len(state["invoices"]),
+            "proposals": len(state["proposals"]),
+            "detail": "DEMO_MODE=true serves fixture-backed local state; set DEMO_MODE=false and connect Xero for live sync.",
+        }
+
+    status = get_token_status()
+    if not status["connected"]:
+        raise HTTPException(status_code=401, detail="Xero is not connected. Visit /auth/login first.")
+    try:
+        return sync_from_xero()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/xero/status")
+def xero_status() -> dict:
+    return get_connection_summary()
 
 
 @router.post("/demo/reset")

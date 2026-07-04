@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -75,3 +76,46 @@ def set_json(conn: sqlite3.Connection, key: str, value: Any) -> None:
         (key, json.dumps(value)),
     )
     conn.commit()
+
+
+def upsert_payload(conn: sqlite3.Connection, table: str, key_column: str, key: str, payload: dict, extra: dict[str, Any] | None = None) -> None:
+    if table not in {"xero_contacts", "xero_invoices", "xero_payments"}:
+        raise ValueError(f"unsupported table: {table}")
+
+    extra = extra or {}
+    synced_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+    if table == "xero_contacts":
+        conn.execute(
+            "INSERT INTO xero_contacts(contact_id, payload, synced_at) VALUES (?, ?, ?) "
+            "ON CONFLICT(contact_id) DO UPDATE SET payload = excluded.payload, synced_at = excluded.synced_at",
+            (key, json.dumps(payload), synced_at),
+        )
+    elif table == "xero_invoices":
+        conn.execute(
+            "INSERT INTO xero_invoices(invoice_id, contact_id, status, invoice_number, payload, synced_at) "
+            "VALUES (?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(invoice_id) DO UPDATE SET contact_id = excluded.contact_id, status = excluded.status, "
+            "invoice_number = excluded.invoice_number, payload = excluded.payload, synced_at = excluded.synced_at",
+            (
+                key,
+                extra.get("contact_id"),
+                extra.get("status"),
+                extra.get("invoice_number"),
+                json.dumps(payload),
+                synced_at,
+            ),
+        )
+    else:
+        conn.execute(
+            "INSERT INTO xero_payments(payment_id, invoice_id, payload, synced_at) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(payment_id) DO UPDATE SET invoice_id = excluded.invoice_id, "
+            "payload = excluded.payload, synced_at = excluded.synced_at",
+            (key, extra.get("invoice_id"), json.dumps(payload), synced_at),
+        )
+
+
+def count_rows(conn: sqlite3.Connection, table: str) -> int:
+    if table not in {"xero_contacts", "xero_invoices", "xero_payments"}:
+        raise ValueError(f"unsupported table: {table}")
+    return int(conn.execute(f"SELECT COUNT(*) AS count FROM {table}").fetchone()["count"])
