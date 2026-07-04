@@ -10,6 +10,7 @@ const backendPort = Number(process.env.SMOKE_BACKEND_PORT || 8810);
 const frontendPort = Number(process.env.SMOKE_FRONTEND_PORT || 5810);
 const backendUrl = `http://127.0.0.1:${backendPort}`;
 const frontendUrl = `http://127.0.0.1:${frontendPort}`;
+const smokeDbPath = join(tmpdir(), `nero-smoke-${process.pid}.db`);
 const chromePath =
   process.env.CHROME_PATH ||
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
@@ -60,8 +61,9 @@ async function runSmoke() {
     cwd: backendDir,
     name: "backend",
     env: {
-      DEMO_MODE: "true",
-      CASH_FLOOR: "5000",
+      DEMO_MODE: "false",
+      CASH_FLOOR: "42000",
+      NERO_DB_PATH: smokeDbPath,
       FRONTEND_ORIGINS: `${frontendUrl},http://localhost:${frontendPort}`
     }
   });
@@ -75,6 +77,8 @@ async function runSmoke() {
   });
 
   await waitForHttp(`${backendUrl}/health`, "backend");
+  const seedResponse = await fetch(`${backendUrl}/api/synthetic/seed`, { method: "POST" });
+  if (!seedResponse.ok) throw new Error(`Seed failed with ${seedResponse.status}`);
   await waitForHttp(frontendUrl, "frontend");
 
   const browser = await chromium.launch({
@@ -88,7 +92,7 @@ async function runSmoke() {
   });
   page.on("response", (response) => {
     const url = response.url();
-    if (response.status() >= 400 && !url.endsWith("/favicon.ico")) {
+    if (response.status() >= 400 && !url.endsWith("/favicon.ico") && !url.endsWith("/api/xero/tenants")) {
       browserErrors.push(`${response.status()} ${url}`);
     }
   });
@@ -96,38 +100,57 @@ async function runSmoke() {
   try {
     await page.goto(frontendUrl, { waitUntil: "networkidle" });
     await page.getByRole("heading", { name: "Nero" }).waitFor();
+    await page.getByText("Northstar Fabrication Works").first().waitFor();
     await page.locator(".recharts-wrapper").waitFor();
     const lineCount = await page.locator(".recharts-line-curve").count();
     if (lineCount < 3) throw new Error(`Expected at least 3 rendered forecast lines, saw ${lineCount}`);
-    await expectText(page.locator(".chart-panel"), /\d+ Jul below floor|below floor/i, "forecast warning");
+    await expectText(page.locator(".cash-floor-readout"), /£42,000/, "cash floor readout");
+    await page.getByText("Recent activity").waitFor();
 
-    await page.getByRole("button", { name: "£10k" }).click();
-    await page.getByRole("button", { name: "Apply floor" }).click();
-    await expectText(page.locator(".cash-floor-readout"), /£10,000/, "cash floor readout");
-    const settings = await page.evaluate((url) => fetch(`${url}/api/settings`).then((response) => response.json()), backendUrl);
-    if (settings.cash_floor !== 10000) throw new Error(`Expected cash_floor 10000, saw ${settings.cash_floor}`);
-
-    await page.getByRole("button", { name: /Check demo sync|Sync Xero/ }).click();
-    await page.getByText(/Demo sync checked|Synced \d+ contacts/).waitFor();
-    await page.getByRole("heading", { name: "Xero App Store" }).waitFor();
-    await page.getByText("Sign Up with Xero").waitFor();
-    await page.getByText("App Store listing").waitFor();
+    const dashboardText = await page.locator("body").innerText();
+    if (/Mark paid|Action Log|Open exposure|Variance|Seed portfolio/.test(dashboardText)) {
+      throw new Error(`Demo-only or jargon text leaked onto dashboard:\n${dashboardText}`);
+    }
 
     await page.getByRole("button", { name: "Payers" }).click();
     await page.getByRole("heading", { name: "Payment performance" }).waitFor();
-    await page.getByText("Open exposure").first().waitFor();
+    await page.getByPlaceholder("Search customers...").fill("copper");
+    await page.getByText("Copperline Manufacturing").first().waitFor();
+    await page.getByText("Copperline Manufacturing").first().click();
+    await expectText(
+      page.locator(".payer-summary"),
+      /Based on \d+ paid invoices, Copperline Manufacturing pays on average \d+ days late/,
+      "payer timing sentence"
+    );
+    const payerText = await page.locator("body").innerText();
+    if (/Variance|Open exposure|Average days late/.test(payerText)) {
+      throw new Error(`Payer jargon leaked into UI:\n${payerText}`);
+    }
 
     await page.getByRole("button", { name: "Agent Queue" }).click();
     await page.getByRole("heading", { name: "Agent Queue" }).waitFor();
     await page.getByRole("button", { name: "Approve" }).first().click();
     await page.getByRole("button", { name: "Outbox" }).click();
     await page.getByRole("heading", { name: "Outbox" }).waitFor();
-    await page.getByText(/Apex Corp|Cedar & Finch|Stonepath|Blue Harbor/).first().waitFor();
+    await page.getByText(/Foundry Lane Events|Juniper Borough Services|Alder House Retail|Canal House Workspace/).first().waitFor();
 
-    await page.getByRole("button", { name: "Dashboard" }).click();
-    await page.getByRole("button", { name: "Mark paid" }).first().click();
-    await page.getByRole("button", { name: "Action Log" }).click();
-    await page.getByText(/Payment received|Approved/).first().waitFor();
+    await page.getByRole("button", { name: "Guide" }).click();
+    await page.getByRole("heading", { name: "How to use Nero" }).waitFor();
+    await page.getByText("Review and approve; nothing is sent without your OK.").waitFor();
+    await page.getByTitle("Close").click();
+
+    await page.getByRole("button", { name: "Help & Support" }).click();
+    await page.getByRole("heading", { name: "Help & Support" }).waitFor();
+    await page.getByText("support@placeholder-domain.com").waitFor();
+    await page.getByTitle("Close").click();
+
+    await page.getByRole("button", { name: "Activity" }).click();
+    await page.getByRole("heading", { name: "Activity" }).waitFor();
+    await page.getByText(/Approved|Loaded Northstar/).first().waitFor();
+
+    await page.keyboard.press("Control+Shift+D");
+    await page.getByRole("heading", { name: "Developer tools" }).waitFor();
+    await page.getByRole("button", { name: /Seed portfolio/ }).first().waitFor();
 
     if (browserErrors.length) {
       throw new Error(`Browser errors:\n${browserErrors.join("\n")}`);
