@@ -1,0 +1,156 @@
+[
+  {
+    "id": "inv-0001",
+    "contact_id": "11111111-1111-4111-8111-111111111111",
+    "contact_name": "Apex Corp",
+    "invoice_number": "INV-0001",
+    "amount_due": 3200,
+    "issue_date": "2026-06-20",
+    "due_date": "2026-07-20",
+    "status": "AUTHORISED",
+    "predicted_paid_date": "2026-08-11"
+  },
+  {
+    "id": "inv-0002",
+    "contact_id": "11111111-1111-4111-8111-111111111111",
+    "contact_name": "Apex Corp",
+    "invoice_number": "INV-0002",
+    "amount_due": 2400,
+    "issue_date": "2026-07-03",
+    "due_date": "2026-08-02",
+    "status": "AUTHORISED",
+    "predicted_paid_date": "2026-08-24"
+  },
+  {
+    "id": "inv-0003",
+    "contact_id": "22222222-2222-4222-8222-222222222222",
+    "contact_name": "Quickfire Ltd",
+    "invoice_number": "INV-0003",
+    "amount_due": 1950,
+    "issue_date": "2026-06-12",
+    "due_date": "2026-07-12",
+    "status": "AUTHORISED",
+    "predicted_paid_date": "2026-07-10"
+  },
+  {
+    "id": "inv-0004",
+    "contact_id": "33333333-3333-4333-8333-333333333333",
+    "contact_name": "Meridian Group",
+    "invoice_number": "INV-0004",
+    "amount_due": 2200,
+    "issue_date": "2026-06-16",
+    "due_date": "2026-07-16",
+    "status": "AUTHORISED",
+    "predicted_paid_date": "2026-07-28"
+  },
+  {
+    "id": "inv-0005",
+    "contact_id": "33333333-3333-4333-8333-333333333333",
+    "contact_name": "Meridian Group",
+    "invoice_number": "INV-0005",
+    "amount_due": 1550,
+    "issue_date": "2026-06-25",
+    "due_date": "2026-07-25",
+    "status": "AUTHORISED",
+    "predicted_paid_date": "2026-08-06"
+  },
+  {
+    "id": "inv-0006",
+    "contact_id": "44444444-4444-4444-8444-444444444444",
+    "contact_name": "Stonepath",
+    "invoice_number": "INV-0006",
+    "amount_due": 850,
+    "issue_date": "2026-06-05",
+    "due_date": "2026-07-05",
+    "status": "AUTHORISED",
+    "predicted_paid_date": "2026-08-08"
+  },
+  {
+    "id": "inv-0007",
+    "contact_id": "44444444-4444-4444-8444-444444444444",
+    "contact_name": "Stonepath",
+    "invoice_number": "INV-0007",
+    "amount_due": 800,
+    "issue_date": "2026-05-21",
+    "due_date": "2026-06-20",
+    "status": "AUTHORISED",
+    "predicted_paid_date": "2026-07-24"
+  },
+  {
+    "id": "inv-0008",
+    "contact_id": "55555555-5555-4555-8555-555555555555",
+    "contact_name": "Blue Harbor",
+    "invoice_number": "INV-0008",
+    "amount_due": 1600,
+    "issue_date": "2026-06-08",
+    "due_date": "2026-07-08",
+    "status": "AUTHORISED",
+    "predicted_paid_date": "2026-07-12"
+  },
+  {
+    "id": "inv-0009",
+    "contact_id": "66666666-6666-4666-8666-666666666666",
+    "contact_name": "Northline Studios",
+    "invoice_number": "INV-0009",
+    "amount_due": 1400,
+    "issue_date": "2026-06-22",
+    "due_date": "2026-07-22",
+    "status": "AUTHORISED",
+    "predicted_paid_date": "2026-07-28"
+  },
+  {
+    "id": "inv-0010",
+    "contact_id": "77777777-7777-4777-8777-777777777777",
+    "contact_name": "Cedar & Finch",
+    "invoice_number": "INV-0010",
+    "amount_due": 1200,
+    "issue_date": "2026-06-29",
+    "due_date": "2026-07-29",
+    "status": "AUTHORISED",
+    "predicted_paid_date": "2026-08-07"
+  },
+  {
+    "id": "inv-0011",
+    "contact_id": "88888888-8888-4888-8888-888888888888",
+    "contact_name": "Atlas Workshop",
+    "invoice_number": "INV-0011",
+    "amount_due": 1050,
+    "issue_date": "2026-07-04",
+    "due_date": "2026-08-04",
+    "status": "AUTHORISED",
+    "predicted_paid_date": "2026-08-15"
+  },
+  {
+    "id": "inv-0012",
+    "contact_id": "99999999-9999-4999-8999-999999999999",
+    "contact_name": "Brightlane",
+    "invoice_number": "INV-0012",
+    "amount_due": 900,
+    "issue_date": "2026-07-01",
+    "due_date": "2026-07-31",
+    "status": "AUTHORISED",
+    "predicted_paid_date": "2026-08-03"
+  },
+  {
+    "id": "inv-0013",
+    "contact_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "contact_name": "Cobalt Studio",
+    "invoice_number": "INV-0013",
+    "amount_due": 1250,
+    "issue_date": "2026-07-11",
+    "due_date": "2026-08-10",
+    "status": "AUTHORISED",
+    "predicted_paid_date": "2026-08-18"
+  },
+  {
+    "id": "inv-0014",
+    "contact_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    "contact_name": "Oak & Ivy",
+    "invoice_number": "INV-0014",
+    "amount_due": 1450,
+    "issue_date": "2026-07-18",
+    "due_date": "2026-08-17",
+    "status": "AUTHORISED",
+    "predicted_paid_date": "2026-08-30"
+  }
+]

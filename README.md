@@ -1,16 +1,85 @@
-# Nero — Xero Opportunity Research
+# Nero - Xero Opportunity Research
 
-Hackathon project. Research pipeline for surfacing product/market opportunities
-for Xero from public signals (forums, app store reviews, community threads).
+Hackathon project. Nero is an accounts-receivable intelligence demo for Xero:
+fixtures-first data, a FastAPI backend, and a React dashboard that shows the
+cash-flow gap, payer behavior, approval-gated agent proposals, sandbox outbox,
+and audit log.
+
+## Quick start
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r backend/requirements.txt
+cd frontend && npm install
+```
+
+Run the backend:
+
+```bash
+cd backend
+DEMO_MODE=true ../.venv/bin/uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Run the frontend:
+
+```bash
+cd frontend
+npm run dev
+```
+
+Local app: `http://localhost:5173`
+
+Run tests:
+
+```bash
+.venv/bin/python -m pytest backend/tests
+```
+
+## Credentials needed for real Xero/LLM mode
+
+Demo mode needs no credentials. For live integration, provide these in `.env`:
+
+```text
+XERO_CLIENT_ID=
+XERO_CLIENT_SECRET=
+XERO_TENANT_ID=
+XERO_REDIRECT_URI=http://localhost:8000/auth/callback
+ANTHROPIC_API_KEY=
+DEMO_MODE=false
+```
+
+Register the same callback URL in the Xero developer app.
+
+## Research monitor
+
+The shared scratchpad remains at `xero-opportunity-research/raw`. Scan it with:
+
+```bash
+python3 scripts/monitor_research.py
+```
+
+or continuously:
+
+```bash
+python3 scripts/monitor_research.py --watch --interval 30
+```
+
+The API exposes `GET /api/research/status` and `POST /api/research/scan`.
 
 ## Repo layout
 
 ```
-xero-opportunity-research/
-  raw/
-    forums/       # scraped forum threads
-    appstore/     # app store reviews
-    community/    # community platform posts
+backend/       # FastAPI API and deterministic services
+frontend/      # React/Vite app
+fixtures/      # JSON API contract and demo data
+prompts/       # versioned LLM prompts
+scripts/       # research monitor utility
+seeder/        # Xero seeding scripts
+docs/          # build notes and monitor docs
+xero-opportunity-research/raw/
+  forums/      # scraped forum threads
+  appstore/    # app store reviews
+  community/   # community platform posts
 ```
 
 ## Collaboration workflow

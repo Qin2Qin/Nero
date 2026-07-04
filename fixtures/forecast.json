@@ -1,0 +1,61 @@
+{
+  "cash_floor": 5000,
+  "buckets": [
+    {
+      "week_start": "2026-07-06",
+      "due_based_cash_in": 5200,
+      "predicted_cash_in": 3550,
+      "cumulative_due": 5200,
+      "cumulative_predicted": 3550
+    },
+    {
+      "week_start": "2026-07-13",
+      "due_based_cash_in": 2200,
+      "predicted_cash_in": 0,
+      "cumulative_due": 7400,
+      "cumulative_predicted": 3550
+    },
+    {
+      "week_start": "2026-07-20",
+      "due_based_cash_in": 6150,
+      "predicted_cash_in": 800,
+      "cumulative_due": 13550,
+      "cumulative_predicted": 4350
+    },
+    {
+      "week_start": "2026-07-27",
+      "due_based_cash_in": 4500,
+      "predicted_cash_in": 3600,
+      "cumulative_due": 18050,
+      "cumulative_predicted": 7950
+    },
+    {
+      "week_start": "2026-08-03",
+      "due_based_cash_in": 1050,
+      "predicted_cash_in": 4500,
+      "cumulative_due": 19100,
+      "cumulative_predicted": 12450
+    },
+    {
+      "week_start": "2026-08-10",
+      "due_based_cash_in": 1250,
+      "predicted_cash_in": 4250,
+      "cumulative_due": 20350,
+      "cumulative_predicted": 16700
+    },
+    {
+      "week_start": "2026-08-17",
+      "due_based_cash_in": 1450,
+      "predicted_cash_in": 1250,
+      "cumulative_due": 21800,
+      "cumulative_predicted": 17950
+    },
+    {
+      "week_start": "2026-08-24",
+      "due_based_cash_in": 0,
+      "predicted_cash_in": 3850,
+      "cumulative_due": 21800,
+      "cumulative_predicted": 21800
+    }
+  ]
+}

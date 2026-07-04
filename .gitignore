@@ -29,6 +29,13 @@ build/
 .vscode/
 .idea/
 *.swp
+.claude/
+
+# Generated demo/runtime artifacts
+backend/nero.db
+seeder/seed_plan.json
+seeder/idmap.json
+xero-opportunity-research/research_index.json
 
 # Data (large / scraped) — keep folder structure via .gitkeep, ignore contents
 # Uncomment if raw data should NOT be committed:

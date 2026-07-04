@@ -1,0 +1,107 @@
+from __future__ import annotations
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+
+from services.agent_service import run_agent_cycle
+from services.state import (
+    append_log,
+    approve_proposal,
+    dismiss_proposal,
+    edit_proposal,
+    get_state,
+    reset_state,
+    save_state,
+)
+
+
+router = APIRouter(prefix="/api", tags=["actions"])
+
+
+class EditProposalRequest(BaseModel):
+    draft_body: str
+
+
+class MarkPaidRequest(BaseModel):
+    invoice_id: str
+
+
+class SettingsPatch(BaseModel):
+    cash_floor: int
+
+
+@router.post("/proposals/{proposal_id}/approve")
+def approve(proposal_id: str) -> dict:
+    state = get_state()
+    try:
+        result = approve_proposal(state, proposal_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="proposal not found") from exc
+    save_state(state)
+    return result
+
+
+@router.post("/proposals/{proposal_id}/dismiss")
+def dismiss(proposal_id: str) -> dict:
+    state = get_state()
+    try:
+        proposal = dismiss_proposal(state, proposal_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="proposal not found") from exc
+    save_state(state)
+    return proposal
+
+
+@router.post("/proposals/{proposal_id}/edit")
+def edit(proposal_id: str, request: EditProposalRequest) -> dict:
+    state = get_state()
+    try:
+        proposal = edit_proposal(state, proposal_id, request.draft_body)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="proposal not found") from exc
+    save_state(state)
+    return proposal
+
+
+@router.post("/agent/run")
+def run_agent() -> dict:
+    state = get_state()
+    created = run_agent_cycle(state)
+    save_state(state)
+    return {"created": created, "pending_count": len([item for item in state["proposals"] if item["status"] == "pending"])}
+
+
+@router.post("/sync")
+def sync() -> dict:
+    return {
+        "status": "not_configured",
+        "detail": "Real Xero sync needs OAuth credentials. DEMO_MODE serves fixtures and local state.",
+    }
+
+
+@router.post("/demo/reset")
+def reset_demo() -> dict:
+    return reset_state()
+
+
+@router.post("/demo/mark_paid")
+def mark_paid(request: MarkPaidRequest) -> dict:
+    state = get_state()
+    invoice = next((item for item in state["invoices"] if item["id"] == request.invoice_id), None)
+    if invoice is None:
+        raise HTTPException(status_code=404, detail="invoice not found")
+    state["invoices"] = [item for item in state["invoices"] if item["id"] != request.invoice_id]
+    entry = append_log(state, "You", f"Payment received - {invoice['invoice_number']} from {invoice['contact_name']}")
+    save_state(state)
+    return {"invoice": invoice, "log_entry": entry}
+
+
+@router.patch("/settings")
+def patch_settings(request: SettingsPatch) -> dict:
+    if request.cash_floor < 0:
+        raise HTTPException(status_code=400, detail="cash_floor must be non-negative")
+    state = get_state()
+    state.setdefault("settings", {})["cash_floor"] = request.cash_floor
+    append_log(state, "You", f"Cash floor changed to ${request.cash_floor:,}")
+    save_state(state)
+    return state["settings"]
