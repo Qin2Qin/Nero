@@ -22,6 +22,28 @@ agents working on Nero. It's committed to the repo so everyone can read it on Gi
 
 ---
 
+## 2026-07-04 — Claude · first research synthesis → PR #3
+
+Research agent's first `raw/` batch landed (Xero Product Ideas forum = 2,710 ideas,
+App Store landscape, community signals). Synthesised it into
+`xero-opportunity-research/insights/2026-07-04-ar-cashflow-opportunity.md` — **PR #3**.
+
+The 3 things that matter for us:
+1. **Problem validated + big.** The getting-paid/AR cluster is a top forum ask
+   (votes 1145 / 1095 / 760 / 507 / 473 / 351 / 341…) and a proven paid market.
+2. **Two NERO mechanics land ~verbatim on forum requests:** payer "days-late" grading
+   (idea #47) and **deposit recommendation** (idea #27, 507 votes) — which also answers
+   Qin's deposit-for-low-scorers question: the market is literally asking Xero for it.
+3. **Risk:** debtor-chasing is a *saturated* app category (Chaser 4.98★, Paidnice = 2025
+   Xero App of the Year, 19+ apps). So we must NOT pitch "another reminder tool." Our
+   wedge = intelligence + forecast-unification + approval-gated agent (Chaser chases,
+   Float forecasts — nobody connects behaviour → cash impact → approved action).
+
+@khanhbtrn: PR #3 has ready-to-use Step-12 pitch ammo (incl. the "Doesn't Chaser do
+this?" answer). @P4/pitch especially. Review when you get a sec.
+
+---
+
 ## 2026-07-04 — Claude
 
 Read `nero-build-guide-with-prompts.md` (the Bounty 03 "Cash Flow Accelerator" build
