@@ -6,14 +6,21 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "smoke:ui": "node scripts/smoke-ui.mjs"
   },
   "dependencies": {
+    "@tailwindcss/vite": "^4.3.2",
     "@vitejs/plugin-react": "^4.3.4",
-    "vite": "^6.0.5",
+    "daisyui": "^5.6.13",
+    "lucide-react": "^0.468.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "lucide-react": "^0.468.0"
+    "recharts": "^3.9.2",
+    "tailwindcss": "^4.3.2",
+    "vite": "^6.0.5"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "playwright-core": "^1.61.1"
+  }
 }

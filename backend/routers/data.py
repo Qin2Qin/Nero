@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from services.app_store_readiness import app_store_readiness
 from services.state import compute_metrics, current_forecast, get_state
 
 
@@ -46,3 +47,8 @@ def metrics() -> dict:
 @router.get("/settings")
 def settings() -> dict:
     return get_state().get("settings", {"cash_floor": 5000})
+
+
+@router.get("/app_store/readiness")
+def app_store() -> dict:
+    return app_store_readiness()

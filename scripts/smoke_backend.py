@@ -24,6 +24,8 @@ def main() -> None:
         "/api/outbox",
         "/api/metrics",
         "/api/research/status",
+        "/api/settings",
+        "/api/app_store/readiness",
         "/api/xero/status",
     ]
     for endpoint in endpoints:
