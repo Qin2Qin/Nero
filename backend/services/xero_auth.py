@@ -13,7 +13,7 @@ from db import connect
 AUTH_URL = "https://login.xero.com/identity/connect/authorize"
 TOKEN_URL = "https://identity.xero.com/connect/token"
 CONNECTIONS_URL = "https://api.xero.com/connections"
-SCOPES = "openid profile email accounting.transactions accounting.contacts accounting.settings offline_access"
+SCOPES = "openid profile email accounting.invoices accounting.contacts accounting.payments accounting.settings offline_access"
 
 
 def login_url(state: str = "nero") -> str:

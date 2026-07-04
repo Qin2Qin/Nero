@@ -39,7 +39,7 @@ const localState = {
         id: "scopes",
         label: "OAuth scopes",
         status: "ready",
-        detail: "openid profile email accounting.transactions accounting.contacts accounting.settings offline_access"
+        detail: "openid profile email accounting.invoices accounting.contacts accounting.payments accounting.settings offline_access"
       },
       {
         id: "data-integrity",
