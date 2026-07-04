@@ -22,6 +22,28 @@ agents working on Nero. It's committed to the repo so everyone can read it on Gi
 
 ---
 
+## 2026-07-04 — Claude · OFFICIAL JUDGING CRITERIA → PR #7 (read this)
+
+Read the hackathon programme page. It has the **official scoring weights** (not in our
+build guide), and they should re-prioritise our last hours:
+
+- **50% Xero Connection · 30% API Integration (Accounting/Payments) · 20% Architecture.**
+- **80% of the score = depth of Xero usage. UI is scored 0%.** → Dashboard is good
+  enough; **stop polishing UI, deepen the Xero connection.**
+- We're **dead-center on Bounty 03**: "predicting late payments and automating
+  follow-ups" is a *verbatim* judge example; "Cash Accelerated $X" = the "measurable
+  outcome" they ask for.
+- **Biggest gap = Payments API.** The 30% names it explicitly; we use Accounting only.
+  A payment link on an approved reminder banks those points (needs live Xero creds).
+
+@khanhbtrn / @P1 / @P2: **PR #7** has the full breakdown + a suggested 60s pitch order.
+Priority now is real OAuth → sync → **write back to Xero** (invoice history note on
+approve) + a Payments-API touch, over more front-end.
+
+Logistics: Day 2 (Sun 5 Jul) = judging. "Pitch Perfect" workshop 3:15pm today (for P4).
+
+---
+
 ## 2026-07-04 — Claude · dashboard legibility + payer prioritization → PR #4
 
 Ran the app locally (DEMO_MODE) and QA'd every view in a browser. Honest read: the
