@@ -36,6 +36,10 @@ class Settings:
     xero_client_secret: str
     xero_tenant_id: str
     xero_redirect_uri: str
+    xero_access_token: str
+    xero_refresh_token: str
+    xero_token_expires_at: str
+    xero_token_expires_in: int
     anthropic_api_key: str
     cash_floor: int
     frontend_origins: tuple[str, ...]
@@ -55,6 +59,10 @@ def get_settings() -> Settings:
         xero_client_secret=os.getenv("XERO_CLIENT_SECRET", ""),
         xero_tenant_id=os.getenv("XERO_TENANT_ID", ""),
         xero_redirect_uri=os.getenv("XERO_REDIRECT_URI", "http://localhost:8000/auth/callback"),
+        xero_access_token=os.getenv("XERO_ACCESS_TOKEN", ""),
+        xero_refresh_token=os.getenv("XERO_REFRESH_TOKEN", ""),
+        xero_token_expires_at=os.getenv("XERO_TOKEN_EXPIRES_AT", ""),
+        xero_token_expires_in=int(os.getenv("XERO_TOKEN_EXPIRES_IN", "1800")),
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
         cash_floor=int(os.getenv("CASH_FLOOR", "5000")),
         frontend_origins=origins,

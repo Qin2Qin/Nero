@@ -14,7 +14,7 @@ from services.state import (
     reset_state,
     save_state,
 )
-from services.xero_auth import get_token_status
+from services.xero_auth import get_connection_summary, get_token_status
 from services.xero_sync import sync_from_xero
 
 
@@ -97,7 +97,7 @@ def sync() -> dict:
 
 @router.get("/xero/status")
 def xero_status() -> dict:
-    return get_token_status()
+    return get_connection_summary()
 
 
 @router.post("/demo/reset")

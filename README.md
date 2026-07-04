@@ -50,6 +50,11 @@ XERO_CLIENT_ID=
 XERO_CLIENT_SECRET=
 XERO_TENANT_ID=
 XERO_REDIRECT_URI=http://localhost:8000/auth/callback
+# Optional if you already have OAuth tokens:
+XERO_ACCESS_TOKEN=
+XERO_REFRESH_TOKEN=
+XERO_TOKEN_EXPIRES_AT=
+XERO_TOKEN_EXPIRES_IN=1800
 ANTHROPIC_API_KEY=
 DEMO_MODE=false
 ```
@@ -64,6 +69,18 @@ Live Xero flow:
 4. Check `GET /api/xero/status`.
 5. Run `POST /api/sync` to pull raw Xero contacts, authorised/paid invoices,
    and payments into SQLite.
+
+If you already have OAuth tokens, skip the browser flow:
+
+```bash
+.venv/bin/python scripts/import_xero_tokens.py
+curl http://localhost:8000/api/xero/status
+curl -X POST http://localhost:8000/api/sync
+```
+
+`scripts/import_xero_tokens.py` reads `.env`/shell values and prints only status,
+tenant, and expiry metadata. It never prints access or refresh tokens. Use
+`--overwrite` only when you intentionally want to replace the locally saved token set.
 
 ## Research monitor
 
