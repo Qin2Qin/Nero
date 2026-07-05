@@ -291,7 +291,6 @@ def sync_from_xero(conn: sqlite3.Connection | None = None, materialize_state: bo
         contacts = _paged(client.list_contacts, "Contacts")
         invoices = _paged(lambda page: client.list_invoices(statuses="AUTHORISED,PAID", page=page), "Invoices")
         payments = _paged(client.list_payments, "Payments")
-        online_urls = _online_invoice_urls(client, invoices)
 
         for contact in contacts:
             contact_id = contact.get("ContactID")
@@ -346,6 +345,7 @@ def sync_from_xero(conn: sqlite3.Connection | None = None, materialize_state: bo
         }
         if materialize_state and (contacts or invoices or payments):
             tenant_name = _tenant_name(tokens["access_token"], tokens["tenant_id"])
+            online_urls = _online_invoice_urls(client, invoices)
             state = build_state_from_xero(
                 contacts=contacts,
                 invoices=invoices,
@@ -360,6 +360,7 @@ def sync_from_xero(conn: sqlite3.Connection | None = None, materialize_state: bo
                     "contacts": len(state["contacts"]),
                     "invoices": len(state["invoices"]),
                     "proposals": len(state["proposals"]),
+                    "online_invoice_links": len(online_urls),
                     "source": state["data_source"],
                 }
             else:
