@@ -955,7 +955,7 @@ function Dashboard({
             <div className="panel-head">
               <h2>Open invoices</h2>
             </div>
-            <div className="table-wrap">
+            <div className="table-wrap invoice-table-wrap">
               <table className="table table-sm">
                 <thead>
                   <tr>
@@ -1025,6 +1025,54 @@ function Dashboard({
                   )}
                 </tbody>
               </table>
+            </div>
+            <div className="mobile-invoice-list">
+              {sortedInvoices.map((invoice) => {
+                const predictedDate = invoice.accelerated_paid_date || invoice.predicted_paid_date;
+                const proposal = proposalByInvoice.get(invoice.id);
+                return (
+                  <article className="mobile-invoice-card" key={invoice.id}>
+                    <header>
+                      <div>
+                        <strong>{invoice.invoice_number}</strong>
+                        <span>{invoice.contact_name}</span>
+                      </div>
+                      <em>{formatCurrency(invoice.amount_due)}</em>
+                    </header>
+                    <div className="mobile-invoice-meta">
+                      <div>
+                        <span>Due</span>
+                        <strong>{formatShortDate(invoice.due_date)}</strong>
+                        <small>{invoiceTimingText(invoice.due_date, forecastAsOf)}</small>
+                      </div>
+                      <div>
+                        <span>Expected</span>
+                        <strong>{formatShortDate(predictedDate)}</strong>
+                        <small>{invoiceTimingText(predictedDate, forecastAsOf)}</small>
+                      </div>
+                    </div>
+                    <footer>
+                      {data.dataSource?.mode === "xero" && invoice.online_invoice_url ? (
+                        <a href={invoice.online_invoice_url} target="_blank" rel="noreferrer">
+                          <ExternalLink size={12} /> Open in Xero
+                        </a>
+                      ) : (
+                        <span />
+                      )}
+                      {proposal ? (
+                        <button className="invoice-step-button" type="button" onClick={onReviewActions}>
+                          <Bot size={14} /> Review action
+                        </button>
+                      ) : (
+                        <span className="invoice-step-muted">Watch</span>
+                      )}
+                    </footer>
+                  </article>
+                );
+              })}
+              {data.invoices.length === 0 && (
+                <div className="empty inline-empty">No open invoices. Sync Xero to pull the latest records.</div>
+              )}
             </div>
           </section>
         </div>
