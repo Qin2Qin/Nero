@@ -1482,12 +1482,12 @@ function AgentQueue({ proposals, dataSource, aiStatus, approvalBlockedReason = "
                   </button>
                 )}
                 <button
-                  className="icon-button danger-icon btn btn-square btn-ghost btn-sm"
+                  className="button ghost danger-icon danger-button btn btn-ghost btn-sm"
                   disabled={busy || Boolean(approvalBlockedReason)}
                   onClick={() => onDismiss(proposal.id)}
                   title={approvalBlockedReason || "Dismiss"}
                 >
-                  <X size={16} />
+                  <X size={16} /> Dismiss
                 </button>
               </div>
             </article>

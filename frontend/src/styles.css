@@ -930,6 +930,15 @@ h2 {
   color: var(--fgColor-danger);
 }
 
+.danger-button {
+  border-color: rgba(251, 113, 133, 0.22);
+  background: rgba(251, 113, 133, 0.08);
+}
+
+.danger-button:hover {
+  background: rgba(251, 113, 133, 0.13);
+}
+
 .badge,
 .grade {
   display: inline-flex;
