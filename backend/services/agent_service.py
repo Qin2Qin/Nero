@@ -135,8 +135,8 @@ def run_agent_cycle(state: dict[str, Any], max_pending: int = 8, today: date | N
         due_date = invoice.get("due_date") or "9999-12-31"
         return (
             0 if candidate["has_email"] else 1,
-            0 if candidate["overdue_days"] >= 0 else 1,
             -candidate["amount_due"],
+            0 if candidate["overdue_days"] >= 0 else 1,
             -max(candidate["overdue_days"], 0),
             due_date,
         )

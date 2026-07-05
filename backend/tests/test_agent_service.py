@@ -181,6 +181,66 @@ def test_agent_prioritizes_sendable_high_impact_invoice_actions() -> None:
     assert created[0]["expected_impact_dollars"] == 1000
 
 
+def test_agent_prioritizes_cash_impact_within_sendable_actions() -> None:
+    state = {
+        "contacts": [
+            {
+                "id": "small-overdue",
+                "name": "Small Overdue Customer",
+                "email": "accounts@small.example.com",
+                "grade": "C",
+                "avg_days_late": 12,
+                "invoice_count": 4,
+                "low_confidence": False,
+                "revenue_12m": 2000,
+                "trend_slope": 0,
+            },
+            {
+                "id": "large-soon",
+                "name": "Large Due Soon Customer",
+                "email": "accounts@large.example.com",
+                "grade": "B",
+                "avg_days_late": 5,
+                "invoice_count": 5,
+                "low_confidence": False,
+                "revenue_12m": 12000,
+                "trend_slope": 0,
+            },
+        ],
+        "invoices": [
+            {
+                "id": "small-overdue-invoice",
+                "contact_id": "small-overdue",
+                "contact_name": "Small Overdue Customer",
+                "contact_email": "accounts@small.example.com",
+                "invoice_number": "SMALL-20",
+                "amount_due": 20,
+                "due_date": "2026-05-01",
+                "predicted_paid_date": "2026-05-13",
+            },
+            {
+                "id": "large-soon-invoice",
+                "contact_id": "large-soon",
+                "contact_name": "Large Due Soon Customer",
+                "contact_email": "accounts@large.example.com",
+                "invoice_number": "LARGE-1200",
+                "amount_due": 1200,
+                "due_date": "2026-07-08",
+                "predicted_paid_date": "2026-07-13",
+            },
+        ],
+        "proposals": [],
+        "action_log": [],
+        "business": {"sender_name": "Maya", "name": "Northstar Fabrication Works"},
+    }
+
+    created = run_agent_cycle(state, max_pending=1, today=date.fromisoformat("2026-07-05"))
+
+    assert len(created) == 1
+    assert created[0]["contact_name"] == "Large Due Soon Customer"
+    assert created[0]["expected_impact_dollars"] == 1200
+
+
 def test_agent_logs_when_no_new_actions_are_needed() -> None:
     state = base_state(
         {
