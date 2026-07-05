@@ -739,12 +739,13 @@ async function runSmoke() {
     await page.getByRole("heading", { name: "How to use Nero" }).waitFor();
     await page.getByText("Review and approve; nothing is sent without your OK.").waitFor();
     await page.getByText("Open Actions to review suggested reminders or smarter payment terms.").waitFor();
-    await page.getByTitle("Close").click();
+    await page.keyboard.press("Escape");
+    await page.getByRole("heading", { name: "How to use Nero" }).waitFor({ state: "detached" });
 
     await page.getByRole("button", { name: "Help & Support" }).click();
     await page.getByRole("heading", { name: "Help & Support" }).waitFor();
     await page.getByText("support@nero.cash").waitFor();
-    await page.getByTitle("Close").click();
+    await page.getByRole("button", { name: "Close" }).click();
 
     await page.getByRole("button", { name: "Activity" }).click();
     await page.getByRole("heading", { name: "Activity" }).waitFor();
@@ -762,6 +763,8 @@ async function runSmoke() {
     await page.keyboard.press("Control+Shift+D");
     await page.getByRole("heading", { name: "Developer tools" }).waitFor();
     await page.getByRole("button", { name: /Seed portfolio/ }).first().waitFor();
+    await page.keyboard.press("Escape");
+    await page.getByRole("heading", { name: "Developer tools" }).waitFor({ state: "detached" });
 
     if (browserErrors.length) {
       throw new Error(`Browser errors:\n${browserErrors.join("\n")}`);

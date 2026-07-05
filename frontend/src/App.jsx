@@ -1578,12 +1578,20 @@ function ActivityHistory({ entries }) {
 }
 
 function ModalShell({ title, onClose, children }) {
+  useEffect(() => {
+    function closeOnEscape(event) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <section className="modal-panel" role="dialog" aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()}>
         <div className="panel-head">
           <h2>{title}</h2>
-          <button className="icon-button btn btn-square btn-ghost btn-sm" type="button" onClick={onClose} title="Close">
+          <button className="icon-button btn btn-square btn-ghost btn-sm" type="button" onClick={onClose} title="Close" aria-label="Close">
             <X size={16} />
           </button>
         </div>
