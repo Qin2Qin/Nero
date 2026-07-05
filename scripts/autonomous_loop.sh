@@ -80,7 +80,6 @@ redact() {
   sed -E \
     -e 's/sk-or-v1-[A-Za-z0-9_-]+/[REDACTED_OPENROUTER_KEY]/g' \
     -e 's/(XERO_CLIENT_SECRET=)[^[:space:]]+/\1[REDACTED]/g' \
-    -e 's/(ANTHROPIC_API_KEY=)[^[:space:]]+/\1[REDACTED]/g' \
     -e 's/(OPENROUTER_API_KEY=)[^[:space:]]+/\1[REDACTED]/g'
 }
 
