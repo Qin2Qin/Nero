@@ -84,7 +84,7 @@ def test_approve_route_blocks_stale_xero_tenant_before_state_changes(monkeypatch
     writeback_calls = []
     monkeypatch.setattr(actions, "get_state", lambda: state)
     monkeypatch.setattr(actions, "save_state", lambda updated: saved.append(updated))
-    monkeypatch.setattr(actions, "get_token_status", lambda: {"connected": True, "tenant_id": "new-tenant"})
+    monkeypatch.setattr(actions, "get_connection_summary", lambda: {"connected": True, "tenant_id": "new-tenant"})
     monkeypatch.setattr(actions, "write_invoice_history_note", lambda current_state, proposal: writeback_calls.append(proposal))
 
     with pytest.raises(HTTPException) as exc:
@@ -99,11 +99,32 @@ def test_approve_route_blocks_stale_xero_tenant_before_state_changes(monkeypatch
     assert writeback_calls == []
 
 
+def test_approve_route_blocks_disconnected_xero_snapshot_before_state_changes(monkeypatch) -> None:
+    state = approval_state(tenant_id="tenant-1")
+    saved = []
+    writeback_calls = []
+    monkeypatch.setattr(actions, "get_state", lambda: state)
+    monkeypatch.setattr(actions, "save_state", lambda updated: saved.append(updated))
+    monkeypatch.setattr(actions, "get_connection_summary", lambda: {"connected": False, "tenant_id": None})
+    monkeypatch.setattr(actions, "write_invoice_history_note", lambda current_state, proposal: writeback_calls.append(proposal))
+
+    with pytest.raises(HTTPException) as exc:
+        actions.approve("proposal-1")
+
+    assert exc.value.status_code == 409
+    assert exc.value.detail == actions.RECONNECT_XERO_APPROVAL_DETAIL
+    assert state["proposals"][0]["status"] == "pending"
+    assert state["outbox"] == []
+    assert state["action_log"] == []
+    assert saved == []
+    assert writeback_calls == []
+
+
 def test_approve_route_allows_matching_xero_tenant(monkeypatch) -> None:
     state = approval_state(tenant_id="tenant-1")
     monkeypatch.setattr(actions, "get_state", lambda: state)
     monkeypatch.setattr(actions, "save_state", lambda updated: None)
-    monkeypatch.setattr(actions, "get_token_status", lambda: {"connected": True, "tenant_id": "tenant-1"})
+    monkeypatch.setattr(actions, "get_connection_summary", lambda: {"connected": True, "tenant_id": "tenant-1", "expired": False})
     monkeypatch.setattr(actions, "write_invoice_history_note", lambda current_state, proposal: {"status": "skipped", "reason": "not_applicable"})
 
     result = actions.approve("proposal-1")

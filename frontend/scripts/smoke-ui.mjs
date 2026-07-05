@@ -136,6 +136,19 @@ async function runSmoke() {
       })
     })
   );
+  await reconnectPage.route("**/api/data_source", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        mode: "xero",
+        label: "Xero: Demo Coffee Ltd",
+        detail: "Synced from the selected Xero organisation.",
+        generated_at: "2026-07-05T03:00:00+00:00",
+        tenant_id: "demo-tenant"
+      })
+    })
+  );
   await reconnectPage.goto(frontendUrl, { waitUntil: "networkidle" });
   const reconnectLink = reconnectPage.getByRole("link", { name: "Reconnect Xero" }).first();
   await reconnectLink.waitFor();
@@ -147,6 +160,19 @@ async function runSmoke() {
   }
   if (reconnectTenantRequests.length) {
     throw new Error(`Reconnect state still requested Xero tenants:\n${reconnectTenantRequests.join("\n")}`);
+  }
+  const reconnectFindActions = reconnectPage.getByRole("button", { name: "Find actions" });
+  await reconnectFindActions.waitFor();
+  if (!(await reconnectFindActions.isDisabled())) {
+    throw new Error("Find actions stayed enabled while Xero needed reconnect");
+  }
+  await reconnectPage.getByRole("button", { name: "Actions", exact: true }).click();
+  await reconnectPage.getByRole("heading", { name: "Actions to review" }).waitFor();
+  await reconnectPage.getByText("Reconnect Xero before finding or approving actions for this organisation.").waitFor();
+  const reconnectApproveButton = reconnectPage.getByRole("button", { name: /Approve/ }).first();
+  await reconnectApproveButton.waitFor();
+  if (!(await reconnectApproveButton.isDisabled())) {
+    throw new Error("Approval stayed enabled while Xero needed reconnect");
   }
   await reconnectPage.close();
 

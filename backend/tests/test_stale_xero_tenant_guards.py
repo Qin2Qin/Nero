@@ -30,7 +30,7 @@ def test_run_agent_blocks_stale_xero_tenant_before_state_changes(monkeypatch) ->
     run_calls = []
     monkeypatch.setattr(actions, "get_state", lambda: state)
     monkeypatch.setattr(actions, "save_state", lambda updated: saved.append(updated))
-    monkeypatch.setattr(actions, "get_token_status", lambda: {"connected": True, "tenant_id": "new-tenant"})
+    monkeypatch.setattr(actions, "get_connection_summary", lambda: {"connected": True, "tenant_id": "new-tenant"})
     monkeypatch.setattr(actions, "run_agent_cycle", lambda current_state, today: run_calls.append(today))
 
     with pytest.raises(HTTPException) as exc:
@@ -43,12 +43,35 @@ def test_run_agent_blocks_stale_xero_tenant_before_state_changes(monkeypatch) ->
     assert run_calls == []
 
 
+def test_run_agent_blocks_reconnect_required_xero_snapshot(monkeypatch) -> None:
+    state = stale_xero_state(tenant_id="tenant-1")
+    saved = []
+    run_calls = []
+    monkeypatch.setattr(actions, "get_state", lambda: state)
+    monkeypatch.setattr(actions, "save_state", lambda updated: saved.append(updated))
+    monkeypatch.setattr(
+        actions,
+        "get_connection_summary",
+        lambda: {"connected": True, "tenant_id": "tenant-1", "expired": True, "refresh_error": "Reconnect Xero."},
+    )
+    monkeypatch.setattr(actions, "run_agent_cycle", lambda current_state, today: run_calls.append(today))
+
+    with pytest.raises(HTTPException) as exc:
+        actions.run_agent()
+
+    assert exc.value.status_code == 409
+    assert exc.value.detail == actions.RECONNECT_XERO_AGENT_DETAIL
+    assert state["proposals"] == []
+    assert saved == []
+    assert run_calls == []
+
+
 def test_run_agent_allows_matching_xero_tenant(monkeypatch) -> None:
     state = stale_xero_state(tenant_id="tenant-1")
     saved = []
     monkeypatch.setattr(actions, "get_state", lambda: state)
     monkeypatch.setattr(actions, "save_state", lambda updated: saved.append(updated))
-    monkeypatch.setattr(actions, "get_token_status", lambda: {"connected": True, "tenant_id": "tenant-1"})
+    monkeypatch.setattr(actions, "get_connection_summary", lambda: {"connected": True, "tenant_id": "tenant-1", "expired": False})
 
     def fake_run_agent_cycle(current_state, today) -> int:
         current_state["proposals"].append({"id": "proposal-1", "status": "pending"})
