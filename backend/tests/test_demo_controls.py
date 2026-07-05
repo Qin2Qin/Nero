@@ -13,10 +13,12 @@ from main import create_app
 from services.state import get_state, save_state
 
 
-def dashboard_state(mode: str) -> dict:
+def dashboard_state(mode: str, *, empty: bool = False) -> dict:
     return {
         "contacts": [],
-        "invoices": [
+        "invoices": []
+        if empty
+        else [
             {
                 "id": "invoice-1",
                 "invoice_number": "INV-001",
@@ -70,3 +72,34 @@ def test_demo_controls_are_blocked_for_live_xero_state(monkeypatch, tmp_path: Pa
     state = get_state()
     assert state["data_source"]["mode"] == "xero"
     assert [invoice["id"] for invoice in state["invoices"]] == ["invoice-1"]
+
+
+def test_synthetic_seed_is_blocked_for_non_empty_live_xero_state(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("DEMO_MODE", "false")
+    monkeypatch.setenv("NERO_DB_PATH", str(tmp_path / "nero.db"))
+    save_state(dashboard_state("xero"))
+    client = TestClient(create_app())
+
+    response = client.post("/api/synthetic/seed")
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Synthetic seeding is disabled while this dashboard already contains live Xero data."
+    state = get_state()
+    assert state["data_source"]["mode"] == "xero"
+    assert [invoice["id"] for invoice in state["invoices"]] == ["invoice-1"]
+
+
+def test_synthetic_seed_is_allowed_for_empty_xero_state(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("DEMO_MODE", "false")
+    monkeypatch.setenv("NERO_DB_PATH", str(tmp_path / "nero.db"))
+    save_state(dashboard_state("xero", empty=True))
+    client = TestClient(create_app())
+
+    response = client.post("/api/synthetic/seed")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "seeded"
+    assert body["contacts"] > 0
+    assert body["invoices"] > 0
+    assert body["source"]["mode"] == "synthetic"

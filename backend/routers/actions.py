@@ -42,11 +42,17 @@ class XeroTenantPatch(BaseModel):
 
 
 DEMO_ONLY_LIVE_DETAIL = "Demo-only controls are disabled while this dashboard is using live Xero data."
+SYNTHETIC_SEED_LIVE_DETAIL = "Synthetic seeding is disabled while this dashboard already contains live Xero data."
 
 
 def ensure_demo_control_allowed(state: dict) -> None:
     if data_source(state).get("mode") == "xero":
         raise HTTPException(status_code=403, detail=DEMO_ONLY_LIVE_DETAIL)
+
+
+def ensure_synthetic_seed_allowed(state: dict) -> None:
+    if data_source(state).get("mode") == "xero" and (state.get("contacts") or state.get("invoices")):
+        raise HTTPException(status_code=403, detail=SYNTHETIC_SEED_LIVE_DETAIL)
 
 
 @router.post("/proposals/{proposal_id}/approve")
@@ -122,6 +128,7 @@ def sync() -> dict:
 
 @router.post("/synthetic/seed")
 def seed_synthetic_portfolio() -> dict:
+    ensure_synthetic_seed_allowed(get_state())
     cash_floor = max(get_settings().cash_floor, 35000)
     state = build_synthetic_portfolio(cash_floor=cash_floor)
     save_state(state)
