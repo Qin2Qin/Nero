@@ -6,7 +6,7 @@ from services.xero_auth import SCOPES, get_connection_summary
 
 
 CHECKPOINT_SOURCE = (
-    "https://developer.xero.com/documentation/xero-app-store/app-partner-guides/certification-checkpoints/"
+    "https://developer.xero.com/documentation/best-practices/overview/cert-matrix/"
 )
 ROOT_DIR = Path(__file__).resolve().parents[2]
 LISTING_DOC = ROOT_DIR / "docs" / "xero-app-store-submission.md"
@@ -48,12 +48,24 @@ def app_store_readiness() -> dict:
             "detail": "Reads contacts, invoices, payments and keeps writes in a sandbox outbox.",
         },
         {
+            "id": "api-efficiency",
+            "label": "API efficiency",
+            "status": "ready",
+            "detail": "Xero sync uses pagination and retries 429 responses using Retry-After.",
+        },
+        {
             "id": "listing",
             "label": "App Store listing",
             "status": "ready" if listing_ready else "todo",
             "detail": "Submission notes are drafted in docs/xero-app-store-submission.md."
             if listing_ready
             else "Prepare category, screenshots, pricing, support URL, privacy URL and advisor-facing recommendation copy.",
+        },
+        {
+            "id": "subscriptions-webhooks",
+            "label": "Subscriptions and webhooks",
+            "status": "todo",
+            "detail": "Needed for a certified App Store launch, but out of scope for this hackathon MVP.",
         },
         {
             "id": "support-security",

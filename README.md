@@ -61,6 +61,15 @@ FRONTEND_ORIGINS=http://localhost:5173,http://localhost:3000
 
 Register the same callback URL in the Xero developer app.
 
+The backend currently requests these Xero OAuth scopes:
+
+```text
+openid profile email accounting.invoices accounting.contacts accounting.payments accounting.settings offline_access
+```
+
+These are the granular scopes used by the live sync path for contacts, invoices,
+payments, organisation settings and refresh tokens.
+
 If Xero shows `invalid_request` / `Invalid redirect_uri`, the client ID is
 valid but the callback URL is not registered for that Xero app. Add this exact
 value in Xero Developer > My Apps > your app > Configuration:
@@ -104,6 +113,10 @@ VITE_SUPPORT_EMAIL=support@nero.cash
 The App Store submission, support, privacy and security notes live in
 `docs/xero-app-store-submission.md`, `docs/support.md`, and
 `docs/privacy-security.md`.
+
+The Xero hackathon integration notes, including judging emphasis, endpoints,
+OAuth scopes, rate limits, and Remote MCP status, live in
+`docs/xero-hackathon-and-mcp.md`.
 
 Xero demo company flow:
 
