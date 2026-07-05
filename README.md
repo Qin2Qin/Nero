@@ -98,10 +98,13 @@ Live Xero flow:
    and payments into SQLite.
 6. Check `GET /api/xero/tenants`. If multiple organisations are authorised,
    select one with `POST /api/xero/tenant`.
-7. If the connected organisation is empty, run `POST /api/synthetic/seed` to
+7. Optional: set `XERO_WEBHOOK_KEY` and configure `POST /webhooks/xero` as the
+   HTTPS webhook URL in Xero Developer Centre. Valid signed invoice/contact
+   events trigger a background sync; invalid signatures return 401.
+8. If the connected organisation is empty, run `POST /api/synthetic/seed` to
    populate the local dashboard with generated UK portfolio data. This does not
    write to Xero and is labelled in the UI as synthetic data.
-8. When an invoice reminder/escalation is approved from live Xero data, Nero
+9. When an invoice reminder/escalation is approved from live Xero data, Nero
    keeps the customer-facing email in Outbox and adds an internal history note to
    the Xero invoice for auditability.
 

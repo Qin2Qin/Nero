@@ -8,6 +8,7 @@ Data read from Xero:
 - Authorised and paid invoices
 - Payments linked to invoices
 - Authorised Xero tenant metadata
+- Signed Xero webhook event metadata used to trigger a follow-up sync
 
 Data written to Xero:
 
@@ -19,6 +20,7 @@ Local storage:
 - OAuth tokens are stored in the local SQLite database used by the backend.
 - Raw Xero payloads are stored in local SQLite tables for repeatable sync and audit during the demo.
 - Generated synthetic portfolio data is clearly labelled and does not represent real customers or balances.
+- Webhook events are signature-checked with `XERO_WEBHOOK_KEY`; invalid signatures are rejected and event payloads are not exposed in the UI.
 
 Deletion and disconnect:
 

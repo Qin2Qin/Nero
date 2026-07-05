@@ -40,6 +40,7 @@ class Settings:
     xero_refresh_token: str
     xero_token_expires_at: str
     xero_token_expires_in: int
+    xero_webhook_key: str
     cash_floor: int
     frontend_origins: tuple[str, ...]
     database_path: Path
@@ -62,6 +63,7 @@ def get_settings() -> Settings:
         xero_refresh_token=os.getenv("XERO_REFRESH_TOKEN", ""),
         xero_token_expires_at=os.getenv("XERO_TOKEN_EXPIRES_AT", ""),
         xero_token_expires_in=int(os.getenv("XERO_TOKEN_EXPIRES_IN", "1800")),
+        xero_webhook_key=os.getenv("XERO_WEBHOOK_KEY", ""),
         cash_floor=int(os.getenv("CASH_FLOOR", "5000")),
         frontend_origins=origins,
         database_path=Path(os.getenv("NERO_DB_PATH", Path(__file__).with_name("nero.db"))),
