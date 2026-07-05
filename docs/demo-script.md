@@ -16,7 +16,7 @@ Use this when presenting Nero from the local live-Xero setup.
 2. Click **Payers**, search for one customer, and show the plain-English payment timing sentence plus the printable statement link.
 3. Click **Actions** and explain that Nero turns Xero invoices and payment history into reviewable next steps, sorted by what can be acted on now.
 4. Open one draft, make a tiny wording edit, and approve it; explain that nothing is emailed automatically.
-5. Open **Outbox** and show that the approved draft is ready to copy or open as an addressed mail draft, while missing-email drafts are held until the email exists in Xero.
+5. Open **Outbox** and use **Copy** to show that the approved draft is ready for manual follow-up; the optional mail-app link opens an addressed draft if the device has email configured.
 6. Open **Activity** from the footer to show the approval trail, then mention that live-Xero reminder approvals can write an internal invoice history note back to Xero.
 
 ## If Judges Ask

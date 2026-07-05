@@ -1513,17 +1513,8 @@ function Outbox({ outbox }) {
                     </td>
                     <td className="right">
                       <div className="outbox-actions">
-                        {disabledReason ? (
-                          <span className="draft-disabled" title={disabledReason}>
-                            {staleDraft ? "Closed in Xero" : "Add email first"}
-                          </span>
-                        ) : (
-                          <a className="button ghost btn btn-ghost btn-xs outbox-draft-link" href={mailtoDraftHref(entry)}>
-                            <ExternalLink size={14} /> Open draft
-                          </a>
-                        )}
                         <button
-                          className="button ghost btn btn-ghost btn-xs"
+                          className="button primary btn btn-primary btn-xs"
                           type="button"
                           onClick={() => copyDraft(entry)}
                           disabled={staleDraft}
@@ -1531,6 +1522,15 @@ function Outbox({ outbox }) {
                         >
                           {copiedId === entry.id ? "Copied" : "Copy"}
                         </button>
+                        {disabledReason ? (
+                          <span className="draft-disabled" title={disabledReason}>
+                            {staleDraft ? "Closed in Xero" : "Add email first"}
+                          </span>
+                        ) : (
+                          <a className="button ghost btn btn-ghost btn-xs outbox-draft-link" href={mailtoDraftHref(entry)}>
+                            <ExternalLink size={14} /> Open mail app
+                          </a>
+                        )}
                       </div>
                     </td>
                   </tr>
