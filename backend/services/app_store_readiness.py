@@ -17,10 +17,12 @@ PRIVACY_SECURITY_DOC = ROOT_DIR / "docs" / "privacy-security.md"
 
 def app_store_readiness() -> dict:
     summary = get_connection_summary()
+    settings = get_settings()
     configured = bool(summary["client_credentials_configured"])
     connected = bool(summary["connected"])
     demo_mode = bool(summary["demo_mode"])
-    webhook_key_configured = bool(get_settings().xero_webhook_key)
+    webhook_key_configured = bool(settings.xero_webhook_key)
+    subscriptions_configured = bool(settings.xero_app_store_subscriptions_configured)
     listing_ready = LISTING_DOC.exists()
     support_security_ready = SUPPORT_DOC.exists() and PRIVACY_SECURITY_DOC.exists()
 
@@ -68,12 +70,20 @@ def app_store_readiness() -> dict:
             else "Prepare category, screenshots, pricing, support URL, privacy URL and advisor-facing recommendation copy.",
         },
         {
-            "id": "subscriptions-webhooks",
-            "label": "Subscriptions and webhooks",
+            "id": "webhook-receiver",
+            "label": "Webhook receiver",
             "status": "ready" if webhook_key_configured else "todo",
-            "detail": "Signed Xero webhook receiver is configured; finish App Store subscription setup in Xero Developer Centre."
+            "detail": "Signed Xero webhook receiver is configured at /webhooks/xero."
             if webhook_key_configured
-            else "Signed receiver exists at /webhooks/xero; add XERO_WEBHOOK_KEY and configure the HTTPS webhook/subscription in Xero Developer Centre.",
+            else "Signed receiver exists at /webhooks/xero; add XERO_WEBHOOK_KEY before enabling Xero webhooks.",
+        },
+        {
+            "id": "app-store-subscriptions",
+            "label": "App Store subscriptions",
+            "status": "ready" if subscriptions_configured else "todo",
+            "detail": "Xero Developer Centre subscription setup has been confirmed for the production HTTPS webhook URL."
+            if subscriptions_configured
+            else "Configure App Store subscription/webhook categories in Xero Developer Centre for the production HTTPS URL, then set XERO_APP_STORE_SUBSCRIPTIONS_CONFIGURED=true.",
         },
         {
             "id": "support-security",

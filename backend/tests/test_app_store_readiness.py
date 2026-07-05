@@ -15,6 +15,7 @@ from services.xero_auth import SCOPES
 
 def test_app_store_readiness_exposes_xero_certification_checklist(monkeypatch) -> None:
     monkeypatch.setenv("XERO_WEBHOOK_KEY", "")
+    monkeypatch.delenv("XERO_APP_STORE_SUBSCRIPTIONS_CONFIGURED", raising=False)
     client = TestClient(create_app())
 
     response = client.get("/api/app_store/readiness")
@@ -30,13 +31,15 @@ def test_app_store_readiness_exposes_xero_certification_checklist(monkeypatch) -
         "scopes",
         "api-efficiency",
         "listing",
-        "subscriptions-webhooks",
+        "webhook-receiver",
+        "app-store-subscriptions",
         "support-security",
     }.issubset(item_ids)
     scopes = next(item for item in body["items"] if item["id"] == "scopes")["detail"]
     data_integrity = next(item for item in body["items"] if item["id"] == "data-integrity")
     efficiency = next(item for item in body["items"] if item["id"] == "api-efficiency")
-    subscriptions = next(item for item in body["items"] if item["id"] == "subscriptions-webhooks")
+    webhook_receiver = next(item for item in body["items"] if item["id"] == "webhook-receiver")
+    subscriptions = next(item for item in body["items"] if item["id"] == "app-store-subscriptions")
     listing = next(item for item in body["items"] if item["id"] == "listing")
     support_security = next(item for item in body["items"] if item["id"] == "support-security")
     connection = next(item for item in body["items"] if item["id"] == "connection")
@@ -47,25 +50,45 @@ def test_app_store_readiness_exposes_xero_certification_checklist(monkeypatch) -
     assert "invoice notes" in data_integrity["detail"]
     assert efficiency["status"] == "ready"
     assert "Retry-After" in efficiency["detail"]
+    assert webhook_receiver["status"] == "todo"
+    assert "/webhooks/xero" in webhook_receiver["detail"]
+    assert "XERO_WEBHOOK_KEY" in webhook_receiver["detail"]
     assert subscriptions["status"] == "todo"
-    assert "/webhooks/xero" in subscriptions["detail"]
-    assert "XERO_WEBHOOK_KEY" in subscriptions["detail"]
+    assert "Xero Developer Centre" in subscriptions["detail"]
+    assert "XERO_APP_STORE_SUBSCRIPTIONS_CONFIGURED" in subscriptions["detail"]
     assert listing["status"] == "ready"
     assert "xero-app-store-submission.md" in listing["detail"]
     assert support_security["status"] == "ready"
     assert "privacy" in support_security["detail"].lower()
 
 
-def test_app_store_readiness_marks_webhook_receiver_ready_when_key_configured(monkeypatch) -> None:
+def test_app_store_readiness_marks_only_webhook_receiver_ready_when_key_configured(monkeypatch) -> None:
     monkeypatch.setenv("XERO_WEBHOOK_KEY", "webhook-secret")
+    monkeypatch.delenv("XERO_APP_STORE_SUBSCRIPTIONS_CONFIGURED", raising=False)
     client = TestClient(create_app())
 
     response = client.get("/api/app_store/readiness")
 
     assert response.status_code == 200
-    subscriptions = next(item for item in response.json()["items"] if item["id"] == "subscriptions-webhooks")
+    body = response.json()
+    webhook_receiver = next(item for item in body["items"] if item["id"] == "webhook-receiver")
+    subscriptions = next(item for item in body["items"] if item["id"] == "app-store-subscriptions")
+    assert webhook_receiver["status"] == "ready"
+    assert "Signed Xero webhook receiver is configured" in webhook_receiver["detail"]
+    assert subscriptions["status"] == "todo"
+
+
+def test_app_store_readiness_marks_subscriptions_ready_only_when_configured(monkeypatch) -> None:
+    monkeypatch.setenv("XERO_WEBHOOK_KEY", "webhook-secret")
+    monkeypatch.setenv("XERO_APP_STORE_SUBSCRIPTIONS_CONFIGURED", "true")
+    client = TestClient(create_app())
+
+    response = client.get("/api/app_store/readiness")
+
+    assert response.status_code == 200
+    subscriptions = next(item for item in response.json()["items"] if item["id"] == "app-store-subscriptions")
     assert subscriptions["status"] == "ready"
-    assert "Signed Xero webhook receiver is configured" in subscriptions["detail"]
+    assert "production HTTPS webhook URL" in subscriptions["detail"]
 
 
 def test_app_store_submission_scopes_match_runtime_oauth_scopes() -> None:

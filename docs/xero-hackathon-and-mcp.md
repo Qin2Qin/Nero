@@ -87,7 +87,7 @@ For a hackathon MVP, Nero can credibly claim:
 
 Post-MVP items:
 
-- App Store subscriptions.
-- Xero Developer Centre webhook/subscription configuration on the final HTTPS deployment URL.
+- Xero Developer Centre App Store subscription/webhook configuration on the final HTTPS deployment URL.
+- Set `XERO_APP_STORE_SUBSCRIPTIONS_CONFIGURED=true` only after the external Developer Centre setup is confirmed; the local readiness checklist treats webhook receiver code and App Store subscription setup as separate signals.
 - Full marketplace screenshots and pricing.
 - Payment-link or payment-creation workflows after a separate demo safety review.

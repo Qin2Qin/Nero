@@ -27,3 +27,15 @@ def test_frontend_origins_expand_loopback_to_localhost_without_duplicates(monkey
 
     assert origins.count("http://127.0.0.1:3000") == 1
     assert origins.count("http://localhost:3000") == 1
+
+
+def test_app_store_subscription_flag_defaults_to_false(monkeypatch) -> None:
+    monkeypatch.delenv("XERO_APP_STORE_SUBSCRIPTIONS_CONFIGURED", raising=False)
+
+    assert get_settings().xero_app_store_subscriptions_configured is False
+
+
+def test_app_store_subscription_flag_reads_truthy_values(monkeypatch) -> None:
+    monkeypatch.setenv("XERO_APP_STORE_SUBSCRIPTIONS_CONFIGURED", "yes")
+
+    assert get_settings().xero_app_store_subscriptions_configured is True

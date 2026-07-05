@@ -43,4 +43,4 @@ Recommend Nero to clients who have recurring late invoices, high-value repeat cu
 
 Webhook/subscription note:
 
-The backend includes a signed Xero webhook receiver at `/webhooks/xero`. Production App Store launch still requires setting `XERO_WEBHOOK_KEY`, serving the route over HTTPS, and configuring the webhook/subscription categories in Xero Developer Centre.
+The backend includes a signed Xero webhook receiver at `/webhooks/xero`. Production App Store launch still requires setting `XERO_WEBHOOK_KEY`, serving the route over HTTPS, configuring the webhook/subscription categories in Xero Developer Centre, and setting `XERO_APP_STORE_SUBSCRIPTIONS_CONFIGURED=true` only after that external setup is confirmed.

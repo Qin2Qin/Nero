@@ -40,7 +40,7 @@ const localState = {
   appStoreReadiness: {
     status: "draft",
     ready_count: 5,
-    total_count: 8,
+    total_count: 9,
     source_url: "https://developer.xero.com/documentation/best-practices/overview/cert-matrix/",
     items: [
       {
@@ -80,10 +80,16 @@ const localState = {
         detail: "Submission notes are drafted in docs/xero-app-store-submission.md."
       },
       {
-        id: "subscriptions-webhooks",
-        label: "Subscriptions and webhooks",
+        id: "webhook-receiver",
+        label: "Webhook receiver",
         status: "todo",
-        detail: "Needed for a certified App Store launch, but out of scope for this hackathon MVP."
+        detail: "Signed receiver exists at /webhooks/xero; add XERO_WEBHOOK_KEY before enabling Xero webhooks."
+      },
+      {
+        id: "app-store-subscriptions",
+        label: "App Store subscriptions",
+        status: "todo",
+        detail: "Configure App Store subscription/webhook categories in Xero Developer Centre for the production HTTPS URL."
       },
       {
         id: "support-security",
