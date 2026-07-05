@@ -400,8 +400,16 @@ function retryAfterCopy(seconds) {
   const numericSeconds = Number(seconds || 0);
   if (!Number.isFinite(numericSeconds) || numericSeconds <= 0) return "";
   if (numericSeconds < 60) return `Try again in about ${Math.ceil(numericSeconds)} seconds.`;
-  const minutes = Math.ceil(numericSeconds / 60);
-  return `Try again in about ${minutes} ${plural(minutes, "minute")}.`;
+  if (numericSeconds < 3600) {
+    const minutes = Math.ceil(numericSeconds / 60);
+    return `Try again in about ${minutes} ${plural(minutes, "minute")}.`;
+  }
+  if (numericSeconds < 86400) {
+    const hours = Math.ceil(numericSeconds / 3600);
+    return `Try again in about ${hours} ${plural(hours, "hour")}.`;
+  }
+  const days = Math.ceil(numericSeconds / 86400);
+  return `Try again in about ${days} ${plural(days, "day")}.`;
 }
 
 function syncSummary(result) {

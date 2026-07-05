@@ -263,7 +263,7 @@ async function runSmoke() {
       headers: {
         "Access-Control-Allow-Origin": frontendUrl,
         "Access-Control-Expose-Headers": "Retry-After",
-        "Retry-After": "60"
+        "Retry-After": "62021"
       },
       contentType: "application/json",
       body: JSON.stringify({ detail: "Xero is asking Nero to wait before syncing again." })
@@ -273,7 +273,7 @@ async function runSmoke() {
   await rateLimitedSyncPage.getByRole("heading", { name: "Nero" }).waitFor();
   await rateLimitedSyncPage.getByRole("button", { name: "Sync Xero" }).first().click();
   await rateLimitedSyncPage.getByText("Xero is asking Nero to wait before syncing again.").waitFor();
-  await rateLimitedSyncPage.getByText("Try again in about 1 minute.").waitFor();
+  await rateLimitedSyncPage.getByText("Try again in about 18 hours.").waitFor();
   await rateLimitedSyncPage.getByText("Nero is still showing the last successful Xero snapshot.").waitFor();
   if (await rateLimitedSyncPage.locator(".error-box").count()) {
     throw new Error("Rate-limited sync surfaced as a global error instead of an inline Xero warning");
