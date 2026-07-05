@@ -105,6 +105,12 @@ async function runSmoke() {
     const lineCount = await page.locator(".recharts-line-curve").count();
     if (lineCount < 3) throw new Error(`Expected at least 3 rendered forecast lines, saw ${lineCount}`);
     await expectText(page.locator(".cash-floor-readout"), /£42,000/, "cash floor readout");
+    await page.getByText(/Connect Xero|Sync Xero|Xero setup needed/).first().waitFor();
+    const connectXeroLink = page.getByRole("link", { name: "Connect Xero" });
+    if ((await connectXeroLink.count()) > 0) {
+      const href = await connectXeroLink.first().getAttribute("href");
+      if (href !== `${backendUrl}/auth/login`) throw new Error(`Connect Xero link pointed to ${href}`);
+    }
     await page.getByText("Recent activity").waitFor();
 
     const dashboardText = await page.locator("body").innerText();

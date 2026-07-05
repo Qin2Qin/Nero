@@ -44,7 +44,8 @@ import {
   seedSyntheticPortfolio,
   selectXeroTenant,
   syncXero,
-  updateCashFloor
+  updateCashFloor,
+  XERO_LOGIN_URL
 } from "./api.js";
 
 const TABS = [
@@ -497,7 +498,7 @@ function XeroConnection({ status, source, tenants, syncResult, onSyncXero, onSee
           <Database size={16} /> Seed portfolio
         </button>
         {!status?.demo_mode && !status?.connected && status?.client_credentials_configured && (
-          <a className="button ghost btn btn-ghost btn-sm" href="/auth/login">
+          <a className="button ghost btn btn-ghost btn-sm" href={XERO_LOGIN_URL}>
             <ExternalLink size={16} /> Connect
           </a>
         )}
@@ -555,10 +556,57 @@ function DataSourceBanner({ source, xeroStatus }) {
   );
 }
 
+function LiveXeroControls({ status, tenants, busy, onSyncXero, onSelectTenant }) {
+  if (!status || status.demo_mode) return null;
+
+  if (!status.connected) {
+    if (!status.client_credentials_configured) {
+      return <span className="badge badge-error danger live-xero-badge">Xero setup needed</span>;
+    }
+    return (
+      <a className="button ghost btn btn-ghost btn-sm" href={XERO_LOGIN_URL}>
+        <ExternalLink size={16} /> Connect Xero
+      </a>
+    );
+  }
+
+  const tenantOptions = tenants?.tenants || [];
+  const selectedTenantId = tenants?.active_tenant_id || status.tenant_id || "";
+  const shouldPickTenant = status.needs_tenant || tenantOptions.length > 1;
+
+  return (
+    <>
+      {shouldPickTenant && (
+        <select
+          className="select select-bordered select-sm live-tenant-select"
+          value={selectedTenantId}
+          onChange={(event) => onSelectTenant(event.target.value)}
+          disabled={busy}
+          aria-label="Xero organisation"
+        >
+          <option value="" disabled>
+            Choose organisation
+          </option>
+          {tenantOptions.map((tenant) => (
+            <option key={tenant.tenant_id} value={tenant.tenant_id}>
+              {tenant.is_demo ? "Demo - " : ""}{tenant.tenant_name}
+            </option>
+          ))}
+        </select>
+      )}
+      <button className="button ghost btn btn-ghost btn-sm" type="button" onClick={onSyncXero} disabled={busy || status.needs_tenant}>
+        <RefreshCw size={16} /> Sync Xero
+      </button>
+    </>
+  );
+}
+
 function Dashboard({
   data,
   cashDisplay,
   onRunAgent,
+  onSyncXero,
+  onSelectTenant,
   onUpdateCashFloor,
   onReviewActions,
   onViewActivity,
@@ -620,9 +668,18 @@ function Dashboard({
           <p className="eyebrow">{businessName}</p>
           <h1>Nero</h1>
         </div>
-        <button className="button primary btn btn-primary btn-sm" onClick={onRunAgent} disabled={busy}>
-          <Play size={16} /> Run agent
-        </button>
+        <div className="topbar-actions">
+          <LiveXeroControls
+            status={data.xeroStatus}
+            tenants={data.xeroTenants}
+            busy={busy}
+            onSyncXero={onSyncXero}
+            onSelectTenant={onSelectTenant}
+          />
+          <button className="button primary btn btn-primary btn-sm" onClick={onRunAgent} disabled={busy}>
+            <Play size={16} /> Run agent
+          </button>
+        </div>
       </div>
 
       <DataSourceBanner source={data.dataSource} xeroStatus={data.xeroStatus} />
@@ -1204,6 +1261,8 @@ export function App() {
           cashDisplay={cashDisplay}
           busy={busy}
           onRunAgent={() => act(runAgent)}
+          onSyncXero={() => act(async () => setSyncResult(await syncXero()))}
+          onSelectTenant={(tenantId) => act(async () => setSyncResult(await selectXeroTenant(tenantId)))}
           onUpdateCashFloor={(cashFloor) => act(() => updateCashFloor(cashFloor))}
           onReviewActions={() => setActiveTab("queue")}
           onViewActivity={() => setActiveTab("activity")}

@@ -7,6 +7,8 @@ import actionLog from "../../fixtures/action_log.json";
 const API_BASE = import.meta.env.VITE_API_BASE || "";
 const USE_FIXTURES = import.meta.env.VITE_DEMO === "true";
 
+export const XERO_LOGIN_URL = `${API_BASE}/auth/login`;
+
 const localState = {
   contacts: structuredClone(contacts),
   invoices: structuredClone(invoices),
