@@ -24,6 +24,7 @@ def state_with_proposal(proposal_type: str = "reminder") -> dict:
                 "id": "proposal-1",
                 "type": proposal_type,
                 "contact_name": "City Limousines",
+                "contact_email": "accounts@citylimousines.example.com",
                 "invoice_id": "invoice-1" if proposal_type in {"reminder", "escalation"} else None,
                 "draft_subject": "Payment date needed: INV-0017",
                 "draft_body": "Please confirm the payment date.",
@@ -46,6 +47,8 @@ def test_approve_proposal_logs_plain_outbox_copy() -> None:
     assert result["log_entry"]["event"] == (
         "Approved a firmer payment reminder for City Limousines. The draft is waiting in Outbox."
     )
+    assert result["outbox_entry"]["to"] == "City Limousines"
+    assert result["outbox_entry"]["to_email"] == "accounts@citylimousines.example.com"
 
 
 def test_approve_recommendation_logs_plain_copy() -> None:

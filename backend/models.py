@@ -47,6 +47,7 @@ class Proposal(BaseModel):
     type: ProposalType
     contact_id: str
     contact_name: str
+    contact_email: Optional[str] = None
     invoice_id: Optional[str]
     reasoning_text: str
     draft_subject: Optional[str]
@@ -68,6 +69,7 @@ class OutboxEntry(BaseModel):
     id: str
     timestamp: str
     to: str
+    to_email: Optional[str] = None
     subject: str
     body: str
     invoice_id: Optional[str] = None

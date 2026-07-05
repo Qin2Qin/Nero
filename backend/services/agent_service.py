@@ -122,6 +122,7 @@ def run_agent_cycle(state: dict[str, Any], max_pending: int = 8, today: date | N
             "type": action_type,
             "contact_id": contact["id"],
             "contact_name": contact["name"],
+            "contact_email": invoice.get("contact_email") or contact.get("email"),
             "invoice_id": invoice["id"],
             "reasoning_text": _invoice_reasoning(contact, invoice, action_type, days),
             "draft_subject": subject,

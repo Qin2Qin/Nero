@@ -65,6 +65,14 @@ def _contact_name(invoice: dict) -> str:
     return str(contact.get("Name") or invoice.get("ContactName") or "Unknown customer")
 
 
+def _contact_email(invoice: dict) -> str | None:
+    contact = _contact(invoice)
+    email = contact.get("EmailAddress") or invoice.get("ContactEmail")
+    if not email:
+        return None
+    return str(email).strip() or None
+
+
 def _amount(value: object) -> int:
     return int(round(float(value or 0)))
 
@@ -98,6 +106,11 @@ def build_state_from_xero(
         for contact in contacts
         if contact.get("ContactID")
     }
+    known_emails = {
+        str(contact.get("ContactID")): str(contact.get("EmailAddress")).strip()
+        for contact in contacts
+        if contact.get("ContactID") and contact.get("EmailAddress")
+    }
 
     for invoice in invoices:
         invoice_id = str(invoice.get("InvoiceID") or "")
@@ -110,7 +123,10 @@ def build_state_from_xero(
             continue
         contact_id = _contact_id(invoice)
         contact_name = _contact_name(invoice)
+        contact_email = _contact_email(invoice) or known_emails.get(contact_id)
         known_contacts.setdefault(contact_id, contact_name)
+        if contact_email:
+            known_emails.setdefault(contact_id, contact_email)
 
         if status == "PAID":
             paid_at = _parse_xero_date(invoice.get("FullyPaidOnDate")) or max(paid_dates.get(invoice_id, []), default=None)
@@ -120,6 +136,7 @@ def build_state_from_xero(
                 {
                     "contact_id": contact_id,
                     "contact_name": contact_name,
+                    "contact_email": contact_email,
                     "issue_date": issue_date.isoformat(),
                     "due_date": due_date.isoformat(),
                     "payment_date": paid_at.isoformat(),
@@ -138,6 +155,7 @@ def build_state_from_xero(
                 "id": invoice_id,
                 "contact_id": contact_id,
                 "contact_name": contact_name,
+                "contact_email": contact_email,
                 "invoice_number": str(invoice.get("InvoiceNumber") or invoice_id[:8]),
                 "amount_due": amount_due,
                 "issue_date": issue_date.isoformat(),
@@ -156,6 +174,7 @@ def build_state_from_xero(
                 {
                     "id": invoice["contact_id"],
                     "name": known_contacts.get(invoice["contact_id"], invoice["contact_name"]),
+                    "email": known_emails.get(invoice["contact_id"]),
                     "revenue_12m": invoice["amount_due"],
                     "grade": "C (low data)",
                     "avg_days_late": 8,

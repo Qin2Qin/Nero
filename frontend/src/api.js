@@ -303,6 +303,7 @@ export async function approveProposal(id) {
       id: `outbox-${id}`,
       timestamp: nowIso(),
       to: proposal.contact_name,
+      to_email: proposal.contact_email || "",
       subject: proposal.draft_subject,
       body: proposal.draft_body,
       invoice_id: proposal.invoice_id,

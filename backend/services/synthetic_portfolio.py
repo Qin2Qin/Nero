@@ -96,6 +96,13 @@ def _round_money(value: float, nearest: int = 50) -> int:
     return int(round(value / nearest) * nearest)
 
 
+def _demo_email(customer: CustomerBlueprint) -> str:
+    slug = customer.name.lower().replace("&", "and")
+    slug = "".join(char if char.isalnum() else "." for char in slug)
+    slug = ".".join(part for part in slug.split(".") if part)
+    return f"accounts@{slug}.example.com"
+
+
 def _percentile(values: list[float], ratio: float) -> float:
     if not values:
         return 0.0
@@ -212,6 +219,7 @@ def _open_invoices(profile: DatasetProfile) -> list[dict[str, Any]]:
                     "id": f"synthetic-inv-{sequence}",
                     "contact_id": customer.id,
                     "contact_name": customer.name,
+                    "contact_email": _demo_email(customer),
                     "invoice_number": f"NFW-2026-{sequence}",
                     "amount_due": amount,
                     "issue_date": issue_date.isoformat(),

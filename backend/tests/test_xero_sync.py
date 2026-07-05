@@ -84,7 +84,7 @@ def test_sync_from_xero_explains_empty_organisation(monkeypatch, tmp_path: Path)
 
 
 def test_build_state_from_xero_materializes_dashboard_state() -> None:
-    contacts = [{"ContactID": "contact-1", "Name": "Demo Retail"}]
+    contacts = [{"ContactID": "contact-1", "Name": "Demo Retail", "EmailAddress": "accounts@demoretail.example.com"}]
     invoices = []
     for idx, days_late in enumerate([4, 7, 10]):
         invoices.append(
@@ -126,6 +126,7 @@ def test_build_state_from_xero_materializes_dashboard_state() -> None:
     assert state["data_source"]["label"] == "Xero: Demo Company (UK)"
     assert state["contacts"][0]["name"] == "Demo Retail"
     assert state["invoices"][0]["invoice_number"] == "OPEN-1"
+    assert state["invoices"][0]["contact_email"] == "accounts@demoretail.example.com"
     assert state["invoices"][0]["predicted_paid_date"] > state["invoices"][0]["due_date"]
     assert state["forecast"]["cash_floor"] == 5000
     assert any("Updated from Xero" in entry["event"] for entry in state["action_log"])

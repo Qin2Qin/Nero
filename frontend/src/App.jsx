@@ -370,7 +370,8 @@ function syncResultClass(result) {
 function mailtoDraftHref(entry) {
   const subject = encodeURIComponent(entry.subject || "");
   const body = encodeURIComponent(entry.body || "");
-  return `mailto:?subject=${subject}&body=${body}`;
+  const recipient = encodeURIComponent(entry.to_email || "");
+  return `mailto:${recipient}?subject=${subject}&body=${body}`;
 }
 
 function readinessBadge(status) {

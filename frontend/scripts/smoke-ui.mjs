@@ -202,8 +202,8 @@ async function runSmoke() {
     const outboxDraftLink = page.getByRole("link", { name: "Open draft" }).first();
     await outboxDraftLink.waitFor();
     const outboxDraftHref = await outboxDraftLink.getAttribute("href");
-    if (!outboxDraftHref?.startsWith("mailto:?subject=")) {
-      throw new Error(`Outbox draft link did not open a mail draft: ${outboxDraftHref}`);
+    if (!outboxDraftHref?.startsWith("mailto:") || outboxDraftHref.startsWith("mailto:?") || !outboxDraftHref.includes("?subject=")) {
+      throw new Error(`Outbox draft link did not open an addressed mail draft: ${outboxDraftHref}`);
     }
 
     await page.getByRole("button", { name: "Guide" }).click();
