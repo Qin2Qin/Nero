@@ -74,6 +74,29 @@ def test_run_agent_blocks_reconnect_required_xero_snapshot(monkeypatch) -> None:
     assert run_calls == []
 
 
+def test_run_agent_blocks_xero_snapshot_without_selected_tenant(monkeypatch) -> None:
+    state = stale_xero_state(tenant_id="tenant-1")
+    saved = []
+    run_calls = []
+    monkeypatch.setattr(actions, "get_state", lambda: state)
+    monkeypatch.setattr(actions, "save_state", lambda updated: saved.append(updated))
+    monkeypatch.setattr(
+        actions,
+        "get_connection_summary",
+        lambda: {"connected": True, "tenant_id": None, "expired": False, "needs_tenant": True},
+    )
+    monkeypatch.setattr(actions, "run_agent_cycle", lambda current_state, today: run_calls.append(today))
+
+    with pytest.raises(HTTPException) as exc:
+        actions.run_agent()
+
+    assert exc.value.status_code == 409
+    assert exc.value.detail == actions.SELECT_XERO_AGENT_DETAIL
+    assert state["proposals"][0]["status"] == "pending"
+    assert saved == []
+    assert run_calls == []
+
+
 def test_edit_and_dismiss_block_stale_xero_tenant_before_state_changes(monkeypatch) -> None:
     state = stale_xero_state()
     saved = []
@@ -112,6 +135,32 @@ def test_edit_and_dismiss_block_reconnect_required_xero_snapshot(monkeypatch) ->
     assert edit_exc.value.detail == actions.RECONNECT_XERO_ACTION_CHANGE_DETAIL
     assert dismiss_exc.value.status_code == 409
     assert dismiss_exc.value.detail == actions.RECONNECT_XERO_ACTION_CHANGE_DETAIL
+    assert state["proposals"][0]["draft_body"] == "Please pay."
+    assert state["proposals"][0]["status"] == "pending"
+    assert state["action_log"] == []
+    assert saved == []
+
+
+def test_edit_and_dismiss_block_xero_snapshot_without_selected_tenant(monkeypatch) -> None:
+    state = stale_xero_state(tenant_id="tenant-1")
+    saved = []
+    monkeypatch.setattr(actions, "get_state", lambda: state)
+    monkeypatch.setattr(actions, "save_state", lambda updated: saved.append(updated))
+    monkeypatch.setattr(
+        actions,
+        "get_connection_summary",
+        lambda: {"connected": True, "tenant_id": None, "expired": False, "needs_tenant": True},
+    )
+
+    with pytest.raises(HTTPException) as edit_exc:
+        actions.edit("proposal-1", actions.EditProposalRequest(draft_body="Changed draft."))
+    with pytest.raises(HTTPException) as dismiss_exc:
+        actions.dismiss("proposal-1")
+
+    assert edit_exc.value.status_code == 409
+    assert edit_exc.value.detail == actions.SELECT_XERO_ACTION_CHANGE_DETAIL
+    assert dismiss_exc.value.status_code == 409
+    assert dismiss_exc.value.detail == actions.SELECT_XERO_ACTION_CHANGE_DETAIL
     assert state["proposals"][0]["draft_body"] == "Please pay."
     assert state["proposals"][0]["status"] == "pending"
     assert state["action_log"] == []

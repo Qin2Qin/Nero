@@ -368,9 +368,10 @@ function xeroDashboardNeedsSync(source, status, tenants) {
 
 function xeroActionBlockReason(source, status, tenants) {
   if (source?.mode !== "xero") return "";
-  if (!status?.connected || xeroNeedsReconnect(status) || status?.needs_tenant) {
+  if (!status?.connected || xeroNeedsReconnect(status)) {
     return "Reconnect Xero before changing actions for this organisation.";
   }
+  if (status?.needs_tenant || !selectedXeroTenantId(status, tenants)) return "Select a Xero organisation before changing actions.";
   if (!xeroDashboardNeedsSync(source, status, tenants)) return "";
   return "Sync Xero before changing actions for this organisation.";
 }

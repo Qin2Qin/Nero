@@ -49,6 +49,9 @@ STALE_XERO_ACTION_CHANGE_DETAIL = "Sync Xero before changing actions for this or
 RECONNECT_XERO_APPROVAL_DETAIL = "Reconnect Xero before approving actions for this organisation."
 RECONNECT_XERO_AGENT_DETAIL = "Reconnect Xero before finding actions for this organisation."
 RECONNECT_XERO_ACTION_CHANGE_DETAIL = "Reconnect Xero before changing actions for this organisation."
+SELECT_XERO_APPROVAL_DETAIL = "Select a Xero organisation before approving actions."
+SELECT_XERO_AGENT_DETAIL = "Select a Xero organisation before finding actions."
+SELECT_XERO_ACTION_CHANGE_DETAIL = "Select a Xero organisation before changing actions."
 
 
 def ensure_demo_control_allowed(state: dict) -> None:
@@ -61,7 +64,7 @@ def ensure_synthetic_seed_allowed(state: dict) -> None:
         raise HTTPException(status_code=403, detail=SYNTHETIC_SEED_LIVE_DETAIL)
 
 
-def ensure_xero_action_allowed(state: dict, stale_detail: str, reconnect_detail: str) -> None:
+def ensure_xero_action_allowed(state: dict, stale_detail: str, reconnect_detail: str, select_detail: str) -> None:
     source = data_source(state)
     source_tenant_id = source.get("tenant_id")
     if source.get("mode") != "xero" or not source_tenant_id:
@@ -69,18 +72,20 @@ def ensure_xero_action_allowed(state: dict, stale_detail: str, reconnect_detail:
 
     status = get_connection_summary()
     active_tenant_id = status.get("tenant_id")
-    if not status.get("connected") or status.get("refresh_error") or status.get("expired") or not active_tenant_id:
+    if not status.get("connected") or status.get("refresh_error") or status.get("expired"):
         raise HTTPException(status_code=409, detail=reconnect_detail)
+    if status.get("needs_tenant") or not active_tenant_id:
+        raise HTTPException(status_code=409, detail=select_detail)
     if active_tenant_id and active_tenant_id != source_tenant_id:
         raise HTTPException(status_code=409, detail=stale_detail)
 
 
 def ensure_xero_approval_tenant_current(state: dict) -> None:
-    ensure_xero_action_allowed(state, STALE_XERO_APPROVAL_DETAIL, RECONNECT_XERO_APPROVAL_DETAIL)
+    ensure_xero_action_allowed(state, STALE_XERO_APPROVAL_DETAIL, RECONNECT_XERO_APPROVAL_DETAIL, SELECT_XERO_APPROVAL_DETAIL)
 
 
 def ensure_xero_action_change_allowed(state: dict) -> None:
-    ensure_xero_action_allowed(state, STALE_XERO_ACTION_CHANGE_DETAIL, RECONNECT_XERO_ACTION_CHANGE_DETAIL)
+    ensure_xero_action_allowed(state, STALE_XERO_ACTION_CHANGE_DETAIL, RECONNECT_XERO_ACTION_CHANGE_DETAIL, SELECT_XERO_ACTION_CHANGE_DETAIL)
 
 
 @router.post("/proposals/{proposal_id}/approve")
@@ -131,7 +136,7 @@ def edit(proposal_id: str, request: EditProposalRequest) -> dict:
 @router.post("/agent/run")
 def run_agent() -> dict:
     state = get_state()
-    ensure_xero_action_allowed(state, STALE_XERO_AGENT_DETAIL, RECONNECT_XERO_AGENT_DETAIL)
+    ensure_xero_action_allowed(state, STALE_XERO_AGENT_DETAIL, RECONNECT_XERO_AGENT_DETAIL, SELECT_XERO_AGENT_DETAIL)
     created = run_agent_cycle(state, today=state_today(state))
     save_state(state)
     return {"created": created, "pending_count": len([item for item in state["proposals"] if item["status"] == "pending"])}

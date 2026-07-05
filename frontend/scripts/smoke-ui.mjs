@@ -195,6 +195,58 @@ async function runSmoke() {
   }
   await reconnectPage.close();
 
+  const needsTenantPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await needsTenantPage.route("**/api/xero/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        connected: true,
+        expired: false,
+        needs_tenant: true,
+        tenant_id: null,
+        demo_mode: false,
+        client_credentials_configured: true
+      })
+    })
+  );
+  await needsTenantPage.route("**/api/xero/tenants", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        active_tenant_id: null,
+        tenants: [
+          { tenant_id: "demo-tenant", tenant_name: "Demo Coffee Ltd", is_active: false }
+        ]
+      })
+    })
+  );
+  await needsTenantPage.route("**/api/data_source", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        mode: "xero",
+        label: "Xero: Demo Coffee Ltd",
+        detail: "Synced from the selected Xero organisation.",
+        generated_at: "2026-07-05T03:00:00+00:00",
+        tenant_id: "demo-tenant"
+      })
+    })
+  );
+  await needsTenantPage.goto(frontendUrl, { waitUntil: "networkidle" });
+  await needsTenantPage.getByLabel("Xero organisation").waitFor();
+  const tenantBlockedFindActions = needsTenantPage.getByRole("button", { name: "Find actions" });
+  await tenantBlockedFindActions.waitFor();
+  if (!(await tenantBlockedFindActions.isDisabled())) {
+    throw new Error("Find actions stayed enabled before a Xero organisation was selected");
+  }
+  await needsTenantPage.getByRole("button", { name: "Actions", exact: true }).click();
+  await needsTenantPage.getByRole("heading", { name: "Actions to review" }).waitFor();
+  await needsTenantPage.getByText("Select a Xero organisation before changing actions.").waitFor();
+  await needsTenantPage.close();
+
   const tenantMismatchPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   await tenantMismatchPage.route("**/api/xero/status", (route) =>
     route.fulfill({
