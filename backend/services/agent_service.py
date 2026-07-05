@@ -20,6 +20,34 @@ def _impact_days(avg_days_late: float) -> int:
     return max(3, min(15, round(avg_days_late * 0.4)))
 
 
+def _payment_history_phrase(contact: dict[str, Any]) -> str:
+    invoice_count = int(contact.get("invoice_count") or 0)
+    if contact.get("low_confidence") or invoice_count < 3:
+        if invoice_count == 0:
+            return "Nero has limited paid-invoice history for this customer, so it is using the portfolio pattern while watching this invoice."
+        return (
+            f"Nero has only {invoice_count} paid {('invoice' if invoice_count == 1 else 'invoices')} for this customer, "
+            "so it is using a cautious estimate until more history comes in."
+        )
+
+    avg_days_late = round(float(contact.get("avg_days_late") or 0))
+    if avg_days_late < 0:
+        timing = f"{abs(avg_days_late)} days early"
+    elif avg_days_late == 0:
+        timing = "on time"
+    else:
+        timing = f"{avg_days_late} days late"
+    return f"{contact['name']} usually pays {timing} across {invoice_count} paid invoices."
+
+
+def _invoice_reasoning(contact: dict[str, Any], invoice: dict[str, Any], action_type: str, days: int) -> str:
+    action = "firmer reminder" if action_type == "escalation" else "payment reminder"
+    return (
+        f"{_payment_history_phrase(contact)} A {action} for {invoice['invoice_number']} could bring "
+        f"GBP {invoice['amount_due']:,} forward by about {days} days."
+    )
+
+
 def _email(
     contact_name: str,
     invoice: dict,
@@ -70,7 +98,7 @@ def run_agent_cycle(state: dict[str, Any], max_pending: int = 8, today: date | N
         days_to_predicted = (predicted - today).days
         grade = contact["grade"]
         action_type = None
-        if overdue_days > 10 and grade in {"D", "E"}:
+        if overdue_days > 20 or (overdue_days > 10 and grade in {"D", "E"}):
             action_type = "escalation"
         elif days_to_predicted <= 3 or overdue_days <= 10:
             action_type = "reminder"
@@ -96,11 +124,7 @@ def run_agent_cycle(state: dict[str, Any], max_pending: int = 8, today: date | N
             "contact_id": contact["id"],
             "contact_name": contact["name"],
             "invoice_id": invoice["id"],
-            "reasoning_text": (
-                f"{contact['name']} pays on average {round(contact['avg_days_late'])} days late "
-                f"across {contact['invoice_count']} paid invoices. A {tone} {action_type} for "
-                f"{invoice['invoice_number']} is expected to bring GBP {invoice['amount_due']:,} forward by about {days} days."
-            ),
+            "reasoning_text": _invoice_reasoning(contact, invoice, action_type, days),
             "draft_subject": subject,
             "draft_body": body,
             "recommendation_detail": None,
