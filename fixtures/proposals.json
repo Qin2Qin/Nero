@@ -4,6 +4,7 @@
     "type": "escalation",
     "contact_id": "44444444-4444-4444-8444-444444444444",
     "contact_name": "Stonepath",
+    "contact_email": "accounts@stonepath.example.com",
     "invoice_id": "inv-0007",
     "reasoning_text": "Stonepath pays on average 34 days late with high variance across 8 paid invoices, and INV-0007 is already 14 days overdue. A firm escalation asks for a payment date now and is expected to pull $800 forward by about 14 days.",
     "draft_subject": "Payment date needed for INV-0007",

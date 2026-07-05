@@ -204,6 +204,7 @@ def approve_proposal(state: dict[str, Any], proposal_id: str) -> dict[str, Any]:
             "id": str(uuid4()),
             "timestamp": utc_now(),
             "to": proposal["contact_name"],
+            "to_email": proposal.get("contact_email"),
             "subject": proposal["draft_subject"] or f"Invoice update for {proposal['contact_name']}",
             "body": proposal["draft_body"] or "",
             "invoice_id": proposal["invoice_id"],
