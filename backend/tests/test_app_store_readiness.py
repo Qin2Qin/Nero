@@ -13,7 +13,8 @@ from main import create_app
 from services.xero_auth import SCOPES
 
 
-def test_app_store_readiness_exposes_xero_certification_checklist() -> None:
+def test_app_store_readiness_exposes_xero_certification_checklist(monkeypatch) -> None:
+    monkeypatch.setenv("XERO_WEBHOOK_KEY", "")
     client = TestClient(create_app())
 
     response = client.get("/api/app_store/readiness")
@@ -45,10 +46,24 @@ def test_app_store_readiness_exposes_xero_certification_checklist() -> None:
     assert efficiency["status"] == "ready"
     assert "Retry-After" in efficiency["detail"]
     assert subscriptions["status"] == "todo"
+    assert "/webhooks/xero" in subscriptions["detail"]
+    assert "XERO_WEBHOOK_KEY" in subscriptions["detail"]
     assert listing["status"] == "ready"
     assert "xero-app-store-submission.md" in listing["detail"]
     assert support_security["status"] == "ready"
     assert "privacy" in support_security["detail"].lower()
+
+
+def test_app_store_readiness_marks_webhook_receiver_ready_when_key_configured(monkeypatch) -> None:
+    monkeypatch.setenv("XERO_WEBHOOK_KEY", "webhook-secret")
+    client = TestClient(create_app())
+
+    response = client.get("/api/app_store/readiness")
+
+    assert response.status_code == 200
+    subscriptions = next(item for item in response.json()["items"] if item["id"] == "subscriptions-webhooks")
+    assert subscriptions["status"] == "ready"
+    assert "Signed Xero webhook receiver is configured" in subscriptions["detail"]
 
 
 def test_app_store_submission_scopes_match_runtime_oauth_scopes() -> None:

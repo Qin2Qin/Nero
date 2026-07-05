@@ -29,6 +29,7 @@ Xero API usage:
 - `GET /Payments` via the Accounting API
 - `PUT /Invoices/{InvoiceID}/History` via the Accounting API for internal approval notes
 - OAuth connection and tenant discovery through Xero identity/connections endpoints
+- `POST /webhooks/xero` receives signed Xero webhook payloads and triggers a background sync after valid invoice/contact/subscription events
 
 OAuth scopes:
 
@@ -37,3 +38,7 @@ OAuth scopes:
 Advisor recommendation copy:
 
 Recommend Nero to clients who have recurring late invoices, high-value repeat customers, or cash-flow uncertainty. Nero turns Xero invoice and payment history into clear cash timing, payer behaviour, and reviewable follow-up actions. Customer emails are never sent automatically; approved actions are logged back to the invoice history inside Xero.
+
+Webhook/subscription note:
+
+The backend includes a signed Xero webhook receiver at `/webhooks/xero`. Production App Store launch still requires setting `XERO_WEBHOOK_KEY`, serving the route over HTTPS, and configuring the webhook/subscription categories in Xero Developer Centre.

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from config import get_settings
 from services.xero_auth import SCOPES, get_connection_summary
 
 
@@ -19,6 +20,7 @@ def app_store_readiness() -> dict:
     configured = bool(summary["client_credentials_configured"])
     connected = bool(summary["connected"])
     demo_mode = bool(summary["demo_mode"])
+    webhook_key_configured = bool(get_settings().xero_webhook_key)
     listing_ready = LISTING_DOC.exists()
     support_security_ready = SUPPORT_DOC.exists() and PRIVACY_SECURITY_DOC.exists()
 
@@ -64,8 +66,10 @@ def app_store_readiness() -> dict:
         {
             "id": "subscriptions-webhooks",
             "label": "Subscriptions and webhooks",
-            "status": "todo",
-            "detail": "Needed for a certified App Store launch, but out of scope for this hackathon MVP.",
+            "status": "ready" if webhook_key_configured else "todo",
+            "detail": "Signed Xero webhook receiver is configured; finish App Store subscription setup in Xero Developer Centre."
+            if webhook_key_configured
+            else "Signed receiver exists at /webhooks/xero; add XERO_WEBHOOK_KEY and configure the HTTPS webhook/subscription in Xero Developer Centre.",
         },
         {
             "id": "support-security",

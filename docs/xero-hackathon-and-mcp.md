@@ -41,6 +41,10 @@ Approval-gated Xero write-back:
 
 - `PUT /Invoices/{invoice_id}/History`
 
+Xero-triggered local receiver:
+
+- `POST /webhooks/xero`
+
 The current MVP keeps customer-facing emails in a sandbox Outbox. That is deliberate for the demo: the judge can see the proposed action, and the app writes a non-customer-facing invoice history note back to Xero only after human approval.
 
 ## OAuth Scopes
@@ -77,11 +81,12 @@ For a hackathon MVP, Nero can credibly claim:
 - Contacts, invoices, and payments are read from Xero and stored locally.
 - Approved reminder/escalation actions can write internal invoice history notes back to Xero.
 - Sync is paged and retry-aware.
+- `/webhooks/xero` validates Xero's `x-xero-signature` header and can trigger a background sync for signed event payloads once `XERO_WEBHOOK_KEY` is configured.
 - Support, privacy, security, and listing notes exist in `docs/`.
 
 Post-MVP items:
 
 - App Store subscriptions.
-- Production webhooks.
+- Xero Developer Centre webhook/subscription configuration on the final HTTPS deployment URL.
 - Full marketplace screenshots and pricing.
 - Payment-link or payment-creation workflows after a separate demo safety review.

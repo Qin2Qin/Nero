@@ -8,6 +8,7 @@ from routers.actions import router as actions_router
 from routers.auth import router as auth_router
 from routers.data import router as data_router
 from routers.research import router as research_router
+from routers.webhooks import router as webhooks_router
 
 
 def create_app() -> FastAPI:
@@ -24,6 +25,7 @@ def create_app() -> FastAPI:
     app.include_router(actions_router)
     app.include_router(research_router)
     app.include_router(auth_router)
+    app.include_router(webhooks_router)
 
     @app.get("/health")
     def health() -> dict:
