@@ -6,7 +6,15 @@ from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
+def _root_dir() -> Path:
+    module_dir = Path(__file__).resolve().parent
+    repo_dir = module_dir.parent
+    if (repo_dir / "frontend").exists() or (repo_dir / ".git").exists():
+        return repo_dir
+    return module_dir
+
+
+ROOT_DIR = _root_dir()
 FIXTURES_DIR = ROOT_DIR / "fixtures"
 PROMPTS_DIR = ROOT_DIR / "prompts"
 

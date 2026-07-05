@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
 
-from config import get_settings
+from config import FIXTURES_DIR, PROMPTS_DIR, ROOT_DIR, get_settings
 
 
 def test_frontend_origins_include_localhost_and_loopback(monkeypatch) -> None:
@@ -53,3 +53,9 @@ def test_empty_database_path_uses_runtime_default(monkeypatch) -> None:
     monkeypatch.setenv("NERO_DB_PATH", "")
 
     assert get_settings().database_path == Path("/tmp/nero.db")
+
+
+def test_backend_runtime_assets_are_available() -> None:
+    assert ROOT_DIR.exists()
+    assert (FIXTURES_DIR / "forecast.json").exists()
+    assert (PROMPTS_DIR / "drafting.md").exists()
