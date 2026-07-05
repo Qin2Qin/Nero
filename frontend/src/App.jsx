@@ -158,11 +158,24 @@ function trendText(slope) {
   return "and that's been steady";
 }
 
+function paymentTimingText(daysLate) {
+  const rounded = Math.round(Number(daysLate || 0));
+  if (rounded < 0) {
+    const days = Math.abs(rounded);
+    return `${days} ${plural(days, "day")} early`;
+  }
+  if (rounded === 0) return "on time";
+  return `${rounded} ${plural(rounded, "day")} late`;
+}
+
 function payerTimingSentence(contact) {
   const invoiceCount = Number(contact.invoice_count || 0);
-  const avgLate = Math.max(0, Math.round(Number(contact.avg_days_late || 0)));
   const unpredictable = Number(contact.stdev_days_late || 0) >= 10 ? ", though timing can be unpredictable" : "";
-  return `Based on ${invoiceCount} paid ${plural(invoiceCount, "invoice")}, ${contact.name} pays on average ${avgLate} ${plural(avgLate, "day")} late${unpredictable}, ${trendText(contact.trend_slope)}.`;
+  const timing = paymentTimingText(contact.avg_days_late);
+  if (contact.low_confidence || invoiceCount < 3) {
+    return `Based on ${invoiceCount} paid ${plural(invoiceCount, "invoice")}, Nero estimates ${contact.name} will pay ${timing} until more payment history comes in${unpredictable}, ${trendText(contact.trend_slope)}.`;
+  }
+  return `Based on ${invoiceCount} paid ${plural(invoiceCount, "invoice")}, ${contact.name} pays on average ${timing}${unpredictable}, ${trendText(contact.trend_slope)}.`;
 }
 
 function compareSortValues(a, b) {
@@ -932,7 +945,7 @@ function Payers({ contacts, invoices = [] }) {
                   <td>{contact.name}</td>
                   <td><span className={gradeClass(contact.grade)}>{contact.grade}</span></td>
                   <td className="right exposure-cell">{formatCurrency(contact.exposure)}</td>
-                  <td className="right">{Math.max(0, Math.round(Number(contact.avg_days_late || 0)))} days late</td>
+                  <td className="right">{paymentTimingText(contact.avg_days_late)}</td>
                   <td><TrendCell slope={contact.trend_slope} /></td>
                   <td className="right">{contact.invoice_count}</td>
                 </tr>
