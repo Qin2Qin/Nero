@@ -199,6 +199,8 @@ async function runSmoke() {
     await page.getByRole("button", { name: "Outbox" }).click();
     await page.getByRole("heading", { name: "Outbox" }).waitFor();
     await page.getByText(/Foundry Lane Events|Juniper Borough Services|Alder House Retail|Canal House Workspace/).first().waitFor();
+    await expectText(page.locator(".recipient-email").first(), /^accounts@.+\.example\.com$/i, "outbox recipient email");
+    await page.getByRole("button", { name: "Copy" }).first().waitFor();
     const outboxDraftLink = page.getByRole("link", { name: "Open draft" }).first();
     await outboxDraftLink.waitFor();
     const outboxDraftHref = await outboxDraftLink.getAttribute("href");
