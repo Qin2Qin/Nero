@@ -14,7 +14,14 @@ const localState = {
   proposals: structuredClone(proposals),
   action_log: structuredClone(actionLog),
   outbox: [],
-  metrics: { cash_accelerated_dollars: 0, avg_days_accelerated: 0 },
+  metrics: {
+    cash_accelerated_dollars: 0,
+    avg_days_accelerated: 0,
+    approved_actions_count: 0,
+    pending_impact_dollars: 0,
+    pending_avg_days_accelerated: 0,
+    pending_actions_count: 0
+  },
   research: { generated_at: null, sources: {}, files: [] },
   settings: { cash_floor: forecast.cash_floor },
   dataSource: {
@@ -118,16 +125,30 @@ function buildLocalForecast() {
   };
 }
 
-function recomputeLocalMetrics() {
-  const approved = localState.proposals.filter((proposal) => proposal.status === "approved");
-  const dollars = approved.reduce((sum, proposal) => sum + proposal.expected_impact_dollars, 0);
-  const weightedDays = approved.reduce(
+function proposalRollup(status) {
+  const proposalsForStatus = localState.proposals.filter((proposal) => proposal.status === status);
+  const dollars = proposalsForStatus.reduce((sum, proposal) => sum + proposal.expected_impact_dollars, 0);
+  const weightedDays = proposalsForStatus.reduce(
     (sum, proposal) => sum + proposal.expected_impact_dollars * proposal.expected_days_accelerated,
     0
   );
-  localState.metrics = {
-    cash_accelerated_dollars: dollars,
+  return {
+    actions_count: proposalsForStatus.length,
+    impact_dollars: dollars,
     avg_days_accelerated: dollars ? Math.round((weightedDays / dollars) * 10) / 10 : 0
+  };
+}
+
+function recomputeLocalMetrics() {
+  const approved = proposalRollup("approved");
+  const pending = proposalRollup("pending");
+  localState.metrics = {
+    cash_accelerated_dollars: approved.impact_dollars,
+    avg_days_accelerated: approved.avg_days_accelerated,
+    approved_actions_count: approved.actions_count,
+    pending_impact_dollars: pending.impact_dollars,
+    pending_avg_days_accelerated: pending.avg_days_accelerated,
+    pending_actions_count: pending.actions_count
   };
 }
 

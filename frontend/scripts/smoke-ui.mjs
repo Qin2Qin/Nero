@@ -111,6 +111,15 @@ async function runSmoke() {
     if (/Mark paid|Action Log|Open exposure|Variance|Seed portfolio/.test(dashboardText)) {
       throw new Error(`Demo-only or jargon text leaked onto dashboard:\n${dashboardText}`);
     }
+    await expectText(
+      page.locator(".roi-strip"),
+      /Review \d+ suggested actions to bring £[\d,]+ forward about \d+ days sooner\. Nothing is sent without your OK\./,
+      "pending cash summary"
+    );
+    await page.getByRole("button", { name: /Open queue/ }).click();
+    await page.getByRole("heading", { name: "Agent Queue" }).waitFor();
+    await page.getByRole("button", { name: "Dashboard" }).click();
+    await page.getByRole("heading", { name: "Nero" }).waitFor();
 
     await page.getByRole("button", { name: "Payers" }).click();
     await page.getByRole("heading", { name: "Payment performance" }).waitFor();

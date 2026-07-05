@@ -84,19 +84,33 @@ def append_log(state: dict[str, Any], actor: str, event: str) -> dict:
     return entry
 
 
-def compute_metrics(state: dict[str, Any]) -> dict[str, float]:
-    approved = [proposal for proposal in state["proposals"] if proposal["status"] == "approved"]
-    dollars = sum(int(proposal["expected_impact_dollars"]) for proposal in approved)
+def _proposal_rollup(state: dict[str, Any], status: str) -> dict[str, int | float]:
+    proposals = [proposal for proposal in state["proposals"] if proposal["status"] == status]
+    dollars = sum(int(proposal["expected_impact_dollars"]) for proposal in proposals)
     if dollars == 0:
         avg_days = 0.0
     else:
         avg_days = sum(
             int(proposal["expected_impact_dollars"]) * int(proposal["expected_days_accelerated"])
-            for proposal in approved
+            for proposal in proposals
         ) / dollars
     return {
-        "cash_accelerated_dollars": dollars,
+        "actions_count": len(proposals),
+        "impact_dollars": dollars,
         "avg_days_accelerated": round(avg_days, 1),
+    }
+
+
+def compute_metrics(state: dict[str, Any]) -> dict[str, int | float]:
+    approved = _proposal_rollup(state, "approved")
+    pending = _proposal_rollup(state, "pending")
+    return {
+        "cash_accelerated_dollars": approved["impact_dollars"],
+        "avg_days_accelerated": approved["avg_days_accelerated"],
+        "approved_actions_count": approved["actions_count"],
+        "pending_impact_dollars": pending["impact_dollars"],
+        "pending_avg_days_accelerated": pending["avg_days_accelerated"],
+        "pending_actions_count": pending["actions_count"],
     }
 
 

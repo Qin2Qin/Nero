@@ -349,6 +349,15 @@ function CashFloorControl({ value, forecast, onUpdateCashFloor, busy }) {
 function ForecastChart({ forecast }) {
   const buckets = forecast?.buckets?.filter((bucket) => bucket.week_start !== "later") || [];
   if (!buckets.length) return <div className="empty">No forecast data</div>;
+  const chartColors = {
+    grid: "rgba(255,255,255,0.08)",
+    tick: "#cbd5e1",
+    due: "#94a3b8",
+    predicted: "#818cf8",
+    accelerated: "#34d399",
+    floor: "#fb7185",
+    area: "#818cf8"
+  };
 
   const data = buckets.map((bucket) => ({
     week: formatWeekLabel(bucket.week_start),
@@ -363,11 +372,11 @@ function ForecastChart({ forecast }) {
       <div className="chart-renderer" role="img" aria-label="Cash forecast">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data} margin={{ top: 14, right: 16, bottom: 8, left: 8 }}>
-            <CartesianGrid stroke="#eaeef2" vertical={false} />
-            <XAxis dataKey="week" tick={{ fill: "#59636e", fontSize: 12 }} tickLine={false} axisLine={false} />
+            <CartesianGrid stroke={chartColors.grid} vertical={false} />
+            <XAxis dataKey="week" tick={{ fill: chartColors.tick, fontSize: 12 }} tickLine={false} axisLine={false} />
             <YAxis
               tickFormatter={compactMoney}
-              tick={{ fill: "#59636e", fontSize: 12 }}
+              tick={{ fill: chartColors.tick, fontSize: 12 }}
               tickLine={false}
               axisLine={false}
               width={54}
@@ -376,54 +385,59 @@ function ForecastChart({ forecast }) {
               formatter={(value) => formatCurrency(value)}
               labelFormatter={(label) => `Week of ${label}`}
               contentStyle={{
-                border: "1px solid #d0d7de",
-                borderRadius: 6,
-                boxShadow: "0 8px 24px rgba(140, 149, 159, 0.2)"
+                background: "rgba(15, 23, 42, 0.96)",
+                border: "1px solid rgba(255,255,255,0.16)",
+                borderRadius: 12,
+                color: "#f8fafc",
+                boxShadow: "0 18px 44px rgba(0,0,0,0.32)"
               }}
             />
-            <Legend wrapperStyle={{ color: "#59636e", fontSize: 13 }} />
+            <Legend wrapperStyle={{ color: chartColors.tick, fontSize: 13 }} />
             <ReferenceLine
               y={forecast.cash_floor}
-              stroke="#cf222e"
+              stroke={chartColors.floor}
               strokeDasharray="4 5"
-              label={{ value: `Cash floor ${compactMoney(forecast.cash_floor)}`, fill: "#cf222e", fontSize: 12 }}
+              label={{ value: `Cash floor ${compactMoney(forecast.cash_floor)}`, fill: chartColors.floor, fontSize: 12 }}
             />
             <Area
               name="Due envelope"
               type="monotone"
               dataKey="due"
-              fill="#ddf4ff"
-              fillOpacity={0.45}
-              stroke="#59636e"
+              fill={chartColors.area}
+              fillOpacity={0.12}
+              stroke={chartColors.due}
               strokeOpacity={0}
               activeDot={false}
               legendType="none"
             />
             <Line
+              className="forecast-line due-line"
               name="By due dates"
               type="monotone"
               dataKey="due"
-              stroke="#6e7781"
+              stroke={chartColors.due}
               strokeWidth={2.5}
               strokeDasharray="7 6"
               dot={false}
             />
             <Line
+              className="forecast-line predicted-line"
               name="Predicted (Nero)"
               type="monotone"
               dataKey="predicted"
-              stroke="#0969da"
+              stroke={chartColors.predicted}
               strokeWidth={2.8}
-              dot={{ r: 3, fill: "#0969da", strokeWidth: 0 }}
+              dot={{ r: 3, fill: chartColors.predicted, strokeWidth: 0 }}
               activeDot={{ r: 5 }}
             />
             <Line
+              className="forecast-line accelerated-line"
               name="After Nero actions"
               type="monotone"
               dataKey="accelerated"
-              stroke="#1a7f37"
+              stroke={chartColors.accelerated}
               strokeWidth={2.8}
-              dot={{ r: 3, fill: "#1a7f37", strokeWidth: 0 }}
+              dot={{ r: 3, fill: chartColors.accelerated, strokeWidth: 0 }}
               activeDot={{ r: 5 }}
             />
           </ComposedChart>
@@ -529,11 +543,14 @@ function DataSourceBanner({ source, xeroStatus }) {
     : "Cash timing and payer behaviour from your accounting data.";
   return (
     <section className="source-banner">
-      <div>
+      <div className="source-copy">
         <strong>{businessNameFor(source)}</strong>
         <p>{detail}</p>
+        {liveConnected && <span className="badge badge-success success">Xero connected</span>}
       </div>
-      {liveConnected && <span className="badge badge-success success">Xero connected</span>}
+      <figure className="source-visual-frame">
+        <img src="/visuals/nero-cashflow-preview.png" alt="Nero cash forecast board preview" />
+      </figure>
     </section>
   );
 }
@@ -543,6 +560,7 @@ function Dashboard({
   cashDisplay,
   onRunAgent,
   onUpdateCashFloor,
+  onReviewActions,
   onViewActivity,
   syncResult,
   busy
@@ -558,6 +576,31 @@ function Dashboard({
     .reduce((sum, invoice) => sum + invoice.amount_due, 0);
   const warningBuckets = data.forecast.buckets.filter((bucket) => bucket.cumulative_predicted < data.forecast.cash_floor);
   const firstWarning = warningBuckets.find((bucket) => bucket.week_start !== "later");
+  const pendingProposals = data.proposals.filter((proposal) => proposal.status === "pending");
+  const pendingActions = Number(data.metrics?.pending_actions_count ?? pendingProposals.length);
+  const pendingImpactFallback = pendingProposals.reduce(
+    (sum, proposal) => sum + Number(proposal.expected_impact_dollars || 0),
+    0
+  );
+  const pendingWeightedDays = pendingProposals.reduce(
+    (sum, proposal) =>
+      sum + Number(proposal.expected_impact_dollars || 0) * Number(proposal.expected_days_accelerated || 0),
+    0
+  );
+  const pendingAverageFallback = pendingImpactFallback ? pendingWeightedDays / pendingImpactFallback : 0;
+  const pendingImpact = Number(data.metrics?.pending_impact_dollars ?? pendingImpactFallback);
+  const pendingAverageDays = Math.round(Number(data.metrics?.pending_avg_days_accelerated ?? pendingAverageFallback));
+  const pendingDaysPhrase =
+    pendingAverageDays > 0 ? ` about ${pendingAverageDays} ${plural(pendingAverageDays, "day")} sooner` : " sooner";
+  const pendingValueText =
+    pendingImpact > 0
+      ? `${formatCurrency(pendingImpact)} waiting for review`
+      : "No suggested cash actions waiting";
+  const pendingSummary =
+    pendingImpact > 0 && pendingActions > 0
+      ? `Review ${pendingActions} suggested ${plural(pendingActions, "action")} to bring ${formatCurrency(pendingImpact)} forward${pendingDaysPhrase}. Nothing is sent without your OK.`
+      : "Run the agent when new invoices arrive, then review each suggestion before anything is sent.";
+  const openInvoiceCount = data.invoices.length;
   const sortedInvoices = useMemo(
     () =>
       sortRows(data.invoices, invoiceSort, {
@@ -584,6 +627,21 @@ function Dashboard({
 
       <DataSourceBanner source={data.dataSource} xeroStatus={data.xeroStatus} />
 
+      <section className="command-strip" aria-label="Cash control summary">
+        <div>
+          <span>Live cash room</span>
+          <strong>{openInvoiceCount} invoices under watch</strong>
+        </div>
+        <div>
+          <span>Agent queue</span>
+          <strong>{pendingActions} suggested actions</strong>
+        </div>
+        <div>
+          <span>Forecast floor</span>
+          <strong>{formatCurrency(data.settings?.cash_floor ?? data.forecast.cash_floor)}</strong>
+        </div>
+      </section>
+
       <section className="metrics">
         <article>
           <span>Due next 30 days</span>
@@ -597,6 +655,17 @@ function Dashboard({
           <span>Cash Accelerated</span>
           <strong>{formatCurrency(cashDisplay)}</strong>
         </article>
+      </section>
+
+      <section className={pendingImpact > 0 ? "roi-strip" : "roi-strip quiet"} aria-label="Cash action summary">
+        <div>
+          <span>Cash to bring forward</span>
+          <strong>{pendingValueText}</strong>
+          <p>{pendingSummary}</p>
+        </div>
+        <button className="button ghost btn btn-ghost btn-sm" type="button" onClick={onReviewActions}>
+          <Bot size={16} /> Open queue
+        </button>
       </section>
 
       <section className="split">
@@ -810,7 +879,6 @@ function Payers({ contacts, invoices = [] }) {
               <h2>{selected.name}</h2>
               <span className={gradeClass(selected.grade)}>{selected.grade}</span>
             </div>
-            <p>{selected.explanation}</p>
             <dl className="stats-list">
               <div><dt>What they currently owe you</dt><dd>{formatCurrency(selected.exposure)}</dd></div>
               <div><dt>How much business you've done with them (past year)</dt><dd>{formatCurrency(selected.revenue_12m)}</dd></div>
@@ -1137,6 +1205,7 @@ export function App() {
           busy={busy}
           onRunAgent={() => act(runAgent)}
           onUpdateCashFloor={(cashFloor) => act(() => updateCashFloor(cashFloor))}
+          onReviewActions={() => setActiveTab("queue")}
           onViewActivity={() => setActiveTab("activity")}
           syncResult={syncResult}
         />
