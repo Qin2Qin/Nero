@@ -3,6 +3,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+from fastapi import HTTPException
+
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
@@ -10,7 +13,10 @@ sys.path.insert(0, str(ROOT / "backend"))
 import routers.actions as actions
 
 
-def approval_state() -> dict:
+def approval_state(tenant_id: str | None = None) -> dict:
+    source = {"mode": "xero"}
+    if tenant_id:
+        source["tenant_id"] = tenant_id
     return {
         "contacts": [],
         "invoices": [
@@ -36,7 +42,7 @@ def approval_state() -> dict:
         ],
         "action_log": [],
         "outbox": [],
-        "data_source": {"mode": "xero"},
+        "data_source": source,
     }
 
 
@@ -70,3 +76,37 @@ def test_approve_route_keeps_approval_when_xero_history_writeback_fails(monkeypa
     assert result["proposal"]["status"] == "approved"
     assert result["xero_writeback"] == {"status": "failed", "reason": "xero_rejected_note"}
     assert any("Approval saved, but the internal Xero note could not be added" in entry["event"] for entry in state["action_log"])
+
+
+def test_approve_route_blocks_stale_xero_tenant_before_state_changes(monkeypatch) -> None:
+    state = approval_state(tenant_id="old-tenant")
+    saved = []
+    writeback_calls = []
+    monkeypatch.setattr(actions, "get_state", lambda: state)
+    monkeypatch.setattr(actions, "save_state", lambda updated: saved.append(updated))
+    monkeypatch.setattr(actions, "get_token_status", lambda: {"connected": True, "tenant_id": "new-tenant"})
+    monkeypatch.setattr(actions, "write_invoice_history_note", lambda current_state, proposal: writeback_calls.append(proposal))
+
+    with pytest.raises(HTTPException) as exc:
+        actions.approve("proposal-1")
+
+    assert exc.value.status_code == 409
+    assert exc.value.detail == actions.STALE_XERO_APPROVAL_DETAIL
+    assert state["proposals"][0]["status"] == "pending"
+    assert state["outbox"] == []
+    assert state["action_log"] == []
+    assert saved == []
+    assert writeback_calls == []
+
+
+def test_approve_route_allows_matching_xero_tenant(monkeypatch) -> None:
+    state = approval_state(tenant_id="tenant-1")
+    monkeypatch.setattr(actions, "get_state", lambda: state)
+    monkeypatch.setattr(actions, "save_state", lambda updated: None)
+    monkeypatch.setattr(actions, "get_token_status", lambda: {"connected": True, "tenant_id": "tenant-1"})
+    monkeypatch.setattr(actions, "write_invoice_history_note", lambda current_state, proposal: {"status": "skipped", "reason": "not_applicable"})
+
+    result = actions.approve("proposal-1")
+
+    assert result["proposal"]["status"] == "approved"
+    assert state["outbox"][0]["proposal_id"] == "proposal-1"

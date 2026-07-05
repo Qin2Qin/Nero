@@ -43,6 +43,7 @@ class XeroTenantPatch(BaseModel):
 
 DEMO_ONLY_LIVE_DETAIL = "Demo-only controls are disabled while this dashboard is using live Xero data."
 SYNTHETIC_SEED_LIVE_DETAIL = "Synthetic seeding is disabled while this dashboard already contains live Xero data."
+STALE_XERO_APPROVAL_DETAIL = "Sync Xero before approving actions for this organisation."
 
 
 def ensure_demo_control_allowed(state: dict) -> None:
@@ -55,9 +56,21 @@ def ensure_synthetic_seed_allowed(state: dict) -> None:
         raise HTTPException(status_code=403, detail=SYNTHETIC_SEED_LIVE_DETAIL)
 
 
+def ensure_xero_approval_tenant_current(state: dict) -> None:
+    source = data_source(state)
+    source_tenant_id = source.get("tenant_id")
+    if source.get("mode") != "xero" or not source_tenant_id:
+        return
+
+    active_tenant_id = get_token_status().get("tenant_id")
+    if active_tenant_id and active_tenant_id != source_tenant_id:
+        raise HTTPException(status_code=409, detail=STALE_XERO_APPROVAL_DETAIL)
+
+
 @router.post("/proposals/{proposal_id}/approve")
 def approve(proposal_id: str) -> dict:
     state = get_state()
+    ensure_xero_approval_tenant_current(state)
     try:
         result = approve_proposal(state, proposal_id)
     except KeyError as exc:
