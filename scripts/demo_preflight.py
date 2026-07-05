@@ -78,6 +78,7 @@ def evaluate_preflight(
     payloads: dict[str, Any],
     *,
     max_age_minutes: int = 120,
+    strict_app_store: bool = False,
     now: datetime | None = None,
 ) -> tuple[int, list[str]]:
     now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
@@ -174,6 +175,16 @@ def evaluate_preflight(
     ready_count = int(readiness.get("ready_count") or 0)
     total_count = int(readiness.get("total_count") or 0)
     lines.append(f"INFO app store readiness: {ready_count}/{total_count} checks ready")
+    incomplete_readiness = [
+        item
+        for item in readiness.get("items", [])
+        if item.get("status") not in {"ready", "demo"}
+    ]
+    if incomplete_readiness:
+        labels = ", ".join(f"{item.get('label', item.get('id', 'unknown'))}={item.get('status')}" for item in incomplete_readiness)
+        lines.append(f"INFO app store incomplete: {labels}")
+        if strict_app_store:
+            fail(failures, lines, "app store", "complete production webhook/subscription setup before certification")
 
     if failures:
         lines.append("result=failed")
@@ -220,12 +231,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--sync", action="store_true", help="Run POST /api/sync before evaluating demo readiness.")
     parser.add_argument("--timeout", type=float, default=10.0, help="HTTP timeout in seconds.")
     parser.add_argument("--max-age-minutes", type=int, default=120, help="Maximum acceptable Xero snapshot age.")
+    parser.add_argument("--strict-app-store", action="store_true", help="Fail if any App Store readiness item is not ready.")
     args = parser.parse_args(argv)
 
     try:
         frontend_url = None if args.skip_frontend else args.frontend_url
         payloads = collect_payloads(args.base_url, sync=args.sync, timeout=args.timeout, frontend_url=frontend_url)
-        exit_code, lines = evaluate_preflight(payloads, max_age_minutes=args.max_age_minutes)
+        exit_code, lines = evaluate_preflight(
+            payloads,
+            max_age_minutes=args.max_age_minutes,
+            strict_app_store=args.strict_app_store,
+        )
     except RuntimeError as error:
         print("Nero live demo preflight")
         print(f"FAIL request: {error}")

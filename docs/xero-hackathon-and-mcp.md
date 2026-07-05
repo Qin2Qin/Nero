@@ -44,11 +44,11 @@ The short presentation flow lives in `docs/demo-script.md`.
 Backend OAuth and tenant management:
 
 - `GET /auth/login` starts Xero OAuth.
-- `GET /auth/callback` exchanges the OAuth code, stores token metadata in SQLite, and redirects back to Nero with plain connected or recovery copy.
+- `GET /auth/callback` validates the per-login OAuth state, exchanges the OAuth code, stores token metadata in SQLite, and redirects back to Nero with plain connected or recovery copy.
 - `DELETE /auth/connection` removes locally stored OAuth tokens so a user can disconnect this device before reconnecting.
 - `GET /api/xero/status` reports connection health without printing secrets.
 - `GET /api/xero/tenants` lists authorised organisations.
-- `POST /api/xero/tenant` selects the active organisation.
+- `POST /api/xero/tenant` selects the active organisation; single-organisation connections auto-select, while multi-organisation connections require explicit selection before sync.
 
 Accounting API calls used by live sync:
 
@@ -109,12 +109,13 @@ For a hackathon MVP, Nero can credibly claim:
 - Contacts, invoices, and payments are read from Xero and stored locally.
 - Approved reminder/escalation actions can write internal invoice history notes back to Xero.
 - Sync is paged and retry-aware.
-- `/webhooks/xero` validates Xero's `x-xero-signature` header and can trigger a background sync for signed event payloads once `XERO_WEBHOOK_KEY` is configured.
+- `/webhooks/xero` validates Xero's `x-xero-signature` header and can trigger a background sync for the currently selected tenant once `XERO_WEBHOOK_KEY` and production subscription routing are configured.
 - Support, privacy, security, and listing notes exist in `docs/`.
 
 Post-MVP items:
 
 - Xero Developer Centre App Store subscription/webhook configuration on the final HTTPS deployment URL.
 - Set `XERO_APP_STORE_SUBSCRIPTIONS_CONFIGURED=true` only after the external Developer Centre setup is confirmed; the local readiness checklist treats webhook receiver code and App Store subscription setup as separate signals.
+- Production token hardening: the hackathon build stores one local OAuth token set in SQLite for the demo device; production should use encrypted, per-user and per-tenant token storage with tenant-scoped raw accounting tables.
 - Full marketplace screenshots and pricing.
 - Payment-link or payment-creation workflows after a separate demo safety review.

@@ -32,10 +32,7 @@ def _summarize_connection(connection: dict, active_tenant_id: str | None = None)
 def _preferred_tenant_id(connections: list[dict], explicit_tenant_id: str = "") -> str | None:
     if explicit_tenant_id:
         return explicit_tenant_id
-    demo = next((item for item in connections if "demo" in str(item.get("tenantName", "")).lower()), None)
-    if demo:
-        return demo.get("tenantId")
-    if connections:
+    if len(connections) == 1:
         return connections[0].get("tenantId")
     return None
 
@@ -141,7 +138,7 @@ def get_connection_summary(conn: sqlite3.Connection | None = None) -> dict:
     status = get_token_status(conn)
     if status.get("connected") and _token_refresh_due(status.get("expires_at")):
         try:
-            get_valid_access(conn)
+            get_valid_access(conn, require_tenant=False)
             status = get_token_status(conn)
         except (RuntimeError, httpx.HTTPError):
             status["refresh_error"] = "Xero token refresh failed. Reconnect Xero to continue syncing."
@@ -273,7 +270,7 @@ def store_callback_tokens(code: str) -> dict:
     return save_token_set(tokens, tenant_id=tenant_id)
 
 
-def get_valid_access(conn: sqlite3.Connection | None = None) -> dict:
+def get_valid_access(conn: sqlite3.Connection | None = None, *, require_tenant: bool = True) -> dict:
     owns_conn = conn is None
     conn = conn or connect()
     try:
@@ -287,10 +284,12 @@ def get_valid_access(conn: sqlite3.Connection | None = None) -> dict:
             tokens = get_saved_tokens(conn)
             tokens["status"] = status
 
-        if not tokens.get("tenant_id"):
+        if require_tenant and not tokens.get("tenant_id"):
             connections = list_connections(tokens["access_token"])
             tenant_id = _preferred_tenant_id(connections)
             if not tenant_id:
+                if connections:
+                    raise RuntimeError("Select a Xero organisation before syncing.")
                 raise RuntimeError("Xero OAuth is connected but no tenant was returned")
             save_token_set(
                 {
@@ -310,7 +309,7 @@ def get_valid_access(conn: sqlite3.Connection | None = None) -> dict:
 
 
 def authorized_tenants(conn: sqlite3.Connection | None = None) -> dict:
-    tokens = get_valid_access(conn)
+    tokens = get_valid_access(conn, require_tenant=False)
     connections = list_connections(tokens["access_token"])
     return {
         "active_tenant_id": tokens.get("tenant_id"),
@@ -322,7 +321,7 @@ def select_authorized_tenant(tenant_id: str, conn: sqlite3.Connection | None = N
     owns_conn = conn is None
     conn = conn or connect()
     try:
-        tokens = get_valid_access(conn)
+        tokens = get_valid_access(conn, require_tenant=False)
         connections = list_connections(tokens["access_token"])
         selected = next((item for item in connections if item.get("tenantId") == tenant_id), None)
         if selected is None:

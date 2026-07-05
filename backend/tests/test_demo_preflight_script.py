@@ -54,7 +54,15 @@ def healthy_payloads() -> dict:
                 "expected_impact_dollars": 1995,
             }
         ],
-        "/api/app_store/readiness": {"ready_count": 7, "total_count": 9},
+        "/api/app_store/readiness": {
+            "ready_count": 7,
+            "total_count": 9,
+            "items": [
+                {"label": "Sign Up with Xero", "status": "ready"},
+                {"label": "Webhook receiver", "status": "todo"},
+                {"label": "App Store subscriptions", "status": "todo"},
+            ],
+        },
     }
 
 
@@ -71,7 +79,22 @@ def test_demo_preflight_passes_for_live_xero_ready_state() -> None:
     assert "PASS frontend: http://127.0.0.1:5173 is serving Nero" in lines
     assert "PASS xero: connected, token current, tenant tenant-1" in lines
     assert any("1 draft has customer email" in line for line in lines)
+    assert "INFO app store incomplete: Webhook receiver=todo, App Store subscriptions=todo" in lines
     assert lines[-1] == "result=passed"
+
+
+def test_demo_preflight_strict_app_store_fails_for_incomplete_readiness() -> None:
+    module = load_module()
+
+    exit_code, lines = module.evaluate_preflight(
+        healthy_payloads(),
+        strict_app_store=True,
+        now=datetime(2026, 7, 5, 6, 30, tzinfo=timezone.utc),
+    )
+
+    assert exit_code == 1
+    assert "FAIL app store: complete production webhook/subscription setup before certification" in lines
+    assert lines[-1] == "result=failed"
 
 
 def test_demo_preflight_fails_for_demo_or_disconnected_state() -> None:

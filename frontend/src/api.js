@@ -9,6 +9,35 @@ export function statementUrl(contactId) {
 
 let localState;
 
+const DEFAULT_RESEARCH = { generated_at: null, sources: {}, files: [] };
+const DEFAULT_APP_STORE_READINESS = {
+  status: "unknown",
+  ready_count: 0,
+  total_count: 0,
+  source_url: "",
+  items: []
+};
+const DEFAULT_AI_STATUS = {
+  enabled: false,
+  provider: null,
+  model: "",
+  mode: "disabled",
+  detail: "AI draft polishing is disabled."
+};
+const DEFAULT_XERO_STATUS = {
+  connected: false,
+  tenant_id: null,
+  expires_at: null,
+  expired: false,
+  needs_tenant: false,
+  demo_mode: false,
+  client_credentials_configured: false,
+  env_tokens_configured: false,
+  env_refresh_token_configured: false,
+  redirect_uri: ""
+};
+const DEFAULT_XERO_TENANTS = { active_tenant_id: null, tenants: [] };
+
 async function ensureLocalState() {
   if (localState) return localState;
   const [contactsModule, invoicesModule, forecastModule, proposalsModule, actionLogModule] = await Promise.all([
@@ -106,24 +135,14 @@ async function ensureLocalState() {
       ]
     },
     aiStatus: {
-      enabled: false,
-      provider: null,
-      model: "",
-      mode: "disabled",
-      detail: "AI draft polishing is disabled."
+      ...DEFAULT_AI_STATUS
     },
     xeroStatus: {
-      connected: false,
-      tenant_id: null,
-      expires_at: null,
-      needs_tenant: false,
+      ...DEFAULT_XERO_STATUS,
       demo_mode: true,
-      client_credentials_configured: false,
-      env_tokens_configured: false,
-      env_refresh_token_configured: false,
       redirect_uri: "http://localhost:8000/auth/callback"
     },
-    xeroTenants: { active_tenant_id: null, tenants: [] }
+    xeroTenants: { ...DEFAULT_XERO_TENANTS }
   };
   return localState;
 }
@@ -307,17 +326,17 @@ export async function fetchAll() {
       request("/api/action_log"),
       request("/api/outbox"),
       request("/api/metrics"),
-      request("/api/research/status"),
+      optionalRequest("/api/research/status", DEFAULT_RESEARCH),
       request("/api/settings"),
       request("/api/data_source"),
-      request("/api/app_store/readiness"),
-      optionalRequest("/api/ai/status", { enabled: false, provider: null, model: "", mode: "disabled", detail: "AI draft polishing is disabled." }),
-      request("/api/xero/status")
+      optionalRequest("/api/app_store/readiness", DEFAULT_APP_STORE_READINESS),
+      optionalRequest("/api/ai/status", DEFAULT_AI_STATUS),
+      optionalRequest("/api/xero/status", DEFAULT_XERO_STATUS)
     ]);
   const shouldLoadTenants = xeroStatusData.connected && !xeroStatusData.demo_mode && !xeroStatusData.expired && !xeroStatusData.refresh_error;
   const xeroTenantsData = shouldLoadTenants
-    ? await optionalRequest("/api/xero/tenants", { active_tenant_id: null, tenants: [] })
-    : { active_tenant_id: null, tenants: [] };
+    ? await optionalRequest("/api/xero/tenants", DEFAULT_XERO_TENANTS)
+    : DEFAULT_XERO_TENANTS;
 
   return {
     contacts: contactsData,

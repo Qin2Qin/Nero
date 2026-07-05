@@ -43,7 +43,7 @@ Which specific Xero API endpoints did your application interact with?
 - `GET /Invoices/{InvoiceID}/OnlineInvoice`
 - `GET /Payments`
 - `PUT /Invoices/{InvoiceID}/History`
-- Xero OAuth/connect flow for login, callback token exchange, refresh, and tenant discovery.
+- Xero OAuth/connect flow for login, state-validated callback token exchange, refresh, tenant discovery, and explicit tenant selection when multiple organisations are authorised.
 - Local signed webhook receiver: `POST /webhooks/xero` for Xero webhook payloads after production webhook configuration.
 
 What Xero OAuth 2.0 scopes did your application require?
@@ -55,4 +55,5 @@ What Xero OAuth 2.0 scopes did your application require?
 - AI boundary: deterministic local agent logic ranks and drafts the actions by default. Optional free-model OpenRouter polishing can improve wording only after a draft exists; it never sends customer-facing messages.
 - MCP boundary: the official remote MCP endpoint is documented, but this Codex workspace does not expose callable Xero MCP tools, so do not claim fake MCP execution.
 - App Store readiness: OAuth, tenant switching, granular scopes, sync, retry-aware API usage, signed webhook receiver code, support docs, privacy docs, and listing notes are implemented. Production still needs external Xero Developer Centre webhook/subscription configuration on the final HTTPS URL.
+- Security boundary: this local hackathon build stores one OAuth token set in SQLite for the demo device. Production should use encrypted per-user/per-tenant token storage and tenant-scoped raw accounting tables.
 - Demo proof: run `.venv/bin/python scripts/demo_preflight.py --sync` and show `result=passed`.

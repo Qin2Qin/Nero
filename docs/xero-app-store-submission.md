@@ -29,9 +29,9 @@ Xero API usage:
 - `GET /Invoices/{InvoiceID}/OnlineInvoice` via the Accounting API for "Open in Xero" links
 - `GET /Payments` via the Accounting API
 - `PUT /Invoices/{InvoiceID}/History` via the Accounting API for internal approval notes
-- OAuth connection and tenant discovery through Xero identity/connections endpoints
+- OAuth connection, per-login state validation, explicit multi-organisation tenant selection, and tenant discovery through Xero identity/connections endpoints
 - `DELETE /auth/connection` clears locally stored OAuth tokens for device-level disconnect
-- `POST /webhooks/xero` receives signed Xero webhook payloads and triggers a background sync after valid invoice/contact/subscription events
+- `POST /webhooks/xero` receives signed Xero webhook payloads and can trigger a background sync for the currently selected tenant after production subscription routing is configured
 
 OAuth scopes:
 
@@ -44,3 +44,7 @@ Recommend Nero to clients who have recurring late invoices, high-value repeat cu
 Webhook/subscription note:
 
 The backend includes a signed Xero webhook receiver at `/webhooks/xero`. Production App Store launch still requires setting `XERO_WEBHOOK_KEY`, serving the route over HTTPS, configuring the webhook/subscription categories in Xero Developer Centre, and setting `XERO_APP_STORE_SUBSCRIPTIONS_CONFIGURED=true` only after that external setup is confirmed.
+
+Security note:
+
+The hackathon build stores one local OAuth token set in SQLite for the demo device. A production multi-user launch should use encrypted, per-user and per-tenant token storage with tenant-scoped raw accounting tables.

@@ -1654,6 +1654,22 @@ function GuideModal({ onClose }) {
   );
 }
 
+function InitialLoadError({ message, onRetry, busy }) {
+  return (
+    <main className="content">
+      <section className="panel initial-error">
+        <div>
+          <h1>Nero could not load</h1>
+          <p>{message || "Something interrupted the first dashboard load."}</p>
+        </div>
+        <button className="button primary btn btn-primary btn-sm" type="button" onClick={onRetry} disabled={busy}>
+          <RefreshCw size={16} /> Try again
+        </button>
+      </section>
+    </main>
+  );
+}
+
 function DevToolsPanel({
   data,
   syncResult,
@@ -1712,6 +1728,7 @@ export function App() {
   const [modal, setModal] = useState(null);
 
   async function refresh() {
+    setError("");
     const next = await fetchAll();
     setData(next);
   }
@@ -1772,7 +1789,19 @@ export function App() {
     act(async () => setSyncResult(await disconnectXero()));
   }
 
+  async function retryInitialLoad() {
+    setBusy(true);
+    try {
+      await refresh();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const activeContent = useMemo(() => {
+    if (!data && error) return <InitialLoadError message={error} onRetry={retryInitialLoad} busy={busy} />;
     if (!data) return <main className="content"><div className="empty">Loading Nero</div></main>;
     if (activeTab === "dashboard") {
       return (
@@ -1814,7 +1843,7 @@ export function App() {
     }
     if (activeTab === "outbox") return <Outbox outbox={data.outbox} />;
     return <ActivityHistory entries={data.actionLog} />;
-  }, [activeTab, data, cashDisplay, busy, syncResult]);
+  }, [activeTab, data, cashDisplay, busy, syncResult, error]);
 
   return (
     <div className="app-shell" data-theme="corporate">

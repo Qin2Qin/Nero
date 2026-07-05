@@ -121,10 +121,10 @@ Live Xero flow:
 3. Visit `http://localhost:8000/auth/login` and approve the demo organisation.
 4. Xero returns you to the Nero frontend with a short connected or recovery message.
 5. Check `GET /api/xero/status`.
-6. Run `POST /api/sync` to pull raw Xero contacts, authorised/paid invoices,
+6. Check `GET /api/xero/tenants`. If multiple organisations are authorised,
+   select one with `POST /api/xero/tenant` before syncing.
+7. Run `POST /api/sync` to pull raw Xero contacts, authorised/paid invoices,
    and payments into SQLite.
-7. Check `GET /api/xero/tenants`. If multiple organisations are authorised,
-   select one with `POST /api/xero/tenant`.
 8. Optional: set `XERO_WEBHOOK_KEY` and configure `POST /webhooks/xero` as the
    HTTPS webhook URL in Xero Developer Centre. Valid signed invoice/contact
    events trigger a background sync; invalid signatures return 401.

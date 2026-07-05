@@ -116,8 +116,32 @@ async function runSmoke() {
     })
   );
   await errorPage.goto(frontendUrl, { waitUntil: "networkidle" });
-  await errorPage.getByText("Forecast temporarily unavailable").waitFor();
+  await errorPage.getByRole("heading", { name: "Nero could not load" }).waitFor();
+  await errorPage.locator(".initial-error").getByText("Forecast temporarily unavailable").waitFor();
+  await errorPage.getByRole("button", { name: "Try again" }).waitFor();
   await errorPage.close();
+
+  const optionalFailurePage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await optionalFailurePage.route("**/api/app_store/readiness", (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Readiness temporarily unavailable" })
+    })
+  );
+  await optionalFailurePage.route("**/api/research/status", (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Research temporarily unavailable" })
+    })
+  );
+  await optionalFailurePage.goto(frontendUrl, { waitUntil: "networkidle" });
+  await optionalFailurePage.getByRole("heading", { name: "Nero" }).waitFor();
+  if (await optionalFailurePage.getByRole("heading", { name: "Nero could not load" }).count()) {
+    throw new Error("Non-critical readiness/research failure blanked the main dashboard");
+  }
+  await optionalFailurePage.close();
 
   const connectedReturnPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   await connectedReturnPage.goto(`${frontendUrl}/?xero=connected`, { waitUntil: "networkidle" });
@@ -777,6 +801,13 @@ async function runSmoke() {
     const mobileCardsAfterCollapse = await mobilePage.locator(".mobile-invoice-card").count();
     if (mobileCardsAfterCollapse !== mobileCardsBeforeExpand) {
       throw new Error(`Mobile invoice list did not collapse back: ${mobileCardsAfterCollapse}`);
+    }
+    await mobilePage.getByRole("button", { name: "Actions", exact: true }).click();
+    await mobilePage.getByRole("heading", { name: "Actions to review" }).waitFor();
+    const mobileActionBox = await mobilePage.locator(".proposal-card").first().boundingBox();
+    const mobileViewport = mobilePage.viewportSize();
+    if (!mobileActionBox || !mobileViewport || mobileActionBox.x < 0 || mobileActionBox.x + mobileActionBox.width > mobileViewport.width) {
+      throw new Error(`Mobile action card overflowed the viewport: ${JSON.stringify({ mobileActionBox, mobileViewport })}`);
     }
     await mobilePage.close();
 

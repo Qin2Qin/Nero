@@ -240,7 +240,7 @@ def test_bootstrap_tokens_from_env_does_not_overwrite_by_default(tmp_path: Path,
     assert saved["tenant_id"] == "saved-tenant"
 
 
-def test_bootstrap_tokens_from_env_prefers_demo_company_when_resolving_tenant(tmp_path: Path, monkeypatch) -> None:
+def test_bootstrap_tokens_from_env_requires_selection_for_multiple_tenants(tmp_path: Path, monkeypatch) -> None:
     conn = connect(tmp_path / "nero.db")
     monkeypatch.setenv("XERO_ACCESS_TOKEN", "env-access")
     monkeypatch.setenv("XERO_REFRESH_TOKEN", "env-refresh")
@@ -258,8 +258,9 @@ def test_bootstrap_tokens_from_env_prefers_demo_company_when_resolving_tenant(tm
     result = bootstrap_tokens_from_env(conn=conn, resolve_tenant=True)
 
     assert result["imported"] is True
-    assert result["status"]["tenant_id"] == "demo"
-    assert get_saved_tokens(conn)["tenant_id"] == "demo"
+    assert result["status"]["tenant_id"] is None
+    assert result["status"]["needs_tenant"] is True
+    assert get_saved_tokens(conn)["tenant_id"] is None
 
 
 def test_auth_callback_redirects_denied_authorization_to_frontend() -> None:
@@ -300,7 +301,11 @@ def test_auth_callback_token_exchange_failure_redirects_to_frontend_without_prov
     monkeypatch.setattr(auth_router, "store_callback_tokens", fake_store_callback_tokens)
     client = TestClient(create_app(), raise_server_exceptions=False)
 
-    response = client.get("/auth/callback?code=bad-code", follow_redirects=False)
+    response = client.get(
+        "/auth/callback?code=bad-code&state=state-123",
+        headers={"cookie": "nero_xero_oauth_state=state-123"},
+        follow_redirects=False,
+    )
 
     assert response.status_code == 303
     params = query_params(response.headers["location"])
@@ -322,10 +327,53 @@ def test_auth_callback_redirects_to_frontend_after_connection(monkeypatch) -> No
     monkeypatch.setattr(auth_router, "store_callback_tokens", fake_store_callback_tokens)
     client = TestClient(create_app())
 
-    response = client.get("/auth/callback?code=good-code", follow_redirects=False)
+    response = client.get(
+        "/auth/callback?code=good-code&state=state-123",
+        headers={"cookie": "nero_xero_oauth_state=state-123"},
+        follow_redirects=False,
+    )
 
     assert response.status_code == 303
     assert response.headers["location"] == "http://localhost:5173/?xero=connected"
+    assert "nero_xero_oauth_state=" in response.headers["set-cookie"]
+
+
+def test_auth_login_sets_oauth_state_cookie(monkeypatch) -> None:
+    monkeypatch.setenv("XERO_CLIENT_ID", "client-id")
+    monkeypatch.setenv("XERO_CLIENT_SECRET", "client-secret")
+    client = TestClient(create_app())
+
+    response = client.get("/auth/login", follow_redirects=False)
+
+    assert response.status_code in (302, 307)
+    params = query_params(response.headers["location"])
+    assert params["state"][0]
+    assert "nero_xero_oauth_state=" in response.headers["set-cookie"]
+
+
+def test_auth_callback_rejects_oauth_state_mismatch(monkeypatch) -> None:
+    calls = []
+
+    def fake_store_callback_tokens(code: str) -> dict:
+        calls.append(code)
+        return {"connected": True}
+
+    import routers.auth as auth_router
+
+    monkeypatch.setattr(auth_router, "store_callback_tokens", fake_store_callback_tokens)
+    client = TestClient(create_app())
+
+    response = client.get(
+        "/auth/callback?code=good-code&state=attacker",
+        headers={"cookie": "nero_xero_oauth_state=expected"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    params = query_params(response.headers["location"])
+    assert params["xero"] == ["error"]
+    assert params["message"] == ["Xero security check failed. Try Connect Xero again."]
+    assert calls == []
 
 
 def test_auth_disconnect_endpoint_clears_tokens(monkeypatch, tmp_path: Path) -> None:
@@ -353,7 +401,7 @@ def test_auth_disconnect_endpoint_clears_tokens(monkeypatch, tmp_path: Path) -> 
     assert get_saved_tokens(conn) is None
 
 
-def test_store_callback_tokens_prefers_demo_company(monkeypatch, tmp_path: Path) -> None:
+def test_store_callback_tokens_requires_selection_for_multiple_tenants(monkeypatch, tmp_path: Path) -> None:
     conn = connect(tmp_path / "nero.db")
     monkeypatch.setattr(xero_auth, "connect", lambda: conn)
     monkeypatch.setattr(
@@ -372,10 +420,33 @@ def test_store_callback_tokens_prefers_demo_company(monkeypatch, tmp_path: Path)
 
     status = xero_auth.store_callback_tokens("code")
 
-    assert status["tenant_id"] == "demo"
+    assert status["tenant_id"] is None
+    assert status["needs_tenant"] is True
 
 
-def test_get_valid_access_prefers_demo_when_saved_token_has_no_tenant(monkeypatch, tmp_path: Path) -> None:
+def test_store_callback_tokens_selects_only_available_tenant(monkeypatch, tmp_path: Path) -> None:
+    conn = connect(tmp_path / "nero.db")
+    monkeypatch.setattr(xero_auth, "connect", lambda: conn)
+    monkeypatch.setattr(
+        xero_auth,
+        "exchange_code",
+        lambda code: {"access_token": "access", "refresh_token": "refresh", "expires_in": 1800},
+    )
+    monkeypatch.setattr(
+        xero_auth,
+        "list_connections",
+        lambda access_token: [
+            {"tenantId": "only-tenant", "tenantName": "Only Org", "tenantType": "ORGANISATION"},
+        ],
+    )
+
+    status = xero_auth.store_callback_tokens("code")
+
+    assert status["tenant_id"] == "only-tenant"
+    assert status["needs_tenant"] is False
+
+
+def test_get_valid_access_requires_selection_when_saved_token_has_no_tenant(monkeypatch, tmp_path: Path) -> None:
     conn = connect(tmp_path / "nero.db")
     expires_at = "2099-01-01T00:00:00+00:00"
     save_token_set(
@@ -396,12 +467,42 @@ def test_get_valid_access_prefers_demo_when_saved_token_has_no_tenant(monkeypatc
         ],
     )
 
-    tokens = xero_auth.get_valid_access(conn)
-    saved = get_saved_tokens(conn)
+    try:
+        xero_auth.get_valid_access(conn)
+    except RuntimeError as exc:
+        assert str(exc) == "Select a Xero organisation before syncing."
+    else:
+        raise AssertionError("Expected tenant selection error")
 
-    assert tokens["tenant_id"] == "demo"
-    assert saved["tenant_id"] == "demo"
+    saved = get_saved_tokens(conn)
+    assert saved["tenant_id"] is None
     assert saved["expires_at"] == expires_at
+
+
+def test_authorized_tenants_lists_options_when_saved_token_has_no_tenant(monkeypatch, tmp_path: Path) -> None:
+    conn = connect(tmp_path / "nero.db")
+    save_token_set(
+        {
+            "access_token": "saved-access",
+            "refresh_token": "saved-refresh",
+            "expires_at": "2099-01-01T00:00:00+00:00",
+        },
+        tenant_id="",
+        conn=conn,
+    )
+    monkeypatch.setattr(
+        xero_auth,
+        "list_connections",
+        lambda access_token: [
+            {"tenantId": "imperial", "tenantName": "Imperial", "tenantType": "ORGANISATION"},
+            {"tenantId": "demo", "tenantName": "Demo Company (UK)", "tenantType": "ORGANISATION"},
+        ],
+    )
+
+    tenants = xero_auth.authorized_tenants(conn)
+
+    assert tenants["active_tenant_id"] is None
+    assert [tenant["tenant_id"] for tenant in tenants["tenants"]] == ["imperial", "demo"]
 
 
 def test_get_valid_access_refreshes_malformed_expiry(monkeypatch, tmp_path: Path) -> None:

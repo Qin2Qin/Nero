@@ -1677,6 +1677,19 @@ pre {
   padding: var(--space-4);
 }
 
+.initial-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding: var(--space-6);
+}
+
+.initial-error p {
+  margin: var(--space-2) 0 0;
+  color: var(--fgColor-muted);
+}
+
 .right {
   text-align: right;
 }
@@ -1961,6 +1974,10 @@ pre {
     gap: var(--space-2);
   }
 
+  .proposal-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .source-banner {
     grid-template-columns: 1fr;
   }
@@ -1983,5 +2000,10 @@ pre {
   .list-row summary,
   .timeline-row {
     grid-template-columns: 1fr;
+  }
+
+  .initial-error {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
