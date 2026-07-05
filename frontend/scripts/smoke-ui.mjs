@@ -116,6 +116,11 @@ async function runSmoke() {
     await page.getByText(/^Updated /).first().waitFor();
     await page.getByText("Due now or soon").waitFor();
     await page.getByText("Likely by then").waitFor();
+    await page.getByText(/\d+ days overdue/).first().waitFor();
+    await page.getByRole("button", { name: "Review action" }).first().click();
+    await page.getByRole("heading", { name: "Actions to review" }).waitFor();
+    await page.getByRole("button", { name: "Dashboard" }).click();
+    await page.getByRole("heading", { name: "Nero" }).waitFor();
     await page.locator(".recharts-wrapper").waitFor();
     const lineCount = await page.locator(".recharts-line-curve").count();
     if (lineCount < 3) throw new Error(`Expected at least 3 rendered forecast lines, saw ${lineCount}`);
