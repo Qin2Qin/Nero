@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlsplit
 
 import httpx
@@ -117,6 +118,36 @@ def test_connection_summary_refreshes_expired_token(monkeypatch, tmp_path: Path)
     assert summary["tenant_id"] == "tenant-123"
     assert saved["access_token"] == "new-access"
     assert saved["expires_at"] == "2099-01-01T00:00:00+00:00"
+
+
+def test_connection_summary_refreshes_token_before_expiry(monkeypatch, tmp_path: Path) -> None:
+    conn = connect(tmp_path / "nero.db")
+    save_token_set(
+        {
+            "access_token": "old-access",
+            "refresh_token": "old-refresh",
+            "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=2)).replace(microsecond=0).isoformat(),
+        },
+        tenant_id="tenant-123",
+        conn=conn,
+    )
+    monkeypatch.setattr(
+        xero_auth,
+        "refresh_token",
+        lambda refresh: {
+            "access_token": "new-access",
+            "refresh_token": "new-refresh",
+            "expires_at": "2099-01-01T00:00:00Z",
+        },
+    )
+
+    summary = get_connection_summary(conn)
+    saved = get_saved_tokens(conn)
+
+    assert summary["connected"] is True
+    assert summary["expired"] is False
+    assert saved["access_token"] == "new-access"
+    assert saved["refresh_token"] == "new-refresh"
 
 
 def test_connection_summary_reports_refresh_failure(monkeypatch, tmp_path: Path) -> None:
@@ -396,3 +427,31 @@ def test_get_valid_access_refreshes_malformed_expiry(monkeypatch, tmp_path: Path
     assert tokens["access_token"] == "new-access"
     assert tokens["tenant_id"] == "tenant-123"
     assert saved["expires_at"] == "2099-01-01T00:00:00+00:00"
+
+
+def test_get_valid_access_refreshes_near_expiry_token(monkeypatch, tmp_path: Path) -> None:
+    conn = connect(tmp_path / "nero.db")
+    save_token_set(
+        {
+            "access_token": "old-access",
+            "refresh_token": "old-refresh",
+            "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=1)).replace(microsecond=0).isoformat(),
+        },
+        tenant_id="tenant-123",
+        conn=conn,
+    )
+    monkeypatch.setattr(
+        xero_auth,
+        "refresh_token",
+        lambda refresh: {
+            "access_token": "new-access",
+            "refresh_token": "new-refresh",
+            "expires_at": "2099-01-01T00:00:00",
+        },
+    )
+
+    tokens = xero_auth.get_valid_access(conn)
+    saved = get_saved_tokens(conn)
+
+    assert tokens["access_token"] == "new-access"
+    assert saved["refresh_token"] == "new-refresh"

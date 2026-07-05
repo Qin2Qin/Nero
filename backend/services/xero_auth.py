@@ -14,6 +14,7 @@ AUTH_URL = "https://login.xero.com/identity/connect/authorize"
 TOKEN_URL = "https://identity.xero.com/connect/token"
 CONNECTIONS_URL = "https://api.xero.com/connections"
 SCOPES = "openid profile email accounting.invoices accounting.contacts accounting.payments accounting.settings offline_access"
+TOKEN_REFRESH_SKEW = timedelta(minutes=5)
 
 
 def _summarize_connection(connection: dict, active_tenant_id: str | None = None) -> dict:
@@ -82,6 +83,13 @@ def _token_expires_at(tokens: dict) -> str:
     return _expires_at(tokens.get("expires_in"))
 
 
+def _token_refresh_due(expires_at: str | None) -> bool:
+    parsed = _parse_token_expiry(expires_at)
+    if parsed is None:
+        return True
+    return parsed <= datetime.now(timezone.utc) + TOKEN_REFRESH_SKEW
+
+
 def save_token_set(tokens: dict, tenant_id: str | None = None, conn: sqlite3.Connection | None = None) -> dict:
     settings = get_settings()
     tenant = tenant_id or settings.xero_tenant_id or tokens.get("tenant_id")
@@ -131,7 +139,7 @@ def get_token_status(conn: sqlite3.Connection | None = None) -> dict:
 def get_connection_summary(conn: sqlite3.Connection | None = None) -> dict:
     settings = get_settings()
     status = get_token_status(conn)
-    if status.get("connected") and status.get("expired"):
+    if status.get("connected") and _token_refresh_due(status.get("expires_at")):
         try:
             get_valid_access(conn)
             status = get_token_status(conn)
@@ -273,10 +281,7 @@ def get_valid_access(conn: sqlite3.Connection | None = None) -> dict:
         if tokens is None:
             raise RuntimeError("Xero OAuth tokens are not configured")
 
-        expires_at = _parse_token_expiry(tokens["expires_at"])
-        if expires_at is None:
-            expires_at = datetime.min.replace(tzinfo=timezone.utc)
-        if expires_at <= datetime.now(timezone.utc):
+        if _token_refresh_due(tokens["expires_at"]):
             refreshed = refresh_token(tokens["refresh_token"])
             status = save_token_set(refreshed, tenant_id=tokens.get("tenant_id"), conn=conn)
             tokens = get_saved_tokens(conn)
