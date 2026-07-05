@@ -47,7 +47,10 @@ def test_agent_uses_cautious_reasoning_for_no_paid_history() -> None:
 
     assert created[0]["type"] == "escalation"
     assert "limited paid-invoice history" in created[0]["reasoning_text"]
+    assert "£250 forward by about" in created[0]["reasoning_text"]
     assert "0 paid invoices" not in created[0]["reasoning_text"]
+    assert "INV-0017 for £250 is 65 days overdue." in created[0]["draft_body"]
+    assert "GBP" not in created[0]["draft_body"]
     assert "Could you confirm the planned payment date when ready?" in created[0]["draft_body"]
     assert "{payment_link}" not in created[0]["draft_body"]
     assert "I can resend the current statement if helpful." in created[0]["draft_body"]
@@ -82,6 +85,7 @@ def test_agent_keeps_specific_history_when_enough_paid_invoices_exist() -> None:
 
     assert created[0]["type"] == "reminder"
     assert "usually pays on time across 11 paid invoices" in created[0]["reasoning_text"]
+    assert "£136 forward by about" in created[0]["reasoning_text"]
 
 
 def test_agent_includes_xero_online_invoice_link_when_available() -> None:
@@ -111,8 +115,10 @@ def test_agent_includes_xero_online_invoice_link_when_available() -> None:
 
     body = created[0]["draft_body"]
     assert "secure Xero invoice link" in body
+    assert "INV-0043 for £3,200 is 61 days overdue." in body
     assert "https://in.xero.com/example-invoice" in body
     assert "https://in.xero.com/example-invoice\n\nI can resend" in body
+    assert "GBP" not in body
     assert "{payment_link}" not in body
 
 

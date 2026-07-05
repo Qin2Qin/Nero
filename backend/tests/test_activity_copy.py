@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
 
-from services.state import approve_proposal, dismiss_proposal, edit_proposal
+from services.state import approve_proposal, dismiss_proposal, edit_proposal, normalize_user_facing_currency
 
 
 def state_with_proposal(proposal_type: str = "reminder") -> dict:
@@ -84,3 +84,29 @@ def test_approved_proposal_cannot_be_dismissed_or_edited_later() -> None:
     events = [entry["event"] for entry in state["action_log"]]
     assert not any("Dismissed" in event for event in events)
     assert not any("Edited" in event for event in events)
+
+
+def test_currency_normalizer_cleans_saved_user_facing_copy_only() -> None:
+    state = {
+        "proposals": [
+            {
+                "reasoning_text": "Could bring GBP 1,250 forward.",
+                "draft_subject": "Payment date needed",
+                "draft_body": "INV-001 for GBP 250 is overdue.",
+                "recommendation_detail": "Ask for GBP 500 upfront.",
+            }
+        ],
+        "outbox": [{"subject": "Reminder", "body": "Please pay GBP 250."}],
+        "action_log": [{"event": "Approved GBP 250 draft."}],
+        "data_source": {"business": {"base_currency": "GBP"}},
+    }
+
+    changed = normalize_user_facing_currency(state)
+
+    assert changed is True
+    assert state["proposals"][0]["reasoning_text"] == "Could bring £1,250 forward."
+    assert state["proposals"][0]["draft_body"] == "INV-001 for £250 is overdue."
+    assert state["proposals"][0]["recommendation_detail"] == "Ask for £500 upfront."
+    assert state["outbox"][0]["body"] == "Please pay £250."
+    assert state["action_log"][0]["event"] == "Approved £250 draft."
+    assert state["data_source"]["business"]["base_currency"] == "GBP"

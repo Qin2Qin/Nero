@@ -289,7 +289,7 @@ def _strategic_proposals(contacts: list[dict[str, Any]], invoices: list[dict[str
                 contact=deposit_contact,
                 invoice=None,
                 reasoning=(
-                    f"{deposit_contact['name']} is a high-exposure account with GBP {exposure.get(deposit_contact['id'], 0):,} "
+                    f"{deposit_contact['name']} is a high-exposure account with £{exposure.get(deposit_contact['id'], 0):,} "
                     f"currently open and an average payment delay of {round(deposit_contact['avg_days_late'])} days. "
                     "A deposit reduces working-capital drag before new production work starts."
                 ),
