@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.parse import quote
 
@@ -9,6 +11,8 @@ import httpx
 
 
 BASE_URL = "https://api.xero.com/api.xro/2.0"
+DEFAULT_RETRY_AFTER_SECONDS = 2
+MAX_RETRY_AFTER_SECONDS = 60
 
 
 @dataclass(frozen=True)
@@ -37,7 +41,7 @@ class XeroClient:
             if response.status_code != 429:
                 response.raise_for_status()
                 return response.json() if response.content else {}
-            time.sleep(int(response.headers.get("Retry-After", "2")))
+            time.sleep(_retry_after_seconds(response.headers.get("Retry-After")))
         response.raise_for_status()
         return {}
 
@@ -64,3 +68,20 @@ class XeroClient:
     def get_online_invoice(self, invoice_id: str) -> dict:
         safe_invoice_id = quote(invoice_id, safe="")
         return self.request("GET", f"/Invoices/{safe_invoice_id}/OnlineInvoice")
+
+
+def _retry_after_seconds(value: str | None) -> int:
+    if not value:
+        return DEFAULT_RETRY_AFTER_SECONDS
+    text = value.strip()
+    try:
+        seconds = int(text)
+    except ValueError:
+        try:
+            retry_at = parsedate_to_datetime(text)
+        except (TypeError, ValueError):
+            return DEFAULT_RETRY_AFTER_SECONDS
+        if retry_at.tzinfo is None:
+            retry_at = retry_at.replace(tzinfo=timezone.utc)
+        seconds = round((retry_at - datetime.now(timezone.utc)).total_seconds())
+    return max(0, min(seconds, MAX_RETRY_AFTER_SECONDS))
