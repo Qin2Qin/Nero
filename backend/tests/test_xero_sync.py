@@ -39,6 +39,9 @@ class FakeClient:
             return {"Payments": []}
         return {"Payments": [{"PaymentID": "payment-1", "Invoice": {"InvoiceID": "invoice-1"}}]}
 
+    def get_online_invoice(self, invoice_id: str) -> dict:
+        return {"OnlineInvoices": [{"OnlineInvoiceUrl": f"https://in.xero.com/{invoice_id}"}]}
+
 
 class EmptyClient:
     def __init__(self, credentials):
@@ -52,6 +55,9 @@ class EmptyClient:
 
     def list_payments(self, page: int = 1) -> dict:
         return {"Payments": []}
+
+    def get_online_invoice(self, invoice_id: str) -> dict:
+        return {"OnlineInvoices": []}
 
 
 def test_sync_from_xero_stores_raw_payloads(monkeypatch, tmp_path: Path) -> None:
@@ -120,6 +126,7 @@ def test_build_state_from_xero_materializes_dashboard_state() -> None:
         tenant_id="demo-tenant",
         tenant_name="Demo Company (UK)",
         cash_floor=5000,
+        online_invoice_urls={"open-1": "https://in.xero.com/open-1"},
     )
 
     assert state["data_source"]["mode"] == "xero"
@@ -127,6 +134,7 @@ def test_build_state_from_xero_materializes_dashboard_state() -> None:
     assert state["contacts"][0]["name"] == "Demo Retail"
     assert state["invoices"][0]["invoice_number"] == "OPEN-1"
     assert state["invoices"][0]["contact_email"] == "accounts@demoretail.example.com"
+    assert state["invoices"][0]["online_invoice_url"] == "https://in.xero.com/open-1"
     assert state["invoices"][0]["predicted_paid_date"] > state["invoices"][0]["due_date"]
     assert state["forecast"]["cash_floor"] == 5000
     assert any("Updated from Xero" in entry["event"] for entry in state["action_log"])

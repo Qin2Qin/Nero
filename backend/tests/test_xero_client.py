@@ -36,6 +36,7 @@ def test_xero_client_surface_supports_read_sync_and_invoice_notes() -> None:
     assert hasattr(XeroClient, "list_invoices")
     assert hasattr(XeroClient, "list_payments")
     assert hasattr(XeroClient, "add_invoice_history")
+    assert hasattr(XeroClient, "get_online_invoice")
     assert not hasattr(XeroClient, "create_invoices")
     assert not hasattr(XeroClient, "create_payments")
 
@@ -51,4 +52,17 @@ def test_add_invoice_history_uses_xero_history_endpoint() -> None:
     assert method == "PUT"
     assert url.endswith("/Invoices/invoice%2Fwith%20space/History")
     assert kwargs["json"] == {"HistoryRecords": [{"Details": "Approved by Nero"}]}
+    assert kwargs["headers"]["Xero-tenant-id"] == "tenant"
+
+
+def test_get_online_invoice_uses_xero_online_invoice_endpoint() -> None:
+    client = XeroClient(XeroCredentials(access_token="token", tenant_id="tenant"))
+    recorder = Recorder()
+    client.client = recorder
+
+    client.get_online_invoice("invoice/with space")
+
+    method, url, kwargs = recorder.calls[0]
+    assert method == "GET"
+    assert url.endswith("/Invoices/invoice%2Fwith%20space/OnlineInvoice")
     assert kwargs["headers"]["Xero-tenant-id"] == "tenant"

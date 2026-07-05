@@ -1068,6 +1068,31 @@ tbody tr:hover {
   min-width: 92px;
 }
 
+.invoice-ref-cell {
+  display: grid;
+  gap: 3px;
+  min-width: 112px;
+}
+
+.invoice-ref-cell strong {
+  color: var(--fgColor-default);
+  font-size: 13px;
+}
+
+.invoice-ref-cell a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--fgColor-subtle);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.invoice-ref-cell a:hover {
+  color: var(--fgColor-accent);
+}
+
 .date-cell strong {
   color: var(--fgColor-default);
   font-size: 13px;
