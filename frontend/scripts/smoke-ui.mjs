@@ -179,6 +179,12 @@ async function runSmoke() {
   if (!(await reconnectSaveWording.isDisabled())) {
     throw new Error("Save wording stayed enabled while Xero needed reconnect");
   }
+  await reconnectPage.locator(".proposal-card").first().locator("summary").click();
+  const reconnectTextarea = reconnectPage.locator(".proposal-card textarea").first();
+  await reconnectTextarea.waitFor();
+  if (!(await reconnectTextarea.evaluate((node) => node.readOnly))) {
+    throw new Error("Draft textarea stayed editable while Xero needed reconnect");
+  }
   const reconnectDismiss = reconnectPage.locator(".danger-icon").first();
   await reconnectDismiss.waitFor();
   if (!(await reconnectDismiss.isDisabled())) {
@@ -248,6 +254,12 @@ async function runSmoke() {
   await staleSaveWording.waitFor();
   if (!(await staleSaveWording.isDisabled())) {
     throw new Error("Save wording stayed enabled while the Xero dashboard needed a sync");
+  }
+  await tenantMismatchPage.locator(".proposal-card").first().locator("summary").click();
+  const staleTextarea = tenantMismatchPage.locator(".proposal-card textarea").first();
+  await staleTextarea.waitFor();
+  if (!(await staleTextarea.evaluate((node) => node.readOnly))) {
+    throw new Error("Draft textarea stayed editable while the Xero dashboard needed a sync");
   }
   const staleDismiss = tenantMismatchPage.locator(".danger-icon").first();
   await staleDismiss.waitFor();

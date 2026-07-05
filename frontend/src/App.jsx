@@ -1420,6 +1420,8 @@ function AgentQueue({ proposals, dataSource, approvalBlockedReason = "", onAppro
                   <textarea
                     value={draftBody}
                     onChange={(event) => setDrafts((current) => ({ ...current, [proposal.id]: event.target.value }))}
+                    readOnly={Boolean(approvalBlockedReason)}
+                    title={approvalBlockedReason || "Edit draft wording"}
                   />
                 </details>
               )}
