@@ -21,6 +21,13 @@ def healthy_payloads() -> dict:
     return {
         "/health": {"ok": True, "demo_mode": False},
         "frontend": {"url": "http://127.0.0.1:5173", "has_root": True, "has_title": True},
+        "submission_image": {
+            "path": "frontend/public/visuals/nero-live-dashboard-submission.png",
+            "exists": True,
+            "is_png": True,
+            "width": 1120,
+            "height": 720,
+        },
         "/api/xero/status": {
             "connected": True,
             "expired": False,
@@ -77,6 +84,7 @@ def test_demo_preflight_passes_for_live_xero_ready_state() -> None:
     assert exit_code == 0
     assert "PASS backend: running in live Xero mode" in lines
     assert "PASS frontend: http://127.0.0.1:5173 is serving Nero" in lines
+    assert "PASS submission image: frontend/public/visuals/nero-live-dashboard-submission.png is a 1120x720 PNG" in lines
     assert "PASS xero: connected, token current, tenant tenant-1" in lines
     assert any("1 draft has customer email" in line for line in lines)
     assert "INFO app store incomplete: Webhook receiver=todo, App Store subscriptions=todo" in lines
@@ -94,6 +102,24 @@ def test_demo_preflight_strict_app_store_fails_for_incomplete_readiness() -> Non
 
     assert exit_code == 1
     assert "FAIL app store: complete production webhook/subscription setup before certification" in lines
+    assert lines[-1] == "result=failed"
+
+
+def test_demo_preflight_fails_for_missing_submission_image() -> None:
+    module = load_module()
+    payloads = healthy_payloads()
+    payloads["submission_image"] = {
+        "path": "frontend/public/visuals/nero-live-dashboard-submission.png",
+        "exists": False,
+    }
+
+    exit_code, lines = module.evaluate_preflight(
+        payloads,
+        now=datetime(2026, 7, 5, 6, 30, tzinfo=timezone.utc),
+    )
+
+    assert exit_code == 1
+    assert any(line.startswith("FAIL submission image:") for line in lines)
     assert lines[-1] == "result=failed"
 
 

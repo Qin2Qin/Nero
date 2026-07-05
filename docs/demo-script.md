@@ -8,7 +8,8 @@ Use this when presenting Nero from the local live-Xero setup.
 2. Frontend: `cd frontend && VITE_API_BASE=http://localhost:8000 npm run dev`.
 3. Run `.venv/bin/python scripts/demo_preflight.py` from the repo root.
 4. Confirm the final line is `result=passed`.
-5. If it reports stale data, click **Sync Xero** or rerun with `--sync`, then retry the preflight.
+5. Confirm it includes `PASS submission image` so the Encode form image is ready.
+6. If it reports stale data, click **Sync Xero** or rerun with `--sync`, then retry the preflight.
 
 ## 90-Second Flow
 

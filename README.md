@@ -52,7 +52,8 @@ Run a live-Xero judge demo preflight after the backend is running:
 
 The preflight prints only status, counts, and readiness checks. It fails if the
 frontend is not serving Nero, the backend is still in demo mode, Xero is
-disconnected, the data is stale, or no sendable action is ready.
+disconnected, the data is stale, no sendable action is ready, or the final
+submission image is missing or not `1120 x 720`.
 Use `--sync` only when you intentionally want to refresh Xero first; the default
 check avoids unnecessary Xero API calls immediately before a demo.
 

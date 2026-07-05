@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
+import struct
 import sys
 from datetime import datetime, timezone
 from typing import Any
@@ -13,6 +15,9 @@ from urllib.request import Request, urlopen
 
 DEFAULT_BASE_URL = "http://127.0.0.1:8000"
 DEFAULT_FRONTEND_URL = "http://127.0.0.1:5173"
+ROOT = Path(__file__).resolve().parents[1]
+SUBMISSION_IMAGE = ROOT / "frontend" / "public" / "visuals" / "nero-live-dashboard-submission.png"
+SUBMISSION_IMAGE_SIZE = (1120, 720)
 
 
 def request_json(base_url: str, path: str, method: str = "GET", timeout: float = 10.0) -> dict[str, Any] | list[Any]:
@@ -50,6 +55,26 @@ def check_frontend(frontend_url: str, timeout: float = 10.0) -> dict[str, Any]:
         "has_root": '<div id="root"' in text,
         "has_title": "<title>Nero</title>" in text,
     }
+
+
+def png_dimensions(path: Path) -> tuple[int, int]:
+    data = path.read_bytes()
+    if not data.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise ValueError("not a PNG")
+    return struct.unpack(">II", data[16:24])
+
+
+def check_submission_image(path: Path = SUBMISSION_IMAGE) -> dict[str, Any]:
+    result: dict[str, Any] = {"path": str(path.relative_to(ROOT)), "exists": path.exists()}
+    if not path.exists():
+        return result
+    try:
+        width, height = png_dimensions(path)
+    except (OSError, ValueError):
+        result.update({"is_png": False})
+        return result
+    result.update({"is_png": True, "width": width, "height": height})
+    return result
 
 
 def parse_datetime(value: str | None) -> datetime | None:
@@ -97,6 +122,19 @@ def evaluate_preflight(
             pass_line(lines, "frontend", f"{frontend.get('url')} is serving Nero")
         else:
             fail(failures, lines, "frontend", f"{frontend.get('url', 'frontend')} did not look like the Nero app")
+
+    submission_image = payloads.get("submission_image")
+    if submission_image is not None:
+        size = (submission_image.get("width"), submission_image.get("height"))
+        if submission_image.get("exists") and submission_image.get("is_png") and size == SUBMISSION_IMAGE_SIZE:
+            pass_line(lines, "submission image", f"{submission_image.get('path')} is a 1120x720 PNG")
+        else:
+            fail(
+                failures,
+                lines,
+                "submission image",
+                f"{submission_image.get('path', 'project image')} is missing or not a 1120x720 PNG",
+            )
 
     xero_status = payloads.get("/api/xero/status") or {}
     if (
@@ -206,6 +244,7 @@ def collect_payloads(
     }
     if frontend_url:
         payloads["frontend"] = check_frontend(frontend_url, timeout=timeout)
+    payloads["submission_image"] = check_submission_image()
     if sync:
         payloads["/api/sync"] = request_json(base_url, "/api/sync", method="POST", timeout=max(timeout, 30.0))
     payloads.update(
