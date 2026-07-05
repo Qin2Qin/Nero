@@ -26,6 +26,12 @@ Secondary fit: Small Business Productivity Powerhouse.
 
 Why: late invoice follow-up and cash timing are painful, recurring small-business workflows. Nero turns existing Xero data into simple next actions with visible cash impact.
 
+Judging alignment:
+
+- 50% Xero Connection: Xero is the source of truth for contacts, invoices, online invoice links, payments, and approved invoice history notes.
+- 30% API Integration: the demo shows meaningful Accounting API reads and a human-approved write-back, not just OAuth.
+- 20% Architecture: the app has tenant guards, retry-aware sync, signed webhook receiver code, smoke tests, live preflight checks, and explicit AI/runtime boundaries.
+
 ## Checkpoint 1 Submission
 
 How did your project utilize the Xero API?

@@ -64,6 +64,9 @@ def test_final_submission_answers_match_current_xero_integration() -> None:
     text = (ROOT / "docs" / "final-submission-answers.md").read_text()
 
     assert "Nero (FlowCast)" in text
+    assert "50% Xero Connection" in text
+    assert "30% API Integration" in text
+    assert "20% Architecture" in text
     assert "frontend/public/visuals/nero-live-dashboard-submission.png" in text
     assert PROJECT_IMAGE.exists()
     assert png_dimensions(PROJECT_IMAGE) == (1120, 720)
@@ -78,6 +81,14 @@ def test_final_submission_answers_match_current_xero_integration() -> None:
     assert "openid profile email accounting.invoices accounting.contacts accounting.payments accounting.settings offline_access" in text
     assert "do not claim fake MCP execution" in text
     assert "Development automation stayed in the Codex harness" in text
+
+
+def test_demo_script_mentions_current_preflight_gates() -> None:
+    text = (ROOT / "docs" / "demo-script.md").read_text()
+
+    assert "PASS submission image" in text
+    assert "PASS ai boundary" in text
+    assert "result=passed" in text
 
 
 def test_archived_build_guide_is_marked_non_authoritative() -> None:

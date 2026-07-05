@@ -9,7 +9,8 @@ Use this when presenting Nero from the local live-Xero setup.
 3. Run `.venv/bin/python scripts/demo_preflight.py` from the repo root.
 4. Confirm the final line is `result=passed`.
 5. Confirm it includes `PASS submission image` so the Encode form image is ready.
-6. If it reports stale data, click **Sync Xero** or rerun with `--sync`, then retry the preflight.
+6. Confirm it includes `PASS ai boundary` so optional app-runtime inference is either off or constrained to a free OpenRouter model.
+7. If it reports stale data, click **Sync Xero** or rerun with `--sync`, then retry the preflight.
 
 ## 90-Second Flow
 
