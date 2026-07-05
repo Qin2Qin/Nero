@@ -124,7 +124,7 @@ async function ensureLocalState() {
           id: "app-store-subscriptions",
           label: "App Store subscriptions",
           status: "todo",
-          detail: "Configure App Store subscription/webhook categories in Xero Developer Centre for the production HTTPS URL."
+          detail: "Configure App Store subscription/webhook categories in Xero Developer Centre for the production HTTPS URL, then set XERO_APP_STORE_SUBSCRIPTIONS_CONFIGURED=true."
         },
         {
           id: "support-security",
