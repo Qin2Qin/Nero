@@ -25,6 +25,7 @@ Xero API usage:
 
 - `GET /Contacts` via the Accounting API
 - `GET /Invoices?Statuses=AUTHORISED,PAID` via the Accounting API
+- `GET /Invoices/{InvoiceID}/OnlineInvoice` via the Accounting API for "Open in Xero" links
 - `GET /Payments` via the Accounting API
 - `PUT /Invoices/{InvoiceID}/History` via the Accounting API for internal approval notes
 - OAuth connection and tenant discovery through Xero identity/connections endpoints

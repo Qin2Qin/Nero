@@ -969,7 +969,16 @@ function Dashboard({
                     const proposal = proposalByInvoice.get(invoice.id);
                     return (
                       <tr key={invoice.id}>
-                        <td>{invoice.invoice_number}</td>
+                        <td>
+                          <div className="invoice-ref-cell">
+                            <strong>{invoice.invoice_number}</strong>
+                            {data.dataSource?.mode === "xero" && invoice.online_invoice_url && (
+                              <a href={invoice.online_invoice_url} target="_blank" rel="noreferrer">
+                                <ExternalLink size={12} /> Open in Xero
+                              </a>
+                            )}
+                          </div>
+                        </td>
                         <td>{invoice.contact_name}</td>
                         <td>
                           <div className="date-cell">

@@ -34,6 +34,7 @@ Accounting API calls used by live sync:
 
 - `GET /Contacts`
 - `GET /Invoices` with `Statuses=AUTHORISED,PAID`
+- `GET /Invoices/{invoice_id}/OnlineInvoice`
 - `GET /Payments`
 
 Approval-gated Xero write-back:

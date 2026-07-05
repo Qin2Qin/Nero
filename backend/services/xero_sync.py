@@ -5,6 +5,8 @@ import re
 from datetime import datetime, timezone, date, timedelta
 from typing import Callable
 
+import httpx
+
 from db import connect, count_rows, upsert_payload
 from config import get_settings
 from services.agent_service import run_agent_cycle
@@ -96,8 +98,10 @@ def build_state_from_xero(
     tenant_id: str,
     tenant_name: str | None = None,
     cash_floor: int | None = None,
+    online_invoice_urls: dict[str, str] | None = None,
 ) -> dict:
     today = live_today()
+    online_invoice_urls = online_invoice_urls or {}
     paid_dates = _payment_dates(payments)
     paid_history: list[dict] = []
     open_invoices: list[dict] = []
@@ -157,6 +161,7 @@ def build_state_from_xero(
                 "contact_name": contact_name,
                 "contact_email": contact_email,
                 "invoice_number": str(invoice.get("InvoiceNumber") or invoice_id[:8]),
+                "online_invoice_url": online_invoice_urls.get(invoice_id),
                 "amount_due": amount_due,
                 "issue_date": issue_date.isoformat(),
                 "due_date": due_date.isoformat(),
@@ -231,6 +236,32 @@ def _tenant_name(access_token: str, tenant_id: str) -> str | None:
     return str(match.get("tenantName")) if match and match.get("tenantName") else None
 
 
+def _online_invoice_url(client: XeroClient, invoice_id: str) -> str | None:
+    try:
+        payload = client.get_online_invoice(invoice_id)
+    except httpx.HTTPError:
+        return None
+    rows = payload.get("OnlineInvoices") or []
+    if not rows:
+        return None
+    url = rows[0].get("OnlineInvoiceUrl")
+    return str(url) if url else None
+
+
+def _online_invoice_urls(client: XeroClient, invoices: list[dict]) -> dict[str, str]:
+    urls: dict[str, str] = {}
+    for invoice in invoices:
+        invoice_id = str(invoice.get("InvoiceID") or "")
+        if not invoice_id:
+            continue
+        if str(invoice.get("Status") or "").upper() != "AUTHORISED":
+            continue
+        url = _online_invoice_url(client, invoice_id)
+        if url:
+            urls[invoice_id] = url
+    return urls
+
+
 def _empty_sync_detail(contacts: list[dict[str, Any]], invoices: list[dict[str, Any]], payments: list[dict[str, Any]]) -> str:
     if not contacts and not invoices and not payments:
         return (
@@ -260,6 +291,7 @@ def sync_from_xero(conn: sqlite3.Connection | None = None, materialize_state: bo
         contacts = _paged(client.list_contacts, "Contacts")
         invoices = _paged(lambda page: client.list_invoices(statuses="AUTHORISED,PAID", page=page), "Invoices")
         payments = _paged(client.list_payments, "Payments")
+        online_urls = _online_invoice_urls(client, invoices)
 
         for contact in contacts:
             contact_id = contact.get("ContactID")
@@ -320,6 +352,7 @@ def sync_from_xero(conn: sqlite3.Connection | None = None, materialize_state: bo
                 payments=payments,
                 tenant_id=tokens["tenant_id"],
                 tenant_name=tenant_name,
+                online_invoice_urls=online_urls,
             )
             if state["contacts"] or state["invoices"]:
                 save_state(state)

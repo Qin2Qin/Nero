@@ -40,6 +40,7 @@ class Invoice(BaseModel):
     status: str
     predicted_paid_date: str
     accelerated_paid_date: Optional[str] = None
+    online_invoice_url: Optional[str] = None
 
 
 class Proposal(BaseModel):

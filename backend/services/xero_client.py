@@ -60,3 +60,7 @@ class XeroClient:
             f"/Invoices/{safe_invoice_id}/History",
             json={"HistoryRecords": [{"Details": note[:4000]}]},
         )
+
+    def get_online_invoice(self, invoice_id: str) -> dict:
+        safe_invoice_id = quote(invoice_id, safe="")
+        return self.request("GET", f"/Invoices/{safe_invoice_id}/OnlineInvoice")

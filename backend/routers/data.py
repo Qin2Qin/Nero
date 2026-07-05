@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 from services.app_store_readiness import app_store_readiness
 from services.state import compute_metrics, current_forecast, data_source, get_state
 from services.statements import build_statement, render_statement_html
+from services.xero_links import online_invoice_url
 
 
 router = APIRouter(prefix="/api", tags=["data"])
@@ -19,6 +20,19 @@ def contacts() -> list[dict]:
 @router.get("/invoices")
 def invoices() -> list[dict]:
     return get_state()["invoices"]
+
+
+@router.get("/invoices/{invoice_id}/online")
+def online_invoice(invoice_id: str) -> RedirectResponse:
+    state = get_state()
+    if data_source(state).get("mode") != "xero":
+        raise HTTPException(status_code=404, detail="online invoice links are only available for live Xero data")
+    if not any(invoice.get("id") == invoice_id for invoice in state.get("invoices", [])):
+        raise HTTPException(status_code=404, detail="invoice not found")
+    try:
+        return RedirectResponse(online_invoice_url(invoice_id), status_code=302)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/statements/{contact_id}", response_class=HTMLResponse)
