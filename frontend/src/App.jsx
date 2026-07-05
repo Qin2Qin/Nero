@@ -1256,7 +1256,22 @@ function Payers({ contacts, invoices = [] }) {
 
 function AgentQueue({ proposals, dataSource, onApprove, onDismiss, onEdit, busy }) {
   const [drafts, setDrafts] = useState({});
-  const pending = proposals.filter((proposal) => proposal.status === "pending");
+  const pending = useMemo(
+    () =>
+      proposals
+        .filter((proposal) => proposal.status === "pending")
+        .sort((a, b) => {
+          const impactDiff = Number(b.expected_impact_dollars || 0) - Number(a.expected_impact_dollars || 0);
+          if (impactDiff !== 0) return impactDiff;
+          const daysDiff = Number(b.expected_days_accelerated || 0) - Number(a.expected_days_accelerated || 0);
+          if (daysDiff !== 0) return daysDiff;
+          return String(a.contact_name || "").localeCompare(String(b.contact_name || ""), undefined, {
+            numeric: true,
+            sensitivity: "base"
+          });
+        }),
+    [proposals]
+  );
 
   return (
     <main className="content">
