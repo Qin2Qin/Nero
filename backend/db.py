@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS xero_payments (
 def connect(path: Path | None = None) -> sqlite3.Connection:
     settings = get_settings()
     db_path = path or settings.database_path
+    db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     conn.executescript(SCHEMA)

@@ -39,3 +39,17 @@ def test_app_store_subscription_flag_reads_truthy_values(monkeypatch) -> None:
     monkeypatch.setenv("XERO_APP_STORE_SUBSCRIPTIONS_CONFIGURED", "yes")
 
     assert get_settings().xero_app_store_subscriptions_configured is True
+
+
+def test_vercel_defaults_database_to_tmp(monkeypatch) -> None:
+    monkeypatch.setenv("VERCEL", "1")
+    monkeypatch.delenv("NERO_DB_PATH", raising=False)
+
+    assert get_settings().database_path == Path("/tmp/nero.db")
+
+
+def test_empty_database_path_uses_runtime_default(monkeypatch) -> None:
+    monkeypatch.setenv("VERCEL", "1")
+    monkeypatch.setenv("NERO_DB_PATH", "")
+
+    assert get_settings().database_path == Path("/tmp/nero.db")

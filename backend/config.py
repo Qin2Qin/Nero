@@ -63,6 +63,12 @@ def _frontend_origins(value: str) -> tuple[str, ...]:
     return tuple(origins)
 
 
+def _default_database_path() -> Path:
+    if os.getenv("VERCEL"):
+        return Path("/tmp/nero.db")
+    return Path(__file__).with_name("nero.db")
+
+
 @dataclass(frozen=True)
 class Settings:
     demo_mode: bool
@@ -106,5 +112,5 @@ def get_settings() -> Settings:
         openrouter_base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1/chat/completions"),
         cash_floor=int(os.getenv("CASH_FLOOR", "5000")),
         frontend_origins=origins,
-        database_path=Path(os.getenv("NERO_DB_PATH", Path(__file__).with_name("nero.db"))),
+        database_path=Path(os.getenv("NERO_DB_PATH") or _default_database_path()),
     )
