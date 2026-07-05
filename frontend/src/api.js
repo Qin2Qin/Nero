@@ -153,6 +153,16 @@ function proposalRollup(status) {
   };
 }
 
+function proposalActionLabel(proposal) {
+  const labels = {
+    reminder: "payment reminder",
+    escalation: "firmer payment reminder",
+    deposit_recommendation: "deposit recommendation",
+    terms_recommendation: "payment terms recommendation"
+  };
+  return labels[proposal?.type] || "suggestion";
+}
+
 function recomputeLocalMetrics() {
   const approved = proposalRollup("approved");
   const pending = proposalRollup("pending");
@@ -256,8 +266,8 @@ export async function approveProposal(id) {
     actor: "You",
     event:
       proposal.type === "reminder" || proposal.type === "escalation"
-        ? `Approved ${proposal.type} for ${proposal.contact_name} and queued message for review`
-        : `Recommendation accepted - apply on next quote for ${proposal.contact_name}`
+        ? `Approved a ${proposalActionLabel(proposal)} for ${proposal.contact_name}. The draft is waiting in Outbox.`
+        : `Approved a ${proposalActionLabel(proposal)} for ${proposal.contact_name}.`
   });
   recomputeLocalMetrics();
   return { proposal };
@@ -266,7 +276,15 @@ export async function approveProposal(id) {
 export async function dismissProposal(id) {
   if (!USE_FIXTURES) return request(`/api/proposals/${id}/dismiss`, { method: "POST" });
   const proposal = localState.proposals.find((item) => item.id === id);
-  if (proposal) proposal.status = "dismissed";
+  if (proposal) {
+    proposal.status = "dismissed";
+    localState.action_log.unshift({
+      id: `dismiss-${id}`,
+      timestamp: nowIso(),
+      actor: "You",
+      event: `Dismissed the suggestion for ${proposal.contact_name}.`
+    });
+  }
   return proposal;
 }
 
@@ -278,7 +296,15 @@ export async function editProposal(id, draftBody) {
     });
   }
   const proposal = localState.proposals.find((item) => item.id === id);
-  if (proposal) proposal.draft_body = draftBody;
+  if (proposal) {
+    proposal.draft_body = draftBody;
+    localState.action_log.unshift({
+      id: `edit-${id}`,
+      timestamp: nowIso(),
+      actor: "You",
+      event: `Edited the draft message for ${proposal.contact_name}.`
+    });
+  }
   return proposal;
 }
 
@@ -287,8 +313,8 @@ export async function runAgent() {
   localState.action_log.unshift({
     id: `agent-${Date.now()}`,
     timestamp: nowIso(),
-    actor: "Agent",
-    event: "Agent run complete - existing proposals reviewed"
+    actor: "Nero",
+    event: "No new actions needed right now."
   });
   return { created: [], pending_count: localState.proposals.filter((item) => item.status === "pending").length };
 }
@@ -351,7 +377,7 @@ export async function updateCashFloor(cashFloor) {
     id: `cash-floor-${Date.now()}`,
     timestamp: nowIso(),
     actor: "You",
-    event: `Cash floor changed to GBP ${money(payload.cash_floor)}`
+    event: `Cash floor changed to £${money(payload.cash_floor)}.`
   });
   return localState.settings;
 }

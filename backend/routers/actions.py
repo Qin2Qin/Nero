@@ -166,6 +166,6 @@ def patch_settings(request: SettingsPatch) -> dict:
         raise HTTPException(status_code=400, detail="cash_floor must be non-negative")
     state = get_state()
     state.setdefault("settings", {})["cash_floor"] = request.cash_floor
-    append_log(state, "You", f"Cash floor changed to GBP {request.cash_floor:,}")
+    append_log(state, "You", f"Cash floor changed to £{request.cash_floor:,}.")
     save_state(state)
     return state["settings"]

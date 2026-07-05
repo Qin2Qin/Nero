@@ -132,9 +132,10 @@ async function runSmoke() {
       if (href !== `${backendUrl}/auth/login`) throw new Error(`Connect Xero link pointed to ${href}`);
     }
     await page.getByText("Recent activity").waitFor();
+    await page.getByText(/suggested actions? ready for your review/i).first().waitFor();
 
     const dashboardText = await page.locator("body").innerText();
-    if (/Mark paid|Action Log|Open exposure|Variance|Seed portfolio/.test(dashboardText)) {
+    if (/Mark paid|Action Log|Open exposure|Variance|Seed portfolio|proposal\(s\)|profile\(s\)|Materialised|Agent run complete/.test(dashboardText)) {
       throw new Error(`Demo-only or jargon text leaked onto dashboard:\n${dashboardText}`);
     }
     await expectText(

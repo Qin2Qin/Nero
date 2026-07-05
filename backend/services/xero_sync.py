@@ -186,7 +186,7 @@ def build_state_from_xero(
                 "id": f"xero-sync-{tenant_id}",
                 "timestamp": utc_now(),
                 "actor": "Xero",
-                "event": f"Materialised {len(profiles)} payer profile(s) and {len(predicted)} open invoice(s) from Xero.",
+                "event": f"Updated from Xero: {len(profiles)} customers and {len(predicted)} open invoices are ready.",
             }
         ],
         "outbox": [],
