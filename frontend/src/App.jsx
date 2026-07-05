@@ -560,6 +560,7 @@ function Dashboard({
   cashDisplay,
   onRunAgent,
   onUpdateCashFloor,
+  onReviewActions,
   onViewActivity,
   syncResult,
   busy
@@ -575,7 +576,30 @@ function Dashboard({
     .reduce((sum, invoice) => sum + invoice.amount_due, 0);
   const warningBuckets = data.forecast.buckets.filter((bucket) => bucket.cumulative_predicted < data.forecast.cash_floor);
   const firstWarning = warningBuckets.find((bucket) => bucket.week_start !== "later");
-  const pendingActions = data.proposals.filter((proposal) => proposal.status === "pending").length;
+  const pendingProposals = data.proposals.filter((proposal) => proposal.status === "pending");
+  const pendingActions = Number(data.metrics?.pending_actions_count ?? pendingProposals.length);
+  const pendingImpactFallback = pendingProposals.reduce(
+    (sum, proposal) => sum + Number(proposal.expected_impact_dollars || 0),
+    0
+  );
+  const pendingWeightedDays = pendingProposals.reduce(
+    (sum, proposal) =>
+      sum + Number(proposal.expected_impact_dollars || 0) * Number(proposal.expected_days_accelerated || 0),
+    0
+  );
+  const pendingAverageFallback = pendingImpactFallback ? pendingWeightedDays / pendingImpactFallback : 0;
+  const pendingImpact = Number(data.metrics?.pending_impact_dollars ?? pendingImpactFallback);
+  const pendingAverageDays = Math.round(Number(data.metrics?.pending_avg_days_accelerated ?? pendingAverageFallback));
+  const pendingDaysPhrase =
+    pendingAverageDays > 0 ? ` about ${pendingAverageDays} ${plural(pendingAverageDays, "day")} sooner` : " sooner";
+  const pendingValueText =
+    pendingImpact > 0
+      ? `${formatCurrency(pendingImpact)} waiting for review`
+      : "No suggested cash actions waiting";
+  const pendingSummary =
+    pendingImpact > 0 && pendingActions > 0
+      ? `Review ${pendingActions} suggested ${plural(pendingActions, "action")} to bring ${formatCurrency(pendingImpact)} forward${pendingDaysPhrase}. Nothing is sent without your OK.`
+      : "Run the agent when new invoices arrive, then review each suggestion before anything is sent.";
   const openInvoiceCount = data.invoices.length;
   const sortedInvoices = useMemo(
     () =>
@@ -631,6 +655,17 @@ function Dashboard({
           <span>Cash Accelerated</span>
           <strong>{formatCurrency(cashDisplay)}</strong>
         </article>
+      </section>
+
+      <section className={pendingImpact > 0 ? "roi-strip" : "roi-strip quiet"} aria-label="Cash action summary">
+        <div>
+          <span>Cash to bring forward</span>
+          <strong>{pendingValueText}</strong>
+          <p>{pendingSummary}</p>
+        </div>
+        <button className="button ghost btn btn-ghost btn-sm" type="button" onClick={onReviewActions}>
+          <Bot size={16} /> Open queue
+        </button>
       </section>
 
       <section className="split">
@@ -1170,6 +1205,7 @@ export function App() {
           busy={busy}
           onRunAgent={() => act(runAgent)}
           onUpdateCashFloor={(cashFloor) => act(() => updateCashFloor(cashFloor))}
+          onReviewActions={() => setActiveTab("queue")}
           onViewActivity={() => setActiveTab("activity")}
           syncResult={syncResult}
         />

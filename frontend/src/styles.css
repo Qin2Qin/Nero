@@ -427,6 +427,58 @@ h2 {
   color: var(--fgColor-success);
 }
 
+.roi-strip {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 var(--space-4);
+  padding: 16px 18px;
+  border: 1px solid rgba(52, 211, 153, 0.24);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(135deg, rgba(20, 184, 166, 0.16), rgba(255, 255, 255, 0.045)),
+    rgba(15, 23, 42, 0.76);
+  box-shadow: var(--shadow-resting);
+  animation: surfaceIn var(--motion-medium) both;
+}
+
+.roi-strip.quiet {
+  border-color: var(--borderColor-default);
+  background:
+    linear-gradient(135deg, rgba(148, 163, 184, 0.12), rgba(255, 255, 255, 0.035)),
+    rgba(15, 23, 42, 0.7);
+}
+
+.roi-strip span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--fgColor-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.roi-strip strong {
+  display: block;
+  color: #ffffff;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.roi-strip p {
+  max-width: 820px;
+  margin: 6px 0 0;
+  color: var(--fgColor-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.roi-strip .button {
+  flex: 0 0 auto;
+}
+
 .split {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 332px;
@@ -1385,6 +1437,15 @@ pre {
 
   .command-strip div {
     padding: 14px 16px;
+  }
+
+  .roi-strip {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .roi-strip .button {
+    justify-content: center;
   }
 
   .chart-panel {
