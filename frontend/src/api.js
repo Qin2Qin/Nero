@@ -34,7 +34,7 @@ const localState = {
   },
   appStoreReadiness: {
     status: "draft",
-    ready_count: 3,
+    ready_count: 4,
     total_count: 6,
     source_url: "https://developer.xero.com/documentation/xero-app-store/app-partner-guides/certification-checkpoints/",
     items: [
@@ -65,14 +65,14 @@ const localState = {
       {
         id: "listing",
         label: "App Store listing",
-        status: "todo",
-        detail: "Prepare category, screenshots, pricing, support URL, privacy URL and advisor-facing recommendation copy."
+        status: "ready",
+        detail: "Submission notes are drafted in docs/xero-app-store-submission.md."
       },
       {
         id: "support-security",
         label: "Support and security",
-        status: "todo",
-        detail: "Add support docs, data retention notes, error recovery copy and security self-assessment evidence."
+        status: "ready",
+        detail: "Support, privacy, retention and security notes are drafted in docs/support.md and docs/privacy-security.md."
       }
     ]
   },

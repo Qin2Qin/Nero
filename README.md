@@ -57,6 +57,7 @@ XERO_TOKEN_EXPIRES_AT=
 XERO_TOKEN_EXPIRES_IN=1800
 ANTHROPIC_API_KEY=
 DEMO_MODE=false
+FRONTEND_ORIGINS=http://localhost:5173,http://localhost:3000
 ```
 
 Register the same callback URL in the Xero developer app.
@@ -92,6 +93,18 @@ Live Xero flow:
 7. If the connected organisation is empty, run `POST /api/synthetic/seed` to
    populate the local dashboard with generated UK portfolio data. This does not
    write to Xero and is labelled in the UI as synthetic data.
+
+Frontend deployment variables:
+
+```text
+VITE_API_BASE=http://localhost:8000
+VITE_DEMO=false
+VITE_SUPPORT_EMAIL=support@nero.cash
+```
+
+The App Store submission, support, privacy and security notes live in
+`docs/xero-app-store-submission.md`, `docs/support.md`, and
+`docs/privacy-security.md`.
 
 Xero demo company flow:
 

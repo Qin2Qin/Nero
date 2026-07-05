@@ -157,7 +157,7 @@ async function runSmoke() {
 
     await page.getByRole("button", { name: "Help & Support" }).click();
     await page.getByRole("heading", { name: "Help & Support" }).waitFor();
-    await page.getByText("support@placeholder-domain.com").waitFor();
+    await page.getByText("support@nero.cash").waitFor();
     await page.getByTitle("Close").click();
 
     await page.getByRole("button", { name: "Activity" }).click();
