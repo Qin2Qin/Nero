@@ -160,6 +160,20 @@ async function runSmoke() {
       /Based on \d+ paid invoices, Copperline Manufacturing pays on average \d+ days late/,
       "payer timing sentence"
     );
+    const statementLink = page.getByRole("link", { name: "Open statement" });
+    await statementLink.waitFor();
+    const statementHref = await statementLink.getAttribute("href");
+    if (!statementHref?.startsWith(`${backendUrl}/api/statements/`)) {
+      throw new Error(`Statement link pointed to ${statementHref}`);
+    }
+    const [statementPage] = await Promise.all([
+      page.context().waitForEvent("page"),
+      statementLink.click()
+    ]);
+    await statementPage.getByText("Customer statement").waitFor();
+    await statementPage.getByText("Copperline Manufacturing").waitFor();
+    await statementPage.getByText("Print or save as PDF").waitFor();
+    await statementPage.close();
     await page.getByPlaceholder("Search customers...").fill("kite");
     await page.getByText("Kite & Kettle Cafes").first().waitFor();
     await page.getByText("Kite & Kettle Cafes").first().click();
