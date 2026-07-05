@@ -1182,6 +1182,12 @@ function Payers({ contacts, invoices = [] }) {
     }
   }, [sorted, selectedId]);
 
+  function selectWithKeyboard(event, contactId) {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    setSelectedId(contactId);
+  }
+
   return (
     <main className="content payers-layout">
       <section className="panel">
@@ -1245,7 +1251,10 @@ function Payers({ contacts, invoices = [] }) {
                 <tr
                   key={contact.id}
                   className={selected?.id === contact.id ? "selected-row" : ""}
+                  tabIndex={0}
+                  aria-selected={selected?.id === contact.id}
                   onClick={() => setSelectedId(contact.id)}
+                  onKeyDown={(event) => selectWithKeyboard(event, contact.id)}
                 >
                   <td>{contact.name}</td>
                   <td><span className={gradeClass(contact.grade)}>{reliabilityLabel(contact)}</span></td>

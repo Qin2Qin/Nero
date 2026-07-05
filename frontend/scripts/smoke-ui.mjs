@@ -650,7 +650,9 @@ async function runSmoke() {
     await page.getByRole("heading", { name: "Payment performance" }).waitFor();
     await page.getByPlaceholder("Search customers...").fill("copper");
     await page.getByText("Copperline Manufacturing").first().waitFor();
-    await page.getByText("Copperline Manufacturing").first().click();
+    const copperRow = page.locator("tbody tr").filter({ hasText: "Copperline Manufacturing" }).first();
+    await copperRow.focus();
+    await page.keyboard.press("Enter");
     await expectText(
       page.locator(".payer-summary"),
       /Based on \d+ paid invoices, Copperline Manufacturing pays on average \d+ days late/,
@@ -672,7 +674,9 @@ async function runSmoke() {
     await statementPage.close();
     await page.getByPlaceholder("Search customers...").fill("kite");
     await page.getByText("Kite & Kettle Cafes").first().waitFor();
-    await page.getByText("Kite & Kettle Cafes").first().click();
+    const kiteRow = page.locator("tbody tr").filter({ hasText: "Kite & Kettle Cafes" }).first();
+    await kiteRow.focus();
+    await page.keyboard.press("Space");
     await expectText(
       page.locator(".payer-summary"),
       /Kite & Kettle Cafes pays on average \d+ days early/,
