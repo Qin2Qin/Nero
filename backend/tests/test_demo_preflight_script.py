@@ -114,6 +114,23 @@ def test_demo_preflight_strict_app_store_fails_for_incomplete_readiness() -> Non
     assert lines[-1] == "result=failed"
 
 
+def test_demo_preflight_allows_rate_limited_sync_when_cached_xero_data_is_fresh() -> None:
+    module = load_module()
+    payloads = healthy_payloads()
+    payloads.pop("/api/sync")
+    payloads["sync_error"] = "POST /api/sync returned HTTP 503: Xero is asking Nero to wait before syncing again. (Retry-After: 60s)"
+
+    exit_code, lines = module.evaluate_preflight(
+        payloads,
+        now=datetime(2026, 7, 5, 6, 30, tzinfo=timezone.utc),
+    )
+
+    assert exit_code == 0
+    assert any(line.startswith("INFO sync: requested refresh was not completed:") for line in lines)
+    assert "PASS data: Xero: Demo Company (UK) updated 5 minutes ago" in lines
+    assert lines[-1] == "result=passed"
+
+
 def test_demo_preflight_fails_for_missing_submission_image() -> None:
     module = load_module()
     payloads = healthy_payloads()

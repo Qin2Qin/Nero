@@ -43,7 +43,20 @@ def request_json(base_url: str, path: str, method: str = "GET", timeout: float =
         with urlopen(request, timeout=timeout) as response:
             payload = response.read().decode("utf-8")
     except HTTPError as error:
-        raise RuntimeError(f"{method} {path} returned HTTP {error.code}") from error
+        detail = ""
+        try:
+            error_payload = error.read().decode("utf-8", errors="replace")
+            parsed_error = json.loads(error_payload)
+            detail = str(parsed_error.get("detail") or "")
+        except (OSError, json.JSONDecodeError, AttributeError):
+            detail = ""
+        retry_after = error.headers.get("Retry-After") if error.headers else None
+        message = f"{method} {path} returned HTTP {error.code}"
+        if detail:
+            message = f"{message}: {detail}"
+        if retry_after:
+            message = f"{message} (Retry-After: {retry_after}s)"
+        raise RuntimeError(message) from error
     except URLError as error:
         raise RuntimeError(f"{method} {path} failed: {error.reason}") from error
     try:
@@ -198,6 +211,9 @@ def evaluate_preflight(
         fail(failures, lines, "xero", reason)
 
     sync_result = payloads.get("/api/sync")
+    sync_error = payloads.get("sync_error")
+    if sync_error:
+        lines.append(f"INFO sync: requested refresh was not completed: {sync_error}")
     if sync_result is not None:
         fetched = sync_result.get("fetched") or {}
         materialized = sync_result.get("materialized") or {}
@@ -309,7 +325,10 @@ def collect_payloads(
         payloads["frontend"] = check_frontend(frontend_url, timeout=timeout)
     payloads["submission_image"] = check_submission_image()
     if sync:
-        payloads["/api/sync"] = request_json(base_url, "/api/sync", method="POST", timeout=max(timeout, 30.0))
+        try:
+            payloads["/api/sync"] = request_json(base_url, "/api/sync", method="POST", timeout=max(timeout, 30.0))
+        except RuntimeError as error:
+            payloads["sync_error"] = str(error)
     payloads.update(
         {
             "/api/data_source": request_json(base_url, "/api/data_source", timeout=timeout),
