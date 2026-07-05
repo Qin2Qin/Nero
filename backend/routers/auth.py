@@ -4,7 +4,9 @@ import httpx
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import RedirectResponse
 from typing import Optional
+from urllib.parse import urlencode
 
+from config import get_settings
 from services.xero_auth import disconnect_saved_connection, get_connection_summary, login_url, store_callback_tokens
 
 
@@ -31,12 +33,17 @@ def _xero_error_detail(exc: httpx.HTTPStatusError) -> str:
     return f"Xero token exchange failed: {error}"
 
 
+def _frontend_connected_url() -> str:
+    origin = (get_settings().frontend_origins or ("http://localhost:5173",))[0].rstrip("/")
+    return f"{origin}/?{urlencode({'xero': 'connected'})}"
+
+
 @router.get("/callback")
 def callback(
     code: Optional[str] = None,
     error: Optional[str] = None,
     error_description: Optional[str] = None,
-) -> dict:
+) -> RedirectResponse:
     if error:
         detail = f"Xero authorization failed: {error}"
         if error_description:
@@ -45,12 +52,12 @@ def callback(
     if not code:
         raise HTTPException(status_code=400, detail="Xero authorization failed: missing authorization code")
     try:
-        status = store_callback_tokens(code)
+        store_callback_tokens(code)
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except httpx.HTTPStatusError as exc:
         raise HTTPException(status_code=400, detail=_xero_error_detail(exc)) from exc
-    return {"status": "connected", "xero": status}
+    return RedirectResponse(_frontend_connected_url(), status_code=303)
 
 
 @router.get("/status")

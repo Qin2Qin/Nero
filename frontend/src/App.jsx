@@ -379,6 +379,9 @@ function xeroNeedsReconnect(status) {
 
 function syncSummary(result) {
   if (!result) return "";
+  if (result.status === "connected") {
+    return result.detail || "Xero connected. Click Sync Xero to pull the latest records.";
+  }
   if (result.status === "disconnected") {
     return result.detail || "Disconnected Xero locally. Reconnect before syncing again.";
   }
@@ -1179,7 +1182,7 @@ function Dashboard({
             busy={busy}
           />
           <RecentActivity entries={data.actionLog} onViewAll={onViewActivity} />
-          {syncResult?.status === "synced" && <p className={syncResultClass(syncResult)}>{syncSummary(syncResult)}</p>}
+          {syncResult && <p className={syncResultClass(syncResult)}>{syncSummary(syncResult)}</p>}
         </aside>
       </section>
     </main>
@@ -1681,6 +1684,19 @@ export function App() {
 
   useEffect(() => {
     refresh().catch((err) => setError(err.message));
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("xero") !== "connected") return;
+    setSyncResult({
+      status: "connected",
+      detail: "Xero connected. Click Sync Xero to pull the latest records."
+    });
+    params.delete("xero");
+    const query = params.toString();
+    const nextUrl = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
+    window.history.replaceState({}, "", nextUrl || "/");
   }, []);
 
   useEffect(() => {

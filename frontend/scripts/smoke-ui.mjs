@@ -97,6 +97,14 @@ async function runSmoke() {
   await errorPage.getByText("Forecast temporarily unavailable").waitFor();
   await errorPage.close();
 
+  const connectedReturnPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await connectedReturnPage.goto(`${frontendUrl}/?xero=connected`, { waitUntil: "networkidle" });
+  await connectedReturnPage.getByText("Xero connected. Click Sync Xero to pull the latest records.").waitFor();
+  if (new URL(connectedReturnPage.url()).searchParams.has("xero")) {
+    throw new Error(`OAuth return query was not cleared: ${connectedReturnPage.url()}`);
+  }
+  await connectedReturnPage.close();
+
   const reconnectPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   const reconnectTenantRequests = [];
   reconnectPage.on("request", (request) => {
