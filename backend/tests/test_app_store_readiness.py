@@ -24,5 +24,12 @@ def test_app_store_readiness_exposes_xero_certification_checklist() -> None:
     assert body["source_url"].endswith("/certification-checkpoints/")
     assert {"sign-up-with-xero", "connection", "scopes", "listing", "support-security"}.issubset(item_ids)
     scopes = next(item for item in body["items"] if item["id"] == "scopes")["detail"]
+    listing = next(item for item in body["items"] if item["id"] == "listing")
+    support_security = next(item for item in body["items"] if item["id"] == "support-security")
+
     assert "accounting.invoices" in scopes
     assert "accounting.payments" in scopes
+    assert listing["status"] == "ready"
+    assert "xero-app-store-submission.md" in listing["detail"]
+    assert support_security["status"] == "ready"
+    assert "privacy" in support_security["detail"].lower()

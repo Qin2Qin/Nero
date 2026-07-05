@@ -56,7 +56,7 @@ const TABS = [
 ];
 
 const TODAY = new Date("2026-07-04T00:00:00Z");
-const SUPPORT_EMAIL = "support@placeholder-domain.com";
+const SUPPORT_EMAIL = import.meta.env.VITE_SUPPORT_EMAIL || "support@nero.cash";
 
 function parseDate(value) {
   return new Date(`${value}T00:00:00Z`);
@@ -1151,7 +1151,7 @@ function SupportModal({ onClose }) {
       <a className="support-link" href={`mailto:${SUPPORT_EMAIL}`}>
         {SUPPORT_EMAIL}
       </a>
-      <p className="muted compact-note">Placeholder support address for the hackathon build.</p>
+      <p className="muted compact-note">For billing, Xero connection, privacy, or data deletion questions, include your business name.</p>
     </ModalShell>
   );
 }

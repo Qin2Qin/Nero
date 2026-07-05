@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from services.xero_auth import SCOPES, get_connection_summary
 
 
 CHECKPOINT_SOURCE = (
     "https://developer.xero.com/documentation/xero-app-store/app-partner-guides/certification-checkpoints/"
 )
+ROOT_DIR = Path(__file__).resolve().parents[2]
+LISTING_DOC = ROOT_DIR / "docs" / "xero-app-store-submission.md"
+SUPPORT_DOC = ROOT_DIR / "docs" / "support.md"
+PRIVACY_SECURITY_DOC = ROOT_DIR / "docs" / "privacy-security.md"
 
 
 def app_store_readiness() -> dict:
@@ -13,6 +19,8 @@ def app_store_readiness() -> dict:
     configured = bool(summary["client_credentials_configured"])
     connected = bool(summary["connected"])
     demo_mode = bool(summary["demo_mode"])
+    listing_ready = LISTING_DOC.exists()
+    support_security_ready = SUPPORT_DOC.exists() and PRIVACY_SECURITY_DOC.exists()
 
     items = [
         {
@@ -42,21 +50,25 @@ def app_store_readiness() -> dict:
         {
             "id": "listing",
             "label": "App Store listing",
-            "status": "todo",
-            "detail": "Prepare category, screenshots, pricing, support URL, privacy URL and advisor-facing recommendation copy.",
+            "status": "ready" if listing_ready else "todo",
+            "detail": "Submission notes are drafted in docs/xero-app-store-submission.md."
+            if listing_ready
+            else "Prepare category, screenshots, pricing, support URL, privacy URL and advisor-facing recommendation copy.",
         },
         {
             "id": "support-security",
             "label": "Support and security",
-            "status": "todo",
-            "detail": "Add support docs, data retention notes, error recovery copy and security self-assessment evidence.",
+            "status": "ready" if support_security_ready else "todo",
+            "detail": "Support, privacy, retention and security notes are drafted in docs/support.md and docs/privacy-security.md."
+            if support_security_ready
+            else "Add support docs, data retention notes, error recovery copy and security self-assessment evidence.",
         },
     ]
 
     ready_count = len([item for item in items if item["status"] == "ready"])
     blocked_count = len([item for item in items if item["status"] == "blocked"])
     return {
-        "status": "blocked" if blocked_count else "draft",
+        "status": "blocked" if blocked_count else "ready" if ready_count == len(items) else "draft",
         "ready_count": ready_count,
         "total_count": len(items),
         "source_url": CHECKPOINT_SOURCE,
