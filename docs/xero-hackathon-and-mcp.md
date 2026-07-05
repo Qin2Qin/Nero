@@ -34,6 +34,8 @@ Nero's evidence map for judging:
 - CLI tooling: repo scripts cover OAuth validation, token import, research monitoring, backend smoke checks, and the bounded Codex development loop.
 - Business impact: dashboard shows money currently at risk, likely cash timing, reviewable actions, and the expected cash/days brought forward.
 
+The short presentation flow lives in `docs/demo-script.md`.
+
 ## Implemented Xero Flow
 
 Backend OAuth and tenant management:

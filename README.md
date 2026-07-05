@@ -132,9 +132,9 @@ VITE_DEMO=false
 VITE_SUPPORT_EMAIL=support@nero.cash
 ```
 
-The App Store submission, support, privacy and security notes live in
-`docs/xero-app-store-submission.md`, `docs/support.md`, and
-`docs/privacy-security.md`.
+The App Store submission, judge demo script, support, privacy and security
+notes live in `docs/xero-app-store-submission.md`, `docs/demo-script.md`,
+`docs/support.md`, and `docs/privacy-security.md`.
 
 The Xero hackathon integration notes, including judging emphasis, endpoints,
 OAuth scopes, rate limits, and Remote MCP status, live in
