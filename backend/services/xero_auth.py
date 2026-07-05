@@ -210,8 +210,7 @@ def bootstrap_tokens_from_env(
         tenant_id = settings.xero_tenant_id
         if not tenant_id and resolve_tenant:
             connections = list_connections(tokens["access_token"])
-            if connections:
-                tenant_id = connections[0].get("tenantId")
+            tenant_id = _preferred_tenant_id(connections)
 
         status = save_token_set(tokens, tenant_id=tenant_id, conn=conn)
         return {"imported": True, "source": source, "status": status}

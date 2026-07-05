@@ -92,6 +92,28 @@ def test_bootstrap_tokens_from_env_does_not_overwrite_by_default(tmp_path: Path,
     assert saved["tenant_id"] == "saved-tenant"
 
 
+def test_bootstrap_tokens_from_env_prefers_demo_company_when_resolving_tenant(tmp_path: Path, monkeypatch) -> None:
+    conn = connect(tmp_path / "nero.db")
+    monkeypatch.setenv("XERO_ACCESS_TOKEN", "env-access")
+    monkeypatch.setenv("XERO_REFRESH_TOKEN", "env-refresh")
+    monkeypatch.setenv("XERO_TENANT_ID", "")
+    monkeypatch.setenv("XERO_TOKEN_EXPIRES_AT", "2099-01-01T00:00:00+00:00")
+    monkeypatch.setattr(
+        xero_auth,
+        "list_connections",
+        lambda access_token: [
+            {"tenantId": "imperial", "tenantName": "Imperial", "tenantType": "ORGANISATION"},
+            {"tenantId": "demo", "tenantName": "Demo Company (UK)", "tenantType": "ORGANISATION"},
+        ],
+    )
+
+    result = bootstrap_tokens_from_env(conn=conn, resolve_tenant=True)
+
+    assert result["imported"] is True
+    assert result["status"]["tenant_id"] == "demo"
+    assert get_saved_tokens(conn)["tenant_id"] == "demo"
+
+
 def test_auth_callback_reports_denied_authorization() -> None:
     client = TestClient(create_app(), raise_server_exceptions=False)
 
