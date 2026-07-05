@@ -810,6 +810,11 @@ function LiveXeroControls({ status, tenants, source, busy, onSyncXero, onSelectT
 
   return (
     <>
+      {status.needs_tenant && tenantOptions.length === 0 && (
+        <span className="badge attention live-xero-badge" title="Reconnect Xero if organisations do not appear after a refresh.">
+          Choose Xero organisation
+        </span>
+      )}
       {shouldPickTenant && (
         <select
           className="select select-bordered select-sm live-tenant-select"

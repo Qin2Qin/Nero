@@ -3,11 +3,12 @@ from __future__ import annotations
 from typing import Literal, Optional
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from config import get_settings
 from services.ai_copy import polish_draft_body
+from services.public_urls import xero_redirect_uri_for_request
 from services.agent_service import run_agent_cycle
 from services.state import (
     append_log,
@@ -222,8 +223,9 @@ def seed_synthetic_portfolio() -> dict:
 
 
 @router.get("/xero/status")
-def xero_status() -> dict:
-    return get_connection_summary()
+def xero_status(request: Request) -> dict:
+    settings = get_settings()
+    return get_connection_summary(redirect_uri=xero_redirect_uri_for_request(request, settings.xero_redirect_uri))
 
 
 @router.get("/xero/tenants")

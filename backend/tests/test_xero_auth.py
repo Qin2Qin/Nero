@@ -287,7 +287,7 @@ def test_auth_callback_missing_code_redirects_to_frontend() -> None:
 
 
 def test_auth_callback_token_exchange_failure_redirects_to_frontend_without_provider_detail(monkeypatch) -> None:
-    def fake_store_callback_tokens(code: str) -> dict:
+    def fake_store_callback_tokens(code: str, redirect_uri: str | None = None) -> dict:
         request = httpx.Request("POST", "https://identity.xero.com/connect/token")
         response = httpx.Response(
             400,
@@ -318,8 +318,9 @@ def test_auth_callback_token_exchange_failure_redirects_to_frontend_without_prov
 def test_auth_callback_redirects_to_frontend_after_connection(monkeypatch) -> None:
     monkeypatch.setenv("FRONTEND_ORIGINS", "http://localhost:5173,http://localhost:3000")
 
-    def fake_store_callback_tokens(code: str) -> dict:
+    def fake_store_callback_tokens(code: str, redirect_uri: str | None = None) -> dict:
         assert code == "good-code"
+        assert redirect_uri == "http://localhost:8000/auth/callback"
         return {"connected": True, "tenant_id": "tenant-123"}
 
     import routers.auth as auth_router
@@ -329,13 +330,63 @@ def test_auth_callback_redirects_to_frontend_after_connection(monkeypatch) -> No
 
     response = client.get(
         "/auth/callback?code=good-code&state=state-123",
-        headers={"cookie": "nero_xero_oauth_state=state-123"},
+        headers={"cookie": "nero_xero_oauth_state=state-123", "host": "localhost:8000"},
         follow_redirects=False,
     )
 
     assert response.status_code == 303
     assert response.headers["location"] == "http://localhost:5173/?xero=connected"
     assert "nero_xero_oauth_state=" in response.headers["set-cookie"]
+
+
+def test_auth_login_uses_forwarded_host_for_xero_redirect(monkeypatch) -> None:
+    monkeypatch.setenv("XERO_CLIENT_ID", "client-id")
+    monkeypatch.setenv("XERO_CLIENT_SECRET", "client-secret")
+    monkeypatch.setenv("XERO_REDIRECT_URI", "http://localhost:8000/auth/callback")
+    client = TestClient(create_app())
+
+    response = client.get(
+        "/auth/login",
+        headers={
+            "host": "internal.vercel.app",
+            "x-forwarded-host": "nero-kk7b.vercel.app",
+            "x-forwarded-proto": "https",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code in (302, 307)
+    params = query_params(response.headers["location"])
+    assert params["redirect_uri"] == ["https://nero-kk7b.vercel.app/auth/callback"]
+
+
+def test_auth_callback_uses_forwarded_host_for_token_exchange_and_frontend_return(monkeypatch) -> None:
+    monkeypatch.setenv("FRONTEND_ORIGINS", "http://localhost:5173,http://localhost:3000")
+    calls = []
+
+    def fake_store_callback_tokens(code: str, redirect_uri: str | None = None) -> dict:
+        calls.append((code, redirect_uri))
+        return {"connected": True, "tenant_id": None, "needs_tenant": True}
+
+    import routers.auth as auth_router
+
+    monkeypatch.setattr(auth_router, "store_callback_tokens", fake_store_callback_tokens)
+    client = TestClient(create_app())
+
+    response = client.get(
+        "/auth/callback?code=good-code&state=state-123",
+        headers={
+            "cookie": "nero_xero_oauth_state=state-123",
+            "host": "internal.vercel.app",
+            "x-forwarded-host": "nero-kk7b.vercel.app",
+            "x-forwarded-proto": "https",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "https://nero-kk7b.vercel.app/?xero=connected"
+    assert calls == [("good-code", "https://nero-kk7b.vercel.app/auth/callback")]
 
 
 def test_auth_login_sets_oauth_state_cookie(monkeypatch) -> None:
@@ -354,7 +405,7 @@ def test_auth_login_sets_oauth_state_cookie(monkeypatch) -> None:
 def test_auth_callback_rejects_oauth_state_mismatch(monkeypatch) -> None:
     calls = []
 
-    def fake_store_callback_tokens(code: str) -> dict:
+    def fake_store_callback_tokens(code: str, redirect_uri: str | None = None) -> dict:
         calls.append(code)
         return {"connected": True}
 
@@ -407,7 +458,7 @@ def test_store_callback_tokens_requires_selection_for_multiple_tenants(monkeypat
     monkeypatch.setattr(
         xero_auth,
         "exchange_code",
-        lambda code: {"access_token": "access", "refresh_token": "refresh", "expires_in": 1800},
+        lambda code, redirect_uri=None: {"access_token": "access", "refresh_token": "refresh", "expires_in": 1800},
     )
     monkeypatch.setattr(
         xero_auth,
@@ -430,7 +481,7 @@ def test_store_callback_tokens_selects_only_available_tenant(monkeypatch, tmp_pa
     monkeypatch.setattr(
         xero_auth,
         "exchange_code",
-        lambda code: {"access_token": "access", "refresh_token": "refresh", "expires_in": 1800},
+        lambda code, redirect_uri=None: {"access_token": "access", "refresh_token": "refresh", "expires_in": 1800},
     )
     monkeypatch.setattr(
         xero_auth,

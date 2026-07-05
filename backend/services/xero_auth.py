@@ -37,14 +37,14 @@ def _preferred_tenant_id(connections: list[dict], explicit_tenant_id: str = "") 
     return None
 
 
-def login_url(state: str = "nero") -> str:
+def login_url(state: str = "nero", redirect_uri: str | None = None) -> str:
     settings = get_settings()
     if not settings.xero_client_id or not settings.xero_client_secret:
         raise RuntimeError("Xero OAuth credentials are not configured")
     params = {
         "response_type": "code",
         "client_id": settings.xero_client_id,
-        "redirect_uri": settings.xero_redirect_uri,
+        "redirect_uri": redirect_uri or settings.xero_redirect_uri,
         "scope": SCOPES,
         "state": state,
     }
@@ -133,7 +133,7 @@ def get_token_status(conn: sqlite3.Connection | None = None) -> dict:
             conn.close()
 
 
-def get_connection_summary(conn: sqlite3.Connection | None = None) -> dict:
+def get_connection_summary(conn: sqlite3.Connection | None = None, redirect_uri: str | None = None) -> dict:
     settings = get_settings()
     status = get_token_status(conn)
     if status.get("connected") and _token_refresh_due(status.get("expires_at")):
@@ -148,7 +148,7 @@ def get_connection_summary(conn: sqlite3.Connection | None = None) -> dict:
         "client_credentials_configured": bool(settings.xero_client_id and settings.xero_client_secret),
         "env_tokens_configured": bool(settings.xero_access_token and settings.xero_refresh_token),
         "env_refresh_token_configured": bool(settings.xero_refresh_token),
-        "redirect_uri": settings.xero_redirect_uri,
+        "redirect_uri": redirect_uri or settings.xero_redirect_uri,
     }
 
 
@@ -175,7 +175,7 @@ def disconnect_saved_connection(conn: sqlite3.Connection | None = None) -> dict:
             conn.close()
 
 
-def exchange_code(code: str) -> dict:
+def exchange_code(code: str, redirect_uri: str | None = None) -> dict:
     settings = get_settings()
     if not settings.xero_client_id or not settings.xero_client_secret:
         raise RuntimeError("Xero OAuth credentials are not configured")
@@ -184,7 +184,7 @@ def exchange_code(code: str) -> dict:
         data={
             "grant_type": "authorization_code",
             "code": code,
-            "redirect_uri": settings.xero_redirect_uri,
+            "redirect_uri": redirect_uri or settings.xero_redirect_uri,
         },
         auth=(settings.xero_client_id, settings.xero_client_secret),
         timeout=30,
@@ -260,8 +260,8 @@ def bootstrap_tokens_from_env(
             conn.close()
 
 
-def store_callback_tokens(code: str) -> dict:
-    tokens = exchange_code(code)
+def store_callback_tokens(code: str, redirect_uri: str | None = None) -> dict:
+    tokens = exchange_code(code, redirect_uri=redirect_uri)
     tenant_id = get_settings().xero_tenant_id
     connections: list[dict] = []
     if not tenant_id:
