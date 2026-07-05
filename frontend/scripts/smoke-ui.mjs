@@ -98,6 +98,10 @@ async function runSmoke() {
   await errorPage.close();
 
   const reconnectPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  const reconnectTenantRequests = [];
+  reconnectPage.on("request", (request) => {
+    if (request.url().endsWith("/api/xero/tenants")) reconnectTenantRequests.push(request.url());
+  });
   await reconnectPage.route("**/api/xero/status", (route) =>
     route.fulfill({
       status: 200,
@@ -120,6 +124,9 @@ async function runSmoke() {
   if (await reconnectPage.getByText("Xero Connected").count()) {
     throw new Error("Xero connected badge showed while token refresh required reconnect");
   }
+  if (reconnectTenantRequests.length) {
+    throw new Error(`Reconnect state still requested Xero tenants:\n${reconnectTenantRequests.join("\n")}`);
+  }
   await reconnectPage.close();
 
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
@@ -134,7 +141,7 @@ async function runSmoke() {
   });
   page.on("response", (response) => {
     const url = response.url();
-    if (response.status() >= 400 && !url.endsWith("/favicon.ico") && !url.endsWith("/api/xero/tenants")) {
+    if (response.status() >= 400 && !url.endsWith("/favicon.ico")) {
       browserErrors.push(`${response.status()} ${url}`);
     }
   });
