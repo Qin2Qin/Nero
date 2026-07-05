@@ -16,7 +16,7 @@ Nero is a Xero-connected cash accelerator for small businesses. It syncs live Xe
 
 Project image:
 
-`frontend/public/visuals/nero-cashflow-preview.png` - PNG, 1120 x 720.
+`frontend/public/visuals/nero-live-dashboard-submission.png` - PNG, 1120 x 720.
 
 ## Project Challenges And Tracks
 

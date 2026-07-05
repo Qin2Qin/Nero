@@ -1,4 +1,5 @@
 from pathlib import Path
+import struct
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -10,7 +11,13 @@ CURRENT_DOCS = [
     ROOT / "docs" / "xero-hackathon-and-mcp.md",
 ]
 ARCHIVED_BUILD_GUIDE = ROOT / "nero-build-guide-with-prompts.md"
-PROJECT_IMAGE = ROOT / "frontend" / "public" / "visuals" / "nero-cashflow-preview.png"
+PROJECT_IMAGE = ROOT / "frontend" / "public" / "visuals" / "nero-live-dashboard-submission.png"
+
+
+def png_dimensions(path: Path) -> tuple[int, int]:
+    data = path.read_bytes()
+    assert data.startswith(b"\x89PNG\r\n\x1a\n")
+    return struct.unpack(">II", data[16:24])
 
 
 def test_current_docs_do_not_claim_unverified_mcp_execution() -> None:
@@ -57,8 +64,9 @@ def test_final_submission_answers_match_current_xero_integration() -> None:
     text = (ROOT / "docs" / "final-submission-answers.md").read_text()
 
     assert "Nero (FlowCast)" in text
-    assert "frontend/public/visuals/nero-cashflow-preview.png" in text
+    assert "frontend/public/visuals/nero-live-dashboard-submission.png" in text
     assert PROJECT_IMAGE.exists()
+    assert png_dimensions(PROJECT_IMAGE) == (1120, 720)
     for endpoint in (
         "GET /Contacts",
         "GET /Invoices?Statuses=AUTHORISED,PAID",
