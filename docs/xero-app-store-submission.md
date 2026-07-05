@@ -47,4 +47,4 @@ The backend includes a signed Xero webhook receiver at `/webhooks/xero`. Product
 
 Security note:
 
-The hackathon build stores one local OAuth token set in SQLite for the demo device. A production multi-user launch should use encrypted, per-user and per-tenant token storage with tenant-scoped raw accounting tables.
+The hackathon build stores one local OAuth token set in SQLite for the demo device and keeps raw Xero snapshots tenant-labelled. A production multi-user launch should use encrypted, per-user and per-tenant token storage.

@@ -116,6 +116,6 @@ Post-MVP items:
 
 - Xero Developer Centre App Store subscription/webhook configuration on the final HTTPS deployment URL.
 - Set `XERO_APP_STORE_SUBSCRIPTIONS_CONFIGURED=true` only after the external Developer Centre setup is confirmed; the local readiness checklist treats webhook receiver code and App Store subscription setup as separate signals.
-- Production token hardening: the hackathon build stores one local OAuth token set in SQLite for the demo device; production should use encrypted, per-user and per-tenant token storage with tenant-scoped raw accounting tables.
+- Production token hardening: the hackathon build stores one local OAuth token set in SQLite for the demo device and keeps raw Xero snapshots tenant-labelled; production should use encrypted, per-user and per-tenant token storage.
 - Full marketplace screenshots and pricing.
 - Payment-link or payment-creation workflows after a separate demo safety review.

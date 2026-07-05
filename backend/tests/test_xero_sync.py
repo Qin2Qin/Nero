@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
 
 import services.xero_sync as xero_sync
-from db import connect
+from db import connect, count_rows, upsert_payload
 
 
 class FakeClient:
@@ -112,7 +112,30 @@ def test_sync_from_xero_stores_raw_payloads(monkeypatch, tmp_path: Path) -> None
     assert result["stored"] == {"contacts": 1, "invoices": 1, "payments": 1}
     assert result["empty"] is False
     assert result["cash_data_ready"] is True
+    assert conn.execute("SELECT tenant_id FROM xero_contacts WHERE contact_id = 'contact-1'").fetchone()["tenant_id"] == "tenant"
+    assert conn.execute("SELECT tenant_id FROM xero_invoices WHERE invoice_id = 'invoice-1'").fetchone()["tenant_id"] == "tenant"
+    assert conn.execute("SELECT tenant_id FROM xero_payments WHERE payment_id = 'payment-1'").fetchone()["tenant_id"] == "tenant"
     assert FakeClient.online_invoice_calls == 0
+
+
+def test_sync_from_xero_replaces_raw_snapshot_for_active_tenant(monkeypatch, tmp_path: Path) -> None:
+    conn = connect(tmp_path / "nero.db")
+    upsert_payload(conn, "xero_contacts", "contact_id", "old-contact", {"ContactID": "old-contact"}, {"tenant_id": "old-tenant"})
+    upsert_payload(conn, "xero_invoices", "invoice_id", "old-invoice", {"InvoiceID": "old-invoice"}, {"tenant_id": "tenant"})
+    upsert_payload(conn, "xero_payments", "payment_id", "old-payment", {"PaymentID": "old-payment"}, {"tenant_id": "tenant"})
+    conn.commit()
+    monkeypatch.setattr(xero_sync, "get_valid_access", lambda conn: {"access_token": "access", "tenant_id": "tenant"})
+    monkeypatch.setattr(xero_sync, "XeroClient", FakeClient)
+
+    result = xero_sync.sync_from_xero(conn)
+
+    assert result["stored"] == {"contacts": 1, "invoices": 1, "payments": 1}
+    assert count_rows(conn, "xero_contacts") == 1
+    assert count_rows(conn, "xero_invoices") == 1
+    assert count_rows(conn, "xero_payments") == 1
+    assert conn.execute("SELECT contact_id FROM xero_contacts").fetchone()["contact_id"] == "contact-1"
+    assert conn.execute("SELECT invoice_id FROM xero_invoices").fetchone()["invoice_id"] == "invoice-1"
+    assert conn.execute("SELECT payment_id FROM xero_payments").fetchone()["payment_id"] == "payment-1"
 
 
 def test_materialized_sync_enriches_online_invoice_links(monkeypatch, tmp_path: Path) -> None:

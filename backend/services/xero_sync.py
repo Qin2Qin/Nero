@@ -7,7 +7,7 @@ from typing import Callable
 
 import httpx
 
-from db import connect, count_rows, upsert_payload
+from db import clear_xero_raw_snapshot, connect, count_rows, upsert_payload
 from config import get_settings
 from services.agent_service import run_agent_cycle
 from services.forecast import build_forecast
@@ -375,11 +375,14 @@ def sync_from_xero(conn: sqlite3.Connection | None = None, materialize_state: bo
         contacts = _paged(client.list_contacts, "Contacts")
         invoices = _paged(lambda page: client.list_invoices(statuses="AUTHORISED,PAID", page=page), "Invoices")
         payments = _paged(client.list_payments, "Payments")
+        tenant_id = tokens["tenant_id"]
+
+        clear_xero_raw_snapshot(conn)
 
         for contact in contacts:
             contact_id = contact.get("ContactID")
             if contact_id:
-                upsert_payload(conn, "xero_contacts", "contact_id", contact_id, contact)
+                upsert_payload(conn, "xero_contacts", "contact_id", contact_id, contact, {"tenant_id": tenant_id})
 
         for invoice in invoices:
             invoice_id = invoice.get("InvoiceID")
@@ -392,6 +395,7 @@ def sync_from_xero(conn: sqlite3.Connection | None = None, materialize_state: bo
                     invoice_id,
                     invoice,
                     {
+                        "tenant_id": tenant_id,
                         "contact_id": contact.get("ContactID"),
                         "status": invoice.get("Status"),
                         "invoice_number": invoice.get("InvoiceNumber"),
@@ -408,7 +412,7 @@ def sync_from_xero(conn: sqlite3.Connection | None = None, materialize_state: bo
                     "payment_id",
                     payment_id,
                     payment,
-                    {"invoice_id": invoice.get("InvoiceID")},
+                    {"tenant_id": tenant_id, "invoice_id": invoice.get("InvoiceID")},
                 )
 
         conn.commit()
@@ -420,9 +424,9 @@ def sync_from_xero(conn: sqlite3.Connection | None = None, materialize_state: bo
                 "payments": len(payments),
             },
             "stored": {
-                "contacts": count_rows(conn, "xero_contacts"),
-                "invoices": count_rows(conn, "xero_invoices"),
-                "payments": count_rows(conn, "xero_payments"),
+                "contacts": count_rows(conn, "xero_contacts", tenant_id),
+                "invoices": count_rows(conn, "xero_invoices", tenant_id),
+                "payments": count_rows(conn, "xero_payments", tenant_id),
             },
             "empty": not (contacts or invoices or payments),
             "cash_data_ready": bool(invoices),

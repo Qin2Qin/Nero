@@ -30,12 +30,14 @@ CREATE TABLE IF NOT EXISTS oauth_tokens (
 
 CREATE TABLE IF NOT EXISTS xero_contacts (
     contact_id TEXT PRIMARY KEY,
+    tenant_id TEXT,
     payload TEXT NOT NULL,
     synced_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS xero_invoices (
     invoice_id TEXT PRIMARY KEY,
+    tenant_id TEXT,
     contact_id TEXT,
     status TEXT,
     invoice_number TEXT,
@@ -45,6 +47,7 @@ CREATE TABLE IF NOT EXISTS xero_invoices (
 
 CREATE TABLE IF NOT EXISTS xero_payments (
     payment_id TEXT PRIMARY KEY,
+    tenant_id TEXT,
     invoice_id TEXT,
     payload TEXT NOT NULL,
     synced_at TEXT NOT NULL
@@ -58,8 +61,16 @@ def connect(path: Path | None = None) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     conn.executescript(SCHEMA)
+    _migrate_xero_tenant_columns(conn)
     conn.commit()
     return conn
+
+
+def _migrate_xero_tenant_columns(conn: sqlite3.Connection) -> None:
+    for table in ("xero_contacts", "xero_invoices", "xero_payments"):
+        columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+        if "tenant_id" not in columns:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN tenant_id TEXT")
 
 
 def get_json(conn: sqlite3.Connection, key: str, default: Any) -> Any:
@@ -87,18 +98,21 @@ def upsert_payload(conn: sqlite3.Connection, table: str, key_column: str, key: s
 
     if table == "xero_contacts":
         conn.execute(
-            "INSERT INTO xero_contacts(contact_id, payload, synced_at) VALUES (?, ?, ?) "
-            "ON CONFLICT(contact_id) DO UPDATE SET payload = excluded.payload, synced_at = excluded.synced_at",
-            (key, json.dumps(payload), synced_at),
+            "INSERT INTO xero_contacts(contact_id, tenant_id, payload, synced_at) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(contact_id) DO UPDATE SET tenant_id = excluded.tenant_id, "
+            "payload = excluded.payload, synced_at = excluded.synced_at",
+            (key, extra.get("tenant_id"), json.dumps(payload), synced_at),
         )
     elif table == "xero_invoices":
         conn.execute(
-            "INSERT INTO xero_invoices(invoice_id, contact_id, status, invoice_number, payload, synced_at) "
-            "VALUES (?, ?, ?, ?, ?, ?) "
-            "ON CONFLICT(invoice_id) DO UPDATE SET contact_id = excluded.contact_id, status = excluded.status, "
+            "INSERT INTO xero_invoices(invoice_id, tenant_id, contact_id, status, invoice_number, payload, synced_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(invoice_id) DO UPDATE SET tenant_id = excluded.tenant_id, "
+            "contact_id = excluded.contact_id, status = excluded.status, "
             "invoice_number = excluded.invoice_number, payload = excluded.payload, synced_at = excluded.synced_at",
             (
                 key,
+                extra.get("tenant_id"),
                 extra.get("contact_id"),
                 extra.get("status"),
                 extra.get("invoice_number"),
@@ -108,14 +122,21 @@ def upsert_payload(conn: sqlite3.Connection, table: str, key_column: str, key: s
         )
     else:
         conn.execute(
-            "INSERT INTO xero_payments(payment_id, invoice_id, payload, synced_at) VALUES (?, ?, ?, ?) "
-            "ON CONFLICT(payment_id) DO UPDATE SET invoice_id = excluded.invoice_id, "
+            "INSERT INTO xero_payments(payment_id, tenant_id, invoice_id, payload, synced_at) VALUES (?, ?, ?, ?, ?) "
+            "ON CONFLICT(payment_id) DO UPDATE SET tenant_id = excluded.tenant_id, invoice_id = excluded.invoice_id, "
             "payload = excluded.payload, synced_at = excluded.synced_at",
-            (key, extra.get("invoice_id"), json.dumps(payload), synced_at),
+            (key, extra.get("tenant_id"), extra.get("invoice_id"), json.dumps(payload), synced_at),
         )
 
 
-def count_rows(conn: sqlite3.Connection, table: str) -> int:
+def clear_xero_raw_snapshot(conn: sqlite3.Connection) -> None:
+    for table in ("xero_contacts", "xero_invoices", "xero_payments"):
+        conn.execute(f"DELETE FROM {table}")
+
+
+def count_rows(conn: sqlite3.Connection, table: str, tenant_id: str | None = None) -> int:
     if table not in {"xero_contacts", "xero_invoices", "xero_payments"}:
         raise ValueError(f"unsupported table: {table}")
+    if tenant_id is not None:
+        return int(conn.execute(f"SELECT COUNT(*) AS count FROM {table} WHERE tenant_id = ?", (tenant_id,)).fetchone()["count"])
     return int(conn.execute(f"SELECT COUNT(*) AS count FROM {table}").fetchone()["count"])
