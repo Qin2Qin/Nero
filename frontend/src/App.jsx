@@ -206,6 +206,28 @@ function payerTimingSentence(contact) {
   return `Based on ${invoiceCount} paid ${plural(invoiceCount, "invoice")}, ${contact.name} pays on average ${timing}${unpredictable}, ${trendText(contact.trend_slope)}.`;
 }
 
+function proposalActionCopy(proposal) {
+  const hasDraft = Boolean(proposal.draft_subject);
+  const labels = {
+    reminder: "Send reminder",
+    escalation: "Send firmer reminder",
+    deposit_recommendation: "Ask for deposit",
+    terms_recommendation: "Change payment terms"
+  };
+  const reasons = {
+    reminder: `Nero has prepared a payment reminder for ${proposal.contact_name}. Review the wording before it goes out.`,
+    escalation: `${proposal.contact_name} needs a firmer payment nudge. Nero has drafted one for you to approve first.`,
+    deposit_recommendation: `${proposal.contact_name} is creating cash pressure. Ask for a deposit before starting the next job.`,
+    terms_recommendation: `${proposal.contact_name} is slowing cash down. Tighten the payment terms before the next invoice.`
+  };
+
+  return {
+    label: labels[proposal.type] || "Review suggestion",
+    reason: reasons[proposal.type] || proposal.reasoning_text,
+    approveLabel: hasDraft ? "Approve draft" : "Approve recommendation"
+  };
+}
+
 function compareSortValues(a, b) {
   const aMissing = a === null || a === undefined || a === "";
   const bMissing = b === null || b === undefined || b === "";
@@ -1056,15 +1078,16 @@ function AgentQueue({ proposals, onApprove, onDismiss, onEdit, busy }) {
       <div className="proposal-grid">
         {pending.map((proposal) => {
           const draftBody = drafts[proposal.id] ?? proposal.draft_body ?? "";
+          const copy = proposalActionCopy(proposal);
           return (
             <article className="proposal-card" key={proposal.id}>
               <div className="proposal-top">
-                <span className="badge badge-neutral">{proposal.type.replaceAll("_", " ")}</span>
+                <span className="badge badge-neutral">{copy.label}</span>
                 <strong>{proposal.contact_name}</strong>
               </div>
-              <blockquote>{proposal.reasoning_text}</blockquote>
+              <p className="proposal-reason">{copy.reason}</p>
               <div className="impact">
-                +{formatCurrency(proposal.expected_impact_dollars)} · {proposal.expected_days_accelerated} days sooner
+                Could bring {formatCurrency(proposal.expected_impact_dollars)} forward about {proposal.expected_days_accelerated} {plural(proposal.expected_days_accelerated, "day")} sooner.
               </div>
               {proposal.draft_subject && (
                 <details className="email-preview">
@@ -1078,7 +1101,7 @@ function AgentQueue({ proposals, onApprove, onDismiss, onEdit, busy }) {
               {proposal.recommendation_detail && <p className="recommendation">{proposal.recommendation_detail}</p>}
               <div className="actions">
                 <button className="button primary btn btn-primary btn-sm" disabled={busy} onClick={() => onApprove(proposal.id)}>
-                  <Check size={16} /> Approve
+                  <Check size={16} /> {copy.approveLabel}
                 </button>
                 {proposal.draft_subject && (
                   <button className="button ghost btn btn-ghost btn-sm" disabled={busy} onClick={() => onEdit(proposal.id, draftBody)}>
