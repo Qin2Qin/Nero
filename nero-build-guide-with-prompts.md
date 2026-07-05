@@ -1,6 +1,14 @@
 # NERO — Step-by-Step Build Guide with LLM Prompts
 ### Repo: github.com/Qin2Qin/Nero · Bounty 03: The Cash Flow Accelerator
 
+> **Archived planning note, not current implementation evidence.**
+> This was an early build plan and prompt scratchpad. It contains planned Claude,
+> Agentic SDK, and MCP-native language that must not be used in the final pitch
+> unless the corresponding runtime integration is actually implemented and
+> verified. Current Xero API/MCP/submission evidence lives in
+> `docs/xero-hackathon-and-mcp.md`, `docs/xero-app-store-submission.md`, and
+> `docs/demo-script.md`.
+
 **How to use this document:** Steps are ordered by dependency. Each step says WHO does it (P1 data / P2 engine / P3 frontend / P4 pitch), WHICH TOOL, gives a **copy-paste prompt** in a code block, and ends with an **acceptance check** — do not move on until it passes. Prompts assume Python/FastAPI backend + React frontend. If your Agentic SDK skeleton is TypeScript, say "TypeScript/Express" instead of "Python/FastAPI" in every prompt — everything else holds.
 
 ---
