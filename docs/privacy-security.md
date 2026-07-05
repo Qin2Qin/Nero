@@ -11,7 +11,8 @@ Data read from Xero:
 
 Data written to Xero:
 
-- None in the current MVP. Approved reminders are queued locally for review rather than sent automatically.
+- Approved reminder and escalation actions can add an internal invoice history note to the related Xero invoice after the user approves the action.
+- Nero does not send customer-facing emails through Xero or email providers automatically; approved reminder drafts stay in the local Outbox for human review.
 
 Local storage:
 
@@ -29,4 +30,4 @@ Security boundaries:
 
 - Secrets must stay in `.env` or the deployment secret store and must not be committed.
 - Demo-only controls are gated behind the developer shortcut and are not linked from normal navigation.
-- The app uses least-write behaviour for the MVP: it reads Xero records and keeps outbound actions in review queues.
+- The app uses least-write behaviour for the MVP: it reads Xero records, keeps outbound customer messages in review queues, and writes only non-customer-facing invoice history notes after approval.

@@ -57,3 +57,13 @@ def test_app_store_submission_scopes_match_runtime_oauth_scopes() -> None:
     assert f"`{SCOPES}`" in submission_notes
     assert "accounting.transactions" not in submission_notes
     assert "accounting.reports.read" not in submission_notes
+
+
+def test_privacy_notes_match_approved_xero_writeback_behaviour() -> None:
+    privacy_notes = (ROOT / "docs" / "privacy-security.md").read_text().lower()
+    support_notes = (ROOT / "docs" / "support.md").read_text().lower()
+
+    assert "invoice history note" in privacy_notes
+    assert "does not send customer-facing emails" in privacy_notes
+    assert "invoice history note in xero" in support_notes
+    assert "none in the current mvp" not in privacy_notes
