@@ -1,5 +1,6 @@
 {
   "cash_floor": 5000,
+  "as_of": "2026-07-04",
   "buckets": [
     {
       "week_start": "2026-07-06",

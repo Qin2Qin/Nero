@@ -55,11 +55,15 @@ const TABS = [
   { id: "outbox", label: "Outbox", icon: Send }
 ];
 
-const TODAY = new Date("2026-07-04T00:00:00Z");
 const SUPPORT_EMAIL = import.meta.env.VITE_SUPPORT_EMAIL || "support@nero.cash";
 
 function parseDate(value) {
   return new Date(`${value}T00:00:00Z`);
+}
+
+function todayForForecast(forecast) {
+  if (forecast?.as_of) return parseDate(forecast.as_of);
+  return parseDate(new Date().toISOString().slice(0, 10));
 }
 
 function addDays(date, days) {
@@ -648,7 +652,7 @@ function Dashboard({
 }) {
   const businessName = businessNameFor(data.dataSource);
   const [invoiceSort, requestInvoiceSort] = useSort("due_date", "asc");
-  const cutoff = addDays(TODAY, 30);
+  const cutoff = addDays(todayForForecast(data.forecast), 30);
   const dueNext30 = data.invoices
     .filter((invoice) => parseDate(invoice.due_date) <= cutoff)
     .reduce((sum, invoice) => sum + invoice.amount_due, 0);

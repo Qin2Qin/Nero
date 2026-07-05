@@ -10,7 +10,7 @@ from config import get_settings
 from services.agent_service import run_agent_cycle
 from services.forecast import build_forecast
 from services.payer_engine import recompute_all
-from services.state import demo_today, save_state, utc_now
+from services.state import live_today, save_state, utc_now
 from services.xero_auth import get_valid_access, list_connections
 from services.xero_client import XeroClient, XeroCredentials
 
@@ -89,7 +89,7 @@ def build_state_from_xero(
     tenant_name: str | None = None,
     cash_floor: int | None = None,
 ) -> dict:
-    today = demo_today()
+    today = live_today()
     paid_dates = _payment_dates(payments)
     paid_history: list[dict] = []
     open_invoices: list[dict] = []
@@ -199,7 +199,7 @@ def build_state_from_xero(
             "tenant_id": tenant_id,
         },
     }
-    run_agent_cycle(state)
+    run_agent_cycle(state, today=today)
     return state
 
 
