@@ -32,6 +32,7 @@ ACTION_COPY_BANNED_PATTERNS = {
     "technical materialised copy": re.compile(r"\bmaterialised\b", re.IGNORECASE),
 }
 RAW_XERO_ID_LABEL = re.compile(r"(?<!invoice )\b[0-9a-f]{8}\b", re.IGNORECASE)
+AI_DISABLED_DETAIL = "AI draft polishing is disabled."
 
 
 def request_json(base_url: str, path: str, method: str = "GET", timeout: float = 10.0) -> dict[str, Any] | list[Any]:
@@ -120,6 +121,21 @@ def action_copy_issues(proposals: list[Any]) -> list[str]:
         if RAW_XERO_ID_LABEL.search(scrubbed):
             issues.append(f"{contact}: raw Xero ID label")
     return issues
+
+
+def ai_boundary_issue(ai_status: dict[str, Any]) -> str | None:
+    enabled = ai_status.get("enabled") is True
+    detail = str(ai_status.get("detail") or "")
+    if enabled:
+        provider = ai_status.get("provider")
+        mode = ai_status.get("mode")
+        model = str(ai_status.get("model") or "")
+        if provider == "openrouter" and mode == "free" and model.endswith(":free"):
+            return None
+        return "AI polishing must use OpenRouter free-model app-runtime inference only"
+    if detail == AI_DISABLED_DETAIL:
+        return None
+    return detail or "AI polishing is misconfigured"
 
 
 def fail(failures: list[str], lines: list[str], label: str, detail: str) -> None:
@@ -247,6 +263,15 @@ def evaluate_preflight(
     else:
         pass_line(lines, "action copy", "drafts are owner-readable and free of known demo placeholders")
 
+    ai_status = payloads.get("/api/ai/status") or {}
+    ai_issue = ai_boundary_issue(ai_status)
+    if ai_issue:
+        fail(failures, lines, "ai boundary", ai_issue)
+    elif ai_status.get("enabled") is True:
+        pass_line(lines, "ai boundary", f"optional draft polishing uses {ai_status.get('provider')} free model")
+    else:
+        pass_line(lines, "ai boundary", "optional app-runtime polishing is disabled; deterministic agent remains default")
+
     readiness = payloads.get("/api/app_store/readiness") or {}
     ready_count = int(readiness.get("ready_count") or 0)
     total_count = int(readiness.get("total_count") or 0)
@@ -290,6 +315,7 @@ def collect_payloads(
             "/api/data_source": request_json(base_url, "/api/data_source", timeout=timeout),
             "/api/metrics": request_json(base_url, "/api/metrics", timeout=timeout),
             "/api/proposals": request_json(base_url, "/api/proposals", timeout=timeout),
+            "/api/ai/status": request_json(base_url, "/api/ai/status", timeout=timeout),
             "/api/app_store/readiness": request_json(base_url, "/api/app_store/readiness", timeout=timeout),
         }
     )

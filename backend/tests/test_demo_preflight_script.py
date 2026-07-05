@@ -61,6 +61,13 @@ def healthy_payloads() -> dict:
                 "expected_impact_dollars": 1995,
             }
         ],
+        "/api/ai/status": {
+            "enabled": False,
+            "provider": None,
+            "model": "",
+            "mode": "disabled",
+            "detail": "AI draft polishing is disabled.",
+        },
         "/api/app_store/readiness": {
             "ready_count": 7,
             "total_count": 9,
@@ -88,6 +95,7 @@ def test_demo_preflight_passes_for_live_xero_ready_state() -> None:
     assert "PASS xero: connected, token current, tenant tenant-1" in lines
     assert any("1 draft has customer email" in line for line in lines)
     assert "PASS action copy: drafts are owner-readable and free of known demo placeholders" in lines
+    assert "PASS ai boundary: optional app-runtime polishing is disabled; deterministic agent remains default" in lines
     assert "INFO app store incomplete: Webhook receiver=todo, App Store subscriptions=todo" in lines
     assert lines[-1] == "result=passed"
 
@@ -154,6 +162,48 @@ def test_demo_preflight_fails_for_draft_copy_artifacts() -> None:
     assert any("fixture sender" in line for line in lines)
     assert any("raw GBP code" in line for line in lines)
     assert any("raw Xero ID label" in line for line in lines)
+    assert lines[-1] == "result=failed"
+
+
+def test_demo_preflight_passes_for_free_model_ai_polishing() -> None:
+    module = load_module()
+    payloads = healthy_payloads()
+    payloads["/api/ai/status"] = {
+        "enabled": True,
+        "provider": "openrouter",
+        "model": "provider/free-model:free",
+        "mode": "free",
+        "detail": "AI draft polishing is available for review-only copy.",
+    }
+
+    exit_code, lines = module.evaluate_preflight(
+        payloads,
+        now=datetime(2026, 7, 5, 6, 30, tzinfo=timezone.utc),
+    )
+
+    assert exit_code == 0
+    assert "PASS ai boundary: optional draft polishing uses openrouter free model" in lines
+    assert lines[-1] == "result=passed"
+
+
+def test_demo_preflight_fails_for_paid_or_misconfigured_ai_polishing() -> None:
+    module = load_module()
+    payloads = healthy_payloads()
+    payloads["/api/ai/status"] = {
+        "enabled": False,
+        "provider": None,
+        "model": "",
+        "mode": "disabled",
+        "detail": "OPENROUTER_MODEL must end in :free for this hackathon build.",
+    }
+
+    exit_code, lines = module.evaluate_preflight(
+        payloads,
+        now=datetime(2026, 7, 5, 6, 30, tzinfo=timezone.utc),
+    )
+
+    assert exit_code == 1
+    assert "FAIL ai boundary: OPENROUTER_MODEL must end in :free for this hackathon build." in lines
     assert lines[-1] == "result=failed"
 
 
