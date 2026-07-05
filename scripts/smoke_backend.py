@@ -1,19 +1,34 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import os
 import sys
+import tempfile
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "backend"))
 
-from fastapi.testclient import TestClient
-from main import app
+
+def prepare_environment() -> None:
+    os.environ.setdefault("DEMO_MODE", "true")
+    os.environ.setdefault(
+        "NERO_DB_PATH",
+        str(Path(tempfile.gettempdir()) / f"nero-smoke-backend-{os.getpid()}.db"),
+    )
+
+
+def build_client():
+    prepare_environment()
+    sys.path.insert(0, str(ROOT / "backend"))
+    from fastapi.testclient import TestClient
+    from main import app
+
+    return TestClient(app)
 
 
 def main() -> None:
-    client = TestClient(app)
+    client = build_client()
     endpoints = [
         "/health",
         "/api/contacts",

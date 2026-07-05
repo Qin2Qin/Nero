@@ -41,6 +41,9 @@ Run a backend API smoke test:
 DEMO_MODE=true .venv/bin/python scripts/smoke_backend.py
 ```
 
+The backend smoke script defaults to demo mode and a temporary SQLite database
+unless `DEMO_MODE` or `NERO_DB_PATH` are explicitly set.
+
 Run the browser smoke test:
 
 ```bash
