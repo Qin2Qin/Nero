@@ -273,8 +273,7 @@ export async function fetchAll() {
     settingsData,
     dataSourceData,
     appStoreReadinessData,
-    xeroStatusData,
-    xeroTenantsData
+    xeroStatusData
   ] =
     await Promise.all([
       request("/api/contacts"),
@@ -288,9 +287,12 @@ export async function fetchAll() {
       request("/api/settings"),
       request("/api/data_source"),
       request("/api/app_store/readiness"),
-      request("/api/xero/status"),
-      optionalRequest("/api/xero/tenants", { active_tenant_id: null, tenants: [] })
+      request("/api/xero/status")
     ]);
+  const shouldLoadTenants = xeroStatusData.connected && !xeroStatusData.demo_mode && !xeroStatusData.expired && !xeroStatusData.refresh_error;
+  const xeroTenantsData = shouldLoadTenants
+    ? await optionalRequest("/api/xero/tenants", { active_tenant_id: null, tenants: [] })
+    : { active_tenant_id: null, tenants: [] };
 
   return {
     contacts: contactsData,
