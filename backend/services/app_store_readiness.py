@@ -45,7 +45,7 @@ def app_store_readiness() -> dict:
             "id": "data-integrity",
             "label": "Data integrity",
             "status": "ready" if connected or demo_mode else "blocked",
-            "detail": "Reads contacts, invoices, payments and keeps writes in a sandbox outbox.",
+            "detail": "Reads contacts, invoices and payments; customer emails stay in Outbox, while approved actions can add internal Xero invoice notes.",
         },
         {
             "id": "api-efficiency",

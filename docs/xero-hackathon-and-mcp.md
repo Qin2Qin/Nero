@@ -36,13 +36,11 @@ Accounting API calls used by live sync:
 - `GET /Invoices` with `Statuses=AUTHORISED,PAID`
 - `GET /Payments`
 
-Client wrappers also exist for future write paths:
+Approval-gated Xero write-back:
 
-- `POST /Invoices`
-- `POST /Payments`
 - `PUT /Invoices/{invoice_id}/History`
 
-The current MVP keeps customer-facing writes in a sandbox Outbox. That is deliberate for the demo: the judge can see the proposed action and audit trail, but the app does not accidentally email a real customer.
+The current MVP keeps customer-facing emails in a sandbox Outbox. That is deliberate for the demo: the judge can see the proposed action, and the app writes a non-customer-facing invoice history note back to Xero only after human approval.
 
 ## OAuth Scopes
 
@@ -76,6 +74,7 @@ For a hackathon MVP, Nero can credibly claim:
 - Live connection status and tenant switching are implemented.
 - Minimum granular scopes are documented and surfaced.
 - Contacts, invoices, and payments are read from Xero and stored locally.
+- Approved reminder/escalation actions can write internal invoice history notes back to Xero.
 - Sync is paged and retry-aware.
 - Support, privacy, security, and listing notes exist in `docs/`.
 
@@ -84,4 +83,4 @@ Post-MVP items:
 - App Store subscriptions.
 - Production webhooks.
 - Full marketplace screenshots and pricing.
-- Write-back decisions for invoice history notes or payment links after demo safety review.
+- Payment-link or payment-creation workflows after a separate demo safety review.

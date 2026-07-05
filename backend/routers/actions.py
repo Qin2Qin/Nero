@@ -18,6 +18,7 @@ from services.state import (
 from services.synthetic_portfolio import build_synthetic_portfolio
 from services.xero_auth import authorized_tenants, get_connection_summary, get_token_status, select_authorized_tenant
 from services.xero_sync import sync_from_xero
+from services.xero_writeback import write_invoice_history_note
 
 
 router = APIRouter(prefix="/api", tags=["actions"])
@@ -46,6 +47,15 @@ def approve(proposal_id: str) -> dict:
         result = approve_proposal(state, proposal_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="proposal not found") from exc
+    if result.get("log_entry"):
+        writeback = write_invoice_history_note(state, result["proposal"])
+        result["xero_writeback"] = {key: value for key, value in writeback.items() if key != "response"}
+        if writeback["status"] == "written":
+            invoice = next((item for item in state.get("invoices", []) if item.get("id") == writeback.get("invoice_id")), None)
+            invoice_label = invoice.get("invoice_number") if invoice else writeback.get("invoice_id")
+            append_log(state, "Xero", f"Added Nero's approval note to invoice {invoice_label} in Xero.")
+        elif writeback["status"] == "failed":
+            append_log(state, "Nero", "Approval saved, but the internal Xero note could not be added. Reconnect Xero and try again if the note matters.")
     save_state(state)
     return result
 

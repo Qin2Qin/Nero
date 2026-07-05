@@ -41,7 +41,7 @@ Run a backend API smoke test:
 DEMO_MODE=true .venv/bin/python scripts/smoke_backend.py
 ```
 
-## Credentials needed for real Xero/LLM mode
+## Credentials needed for real Xero mode
 
 Demo mode needs no credentials. For live integration, provide these in `.env`:
 
@@ -101,6 +101,9 @@ Live Xero flow:
 7. If the connected organisation is empty, run `POST /api/synthetic/seed` to
    populate the local dashboard with generated UK portfolio data. This does not
    write to Xero and is labelled in the UI as synthetic data.
+8. When an invoice reminder/escalation is approved from live Xero data, Nero
+   keeps the customer-facing email in Outbox and adds an internal history note to
+   the Xero invoice for auditability.
 
 Frontend deployment variables:
 
