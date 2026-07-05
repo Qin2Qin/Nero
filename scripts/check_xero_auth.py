@@ -46,6 +46,10 @@ def authorize_url(client_id: str, redirect_uri: str, state: str = "nero-auth-che
     return f"{AUTH_URL}?{urlencode(params)}"
 
 
+def redact_url(value: str) -> str:
+    return re.sub(r"([?&]client_id=)[^&]+", r"\1[REDACTED]", value)
+
+
 def check_redirect(client: httpx.Client, client_id: str, redirect_uri: str) -> tuple[bool, str]:
     response = client.get(authorize_url(client_id, redirect_uri))
     text = page_text(response.text)
@@ -54,7 +58,7 @@ def check_redirect(client: httpx.Client, client_id: str, redirect_uri: str) -> t
         return False, f"rejected by Xero ({response.status_code})"
     if "Log in to Xero" in text or "/identity/user/login" in final_url:
         return True, f"accepted by Xero ({response.status_code})"
-    return False, f"unexpected authorize response ({response.status_code}, {final_url})"
+    return False, f"unexpected authorize response ({response.status_code}, {redact_url(final_url)})"
 
 
 def check_client_credentials(
