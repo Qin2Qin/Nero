@@ -185,6 +185,9 @@ async function runSmoke() {
   if (!(await reconnectTextarea.evaluate((node) => node.readOnly))) {
     throw new Error("Draft textarea stayed editable while Xero needed reconnect");
   }
+  if ((await reconnectTextarea.evaluate((node) => getComputedStyle(node).cursor)) !== "default") {
+    throw new Error("Read-only reconnect draft did not show a locked cursor");
+  }
   const reconnectDismiss = reconnectPage.locator(".danger-icon").first();
   await reconnectDismiss.waitFor();
   if (!(await reconnectDismiss.isDisabled())) {
@@ -260,6 +263,9 @@ async function runSmoke() {
   await staleTextarea.waitFor();
   if (!(await staleTextarea.evaluate((node) => node.readOnly))) {
     throw new Error("Draft textarea stayed editable while the Xero dashboard needed a sync");
+  }
+  if ((await staleTextarea.evaluate((node) => getComputedStyle(node).cursor)) !== "default") {
+    throw new Error("Read-only stale draft did not show a locked cursor");
   }
   const staleDismiss = tenantMismatchPage.locator(".danger-icon").first();
   await staleDismiss.waitFor();

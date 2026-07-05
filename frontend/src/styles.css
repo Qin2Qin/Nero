@@ -1436,6 +1436,13 @@ textarea {
   background: rgba(255, 255, 255, 0.07);
 }
 
+textarea[readonly] {
+  cursor: default;
+  color: var(--fgColor-muted);
+  border-color: var(--borderColor-muted);
+  background: rgba(255, 255, 255, 0.04);
+}
+
 textarea:focus,
 .range-input:focus-visible,
 .button:focus-visible,
