@@ -173,3 +173,32 @@ def test_store_callback_tokens_prefers_demo_company(monkeypatch, tmp_path: Path)
     status = xero_auth.store_callback_tokens("code")
 
     assert status["tenant_id"] == "demo"
+
+
+def test_get_valid_access_prefers_demo_when_saved_token_has_no_tenant(monkeypatch, tmp_path: Path) -> None:
+    conn = connect(tmp_path / "nero.db")
+    expires_at = "2099-01-01T00:00:00+00:00"
+    save_token_set(
+        {
+            "access_token": "saved-access",
+            "refresh_token": "saved-refresh",
+            "expires_at": expires_at,
+        },
+        tenant_id="",
+        conn=conn,
+    )
+    monkeypatch.setattr(
+        xero_auth,
+        "list_connections",
+        lambda access_token: [
+            {"tenantId": "imperial", "tenantName": "Imperial", "tenantType": "ORGANISATION"},
+            {"tenantId": "demo", "tenantName": "Demo Company (UK)", "tenantType": "ORGANISATION"},
+        ],
+    )
+
+    tokens = xero_auth.get_valid_access(conn)
+    saved = get_saved_tokens(conn)
+
+    assert tokens["tenant_id"] == "demo"
+    assert saved["tenant_id"] == "demo"
+    assert saved["expires_at"] == expires_at

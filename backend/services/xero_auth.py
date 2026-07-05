@@ -246,15 +246,16 @@ def get_valid_access(conn: sqlite3.Connection | None = None) -> dict:
 
         if not tokens.get("tenant_id"):
             connections = list_connections(tokens["access_token"])
-            if not connections:
+            tenant_id = _preferred_tenant_id(connections)
+            if not tenant_id:
                 raise RuntimeError("Xero OAuth is connected but no tenant was returned")
             save_token_set(
                 {
                     "access_token": tokens["access_token"],
                     "refresh_token": tokens["refresh_token"],
-                    "expires_in": 1800,
+                    "expires_at": tokens["expires_at"],
                 },
-                tenant_id=connections[0].get("tenantId"),
+                tenant_id=tenant_id,
                 conn=conn,
             )
             tokens = get_saved_tokens(conn)
