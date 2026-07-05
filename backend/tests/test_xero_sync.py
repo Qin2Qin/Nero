@@ -12,6 +12,8 @@ from db import connect
 
 
 class FakeClient:
+    online_invoice_calls = 0
+
     def __init__(self, credentials):
         self.credentials = credentials
 
@@ -29,7 +31,11 @@ class FakeClient:
                     "InvoiceID": "invoice-1",
                     "InvoiceNumber": "INV-1",
                     "Status": "AUTHORISED",
-                    "Contact": {"ContactID": "contact-1"},
+                    "Contact": {"ContactID": "contact-1", "Name": "Apex Corp"},
+                    "DateString": "2026-06-01",
+                    "DueDateString": "2026-07-10",
+                    "AmountDue": 2500,
+                    "Total": 2500,
                 }
             ]
         }
@@ -40,6 +46,7 @@ class FakeClient:
         return {"Payments": [{"PaymentID": "payment-1", "Invoice": {"InvoiceID": "invoice-1"}}]}
 
     def get_online_invoice(self, invoice_id: str) -> dict:
+        type(self).online_invoice_calls += 1
         return {"OnlineInvoices": [{"OnlineInvoiceUrl": f"https://in.xero.com/{invoice_id}"}]}
 
 
@@ -62,6 +69,7 @@ class EmptyClient:
 
 def test_sync_from_xero_stores_raw_payloads(monkeypatch, tmp_path: Path) -> None:
     conn = connect(tmp_path / "nero.db")
+    FakeClient.online_invoice_calls = 0
     monkeypatch.setattr(xero_sync, "get_valid_access", lambda conn: {"access_token": "access", "tenant_id": "tenant"})
     monkeypatch.setattr(xero_sync, "XeroClient", FakeClient)
 
@@ -72,6 +80,23 @@ def test_sync_from_xero_stores_raw_payloads(monkeypatch, tmp_path: Path) -> None
     assert result["stored"] == {"contacts": 1, "invoices": 1, "payments": 1}
     assert result["empty"] is False
     assert result["cash_data_ready"] is True
+    assert FakeClient.online_invoice_calls == 0
+
+
+def test_materialized_sync_enriches_online_invoice_links(monkeypatch, tmp_path: Path) -> None:
+    conn = connect(tmp_path / "nero.db")
+    FakeClient.online_invoice_calls = 0
+    monkeypatch.setattr(xero_sync, "get_valid_access", lambda conn: {"access_token": "access", "tenant_id": "tenant"})
+    monkeypatch.setattr(xero_sync, "XeroClient", FakeClient)
+    monkeypatch.setattr(xero_sync, "_tenant_name", lambda access_token, tenant_id: "Demo Company (UK)")
+    saved_states = []
+    monkeypatch.setattr(xero_sync, "save_state", lambda state: saved_states.append(state))
+
+    result = xero_sync.sync_from_xero(conn, materialize_state=True)
+
+    assert result["materialized"]["online_invoice_links"] == 1
+    assert saved_states[0]["invoices"][0]["online_invoice_url"] == "https://in.xero.com/invoice-1"
+    assert FakeClient.online_invoice_calls == 1
 
 
 def test_sync_from_xero_explains_empty_organisation(monkeypatch, tmp_path: Path) -> None:
