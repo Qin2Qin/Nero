@@ -23,6 +23,7 @@ Use this when presenting Nero from the local live-Xero setup.
 
 - Xero endpoints: `GET /Contacts`, `GET /Invoices`, `GET /Invoices/{InvoiceID}/OnlineInvoice`, `GET /Payments`, and `PUT /Invoices/{InvoiceID}/History`.
 - OAuth scopes: `openid profile email accounting.invoices accounting.contacts accounting.payments accounting.settings offline_access`.
+- Agent / AI boundary: Nero currently uses deterministic local agent logic over live Xero data so recommendations are explainable and approval-gated; app-runtime free inference can be added later for wording only, not autonomous sending.
 - App Store readiness is intentionally honest: local code covers OAuth, sync, scopes, support/security docs, retry-aware API usage, and the signed webhook receiver. Production still needs the external Xero Developer Centre webhook/subscription configuration.
 - Remote MCP: the official endpoint is documented in `docs/xero-hackathon-and-mcp.md`; this Codex workspace does not currently expose callable Xero MCP tools, so do not claim fake MCP execution.
 

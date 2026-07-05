@@ -32,6 +32,7 @@ Nero's evidence map for judging:
 - Xero APIs: live OAuth, tenant discovery, contacts, invoices, online invoice links, payments, and approved invoice history notes.
 - MCP Server: official remote MCP availability is tracked below; do not fake MCP usage if the connector is unavailable in this Codex workspace.
 - CLI tooling: repo scripts cover OAuth validation, token import, research monitoring, backend smoke checks, and the bounded Codex development loop.
+- AI toolkit / agent workflow: deterministic local agent logic scores Xero invoices, drafts safe next steps, and requires owner approval before anything leaves the app.
 - Business impact: dashboard shows money currently at risk, likely cash timing, reviewable actions, and the expected cash/days brought forward.
 
 The short presentation flow lives in `docs/demo-script.md`.
@@ -63,6 +64,14 @@ Xero-triggered local receiver:
 - `POST /webhooks/xero`
 
 The current MVP keeps customer-facing emails in a sandbox Outbox. That is deliberate for the demo: the judge can see the proposed action, and the app writes a non-customer-facing invoice history note back to Xero only after human approval.
+
+## AI Toolkit And Agent Boundary
+
+Nero's current agent is intentionally deterministic: it reads Xero contacts, invoices, payments, and payer behaviour; ranks the most useful next actions; drafts owner-reviewable reminders or terms recommendations; and blocks risky actions when a customer email or current Xero tenant is missing. This keeps the hackathon demo reliable and explainable for a small business owner.
+
+No customer-facing action is sent automatically. The user edits and approves each draft, then Nero keeps the outbound message in Outbox and, for live Xero reminder approvals, writes only an internal invoice history note back to Xero.
+
+OpenRouter or another free app-runtime inference provider may be added after MVP for wording variations or plain-English rationale only. Do not use app-runtime inference credentials for development automation, and do not pitch LLM-written emails unless the runtime feature is actually implemented and approval-gated.
 
 ## OAuth Scopes
 
