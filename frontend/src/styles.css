@@ -813,6 +813,15 @@ h2 {
   height: 344px;
 }
 
+.chart-loading {
+  display: grid;
+  place-items: center;
+  color: var(--fgColor-muted);
+  border: 1px dashed var(--borderColor-default);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.035);
+}
+
 .chart-renderer .recharts-legend-item-text {
   color: var(--fgColor-muted) !important;
 }
