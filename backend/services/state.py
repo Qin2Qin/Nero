@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from datetime import date, datetime, timedelta, timezone
+import re
 from typing import Any
 from uuid import uuid4
 
@@ -12,6 +13,33 @@ from services.forecast import build_forecast
 
 
 STATE_KEY = "nero_state_v1"
+GBP_AMOUNT = re.compile(r"\bGBP\s+([0-9][0-9,]*(?:\.\d+)?)")
+
+
+def _plain_currency(text: str) -> str:
+    return GBP_AMOUNT.sub(r"£\1", text)
+
+
+def normalize_user_facing_currency(state: dict[str, Any]) -> bool:
+    changed = False
+    text_fields = {
+        "proposals": ("reasoning_text", "draft_subject", "draft_body", "recommendation_detail"),
+        "outbox": ("subject", "body"),
+        "action_log": ("event",),
+    }
+    for collection, fields in text_fields.items():
+        for item in state.get(collection, []):
+            if not isinstance(item, dict):
+                continue
+            for field in fields:
+                value = item.get(field)
+                if not isinstance(value, str):
+                    continue
+                updated = _plain_currency(value)
+                if updated != value:
+                    item[field] = updated
+                    changed = True
+    return changed
 
 
 def utc_now() -> str:
@@ -41,18 +69,24 @@ def get_state() -> dict[str, Any]:
     if settings.demo_mode:
         if not hasattr(get_state, "_demo_state"):
             setattr(get_state, "_demo_state", initial_state())
-        return deepcopy(getattr(get_state, "_demo_state"))
+        state = deepcopy(getattr(get_state, "_demo_state"))
+        if normalize_user_facing_currency(state):
+            setattr(get_state, "_demo_state", deepcopy(state))
+        return state
 
     with connect(settings.database_path) as conn:
         state = get_json(conn, STATE_KEY, None)
         if state is None:
             state = initial_state()
             set_json(conn, STATE_KEY, state)
+        elif normalize_user_facing_currency(state):
+            set_json(conn, STATE_KEY, state)
         return state
 
 
 def save_state(state: dict[str, Any]) -> None:
     settings = get_settings()
+    normalize_user_facing_currency(state)
     if settings.demo_mode:
         setattr(get_state, "_demo_state", deepcopy(state))
         return

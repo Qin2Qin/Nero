@@ -87,7 +87,8 @@ def test_statement_html_is_printable_and_escaped() -> None:
 
     assert "Print or save as PDF" in html
     assert "City &lt;Limousines&gt;" in html
-    assert "GBP 750" in html
+    assert "£750" in html
+    assert "GBP" not in html
     assert "Other Customer" not in html
 
 

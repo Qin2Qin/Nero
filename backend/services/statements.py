@@ -8,7 +8,7 @@ from services.state import data_source, state_today, utc_now
 
 
 def _format_currency(value: int | float) -> str:
-    return f"GBP {int(round(float(value or 0))):,}"
+    return f"£{int(round(float(value or 0))):,}"
 
 
 def _format_date(value: str) -> str:
