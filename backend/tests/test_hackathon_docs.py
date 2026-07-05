@@ -32,6 +32,23 @@ def test_current_docs_describe_agent_boundary_without_overclaiming_llm_runtime()
     assert "supports autonomous sending" not in combined
 
 
+def test_current_docs_preserve_hackathon_requirements_and_judging_weights() -> None:
+    text = (ROOT / "docs" / "xero-hackathon-and-mcp.md").read_text()
+
+    for requirement in (
+        "Use Xero's APIs.",
+        "Use the Xero MCP Server.",
+        "Use CLI tooling.",
+        "Use an AI toolkit.",
+    ):
+        assert requirement in text
+
+    assert "50% Xero Connection" in text
+    assert "30% API Integration" in text
+    assert "20% Architecture" in text
+    assert "Utilize AI for complex scenarios" in text
+
+
 def test_archived_build_guide_is_marked_non_authoritative() -> None:
     text = ARCHIVED_BUILD_GUIDE.read_text()
 

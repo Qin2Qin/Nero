@@ -25,7 +25,9 @@ Current programme requirements called out on the page:
 - Use Xero's APIs.
 - Use the Xero MCP Server.
 - Use CLI tooling.
+- Use an AI toolkit.
 - Automate a real, painful workflow with reliable, accurate, time-saving impact.
+- Utilize AI for complex scenarios while keeping the product accurate and user-friendly.
 
 Nero's evidence map for judging:
 
