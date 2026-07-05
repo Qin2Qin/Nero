@@ -73,6 +73,71 @@ def update_cash_floor(state: dict[str, Any], *, cash_floor: int | None, mode: Li
     return state["settings"]
 
 
+def create_manual_proposal(state: dict[str, Any], contact_id: str, kind: Literal["reminder", "deposit"]) -> dict[str, Any]:
+    contact = next((item for item in state["contacts"] if item["id"] == contact_id), None)
+    if contact is None:
+        raise KeyError(contact_id)
+
+    proposal_id = f"manual-{kind}-{contact_id}-{uuid4().hex[:8]}"
+    if kind == "reminder":
+        invoice = next((item for item in state["invoices"] if item["contact_id"] == contact_id), None)
+        if invoice is not None:
+            subject = f"Reminder: {invoice['invoice_number']} due {invoice['due_date']}"
+            body = (
+                f"Hi {contact['name']},\n\nJust checking in on {invoice['invoice_number']} for "
+                f"GBP {invoice['amount_due']:,}. Let me know if you have any questions.\n\nThanks,\nAlex, Harbour & Co"
+            )
+            impact = int(invoice["amount_due"])
+        else:
+            subject = f"Checking in, {contact['name']}"
+            body = (
+                f"Hi {contact['name']},\n\nChecking in on your account with us. Let me know if you have "
+                "any questions.\n\nThanks,\nAlex, Harbour & Co"
+            )
+            impact = 0
+        proposal = {
+            "id": proposal_id,
+            "type": "reminder",
+            "contact_id": contact_id,
+            "contact_name": contact["name"],
+            "invoice_id": invoice["id"] if invoice is not None else None,
+            "reasoning_text": f"Manually drafted from Customers for {contact['name']}.",
+            "draft_subject": subject,
+            "draft_body": body,
+            "recommendation_detail": None,
+            "expected_impact_dollars": impact,
+            "expected_days_accelerated": 7,
+            "status": "pending",
+        }
+    elif kind == "deposit":
+        exposure = sum(int(item["amount_due"]) for item in state["invoices"] if item["contact_id"] == contact_id)
+        pct = 30
+        proposal = {
+            "id": proposal_id,
+            "type": "deposit_recommendation",
+            "contact_id": contact_id,
+            "contact_name": contact["name"],
+            "invoice_id": None,
+            "reasoning_text": (
+                f"Manually drafted from Customers. {contact['name']} pays about "
+                f"{max(0, round(contact['avg_days_late']))} days late on average."
+            ),
+            "draft_subject": None,
+            "draft_body": None,
+            "recommendation_detail": f"Add a {pct}% deposit on the next quote for {contact['name']} before work begins.",
+            "expected_impact_dollars": round(exposure * 0.3),
+            "expected_days_accelerated": 14,
+            "status": "pending",
+        }
+    else:
+        raise ValueError(kind)
+
+    state["proposals"].insert(0, proposal)
+    label = "reminder" if kind == "reminder" else "deposit recommendation"
+    append_log(state, "You", f"Drafted {label} for {contact['name']}")
+    return proposal
+
+
 def data_source(state: dict[str, Any]) -> dict[str, Any]:
     return state.get(
         "data_source",

@@ -358,6 +358,64 @@ export async function undoProposal(id) {
   return proposal;
 }
 
+export async function createManualProposal(contactId, kind) {
+  if (!USE_FIXTURES) {
+    return request("/api/proposals/manual", {
+      method: "POST",
+      body: JSON.stringify({ contact_id: contactId, kind })
+    });
+  }
+  const contact = localState.contacts.find((item) => item.id === contactId);
+  if (!contact) return null;
+  const id = `manual-${kind}-${contactId}-${Date.now()}`;
+  let proposal;
+  if (kind === "reminder") {
+    const invoice = localState.invoices.find((item) => item.contact_id === contactId);
+    proposal = {
+      id,
+      type: "reminder",
+      contact_id: contactId,
+      contact_name: contact.name,
+      invoice_id: invoice?.id || null,
+      reasoning_text: `Manually drafted from Customers for ${contact.name}.`,
+      draft_subject: invoice ? `Reminder: ${invoice.invoice_number} due ${invoice.due_date}` : `Checking in, ${contact.name}`,
+      draft_body: invoice
+        ? `Hi ${contact.name},\n\nJust checking in on ${invoice.invoice_number} for $${money(invoice.amount_due)}. Let me know if you have any questions.\n\nThanks,\nHarbour & Co`
+        : `Hi ${contact.name},\n\nChecking in on your account with us. Let me know if you have any questions.\n\nThanks,\nHarbour & Co`,
+      recommendation_detail: null,
+      expected_impact_dollars: invoice ? invoice.amount_due : 0,
+      expected_days_accelerated: 7,
+      status: "pending"
+    };
+  } else {
+    const exposure = localState.invoices
+      .filter((item) => item.contact_id === contactId)
+      .reduce((sum, item) => sum + Number(item.amount_due || 0), 0);
+    proposal = {
+      id,
+      type: "deposit_recommendation",
+      contact_id: contactId,
+      contact_name: contact.name,
+      invoice_id: null,
+      reasoning_text: `Manually drafted from Customers. ${contact.name} pays about ${Math.max(0, Math.round(contact.avg_days_late))} days late on average.`,
+      draft_subject: null,
+      draft_body: null,
+      recommendation_detail: `Add a 30% deposit on the next quote for ${contact.name} before work begins.`,
+      expected_impact_dollars: Math.round(exposure * 0.3),
+      expected_days_accelerated: 14,
+      status: "pending"
+    };
+  }
+  localState.proposals.unshift(proposal);
+  localState.action_log.unshift({
+    id: `log-${id}`,
+    timestamp: nowIso(),
+    actor: "You",
+    event: `Drafted ${kind === "reminder" ? "reminder" : "deposit recommendation"} for ${contact.name}`
+  });
+  return proposal;
+}
+
 export async function seedSyntheticPortfolio() {
   if (!USE_FIXTURES) return request("/api/synthetic/seed", { method: "POST" });
   localState.action_log.unshift({

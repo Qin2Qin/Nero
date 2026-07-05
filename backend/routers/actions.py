@@ -11,6 +11,7 @@ from services.state import (
     append_log,
     approve_proposal,
     approve_proposals_batch,
+    create_manual_proposal,
     dismiss_proposal,
     edit_proposal,
     get_state,
@@ -44,6 +45,11 @@ class ApproveBatchRequest(BaseModel):
     ids: list[str]
 
 
+class ManualProposalRequest(BaseModel):
+    contact_id: str
+    kind: Literal["reminder", "deposit"]
+
+
 class XeroTenantPatch(BaseModel):
     tenant_id: str
 
@@ -57,6 +63,17 @@ def approve(proposal_id: str) -> dict:
         raise HTTPException(status_code=404, detail="proposal not found") from exc
     save_state(state)
     return result
+
+
+@router.post("/proposals/manual")
+def create_manual(request: ManualProposalRequest) -> dict:
+    state = get_state()
+    try:
+        proposal = create_manual_proposal(state, request.contact_id, request.kind)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="contact not found") from exc
+    save_state(state)
+    return proposal
 
 
 @router.post("/proposals/approve_batch")
