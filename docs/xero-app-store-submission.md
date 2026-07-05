@@ -19,12 +19,14 @@ Primary workflow:
 3. Review the cash forecast and payer risk.
 4. Approve or dismiss suggested reminders and payment-term changes.
 5. Use the outbox for reviewable follow-up messages.
+6. Approved invoice reminders add an internal Xero invoice history note for auditability.
 
 Xero API usage:
 
 - `GET /Contacts` via the Accounting API
 - `GET /Invoices?Statuses=AUTHORISED,PAID` via the Accounting API
 - `GET /Payments` via the Accounting API
+- `PUT /Invoices/{InvoiceID}/History` via the Accounting API for internal approval notes
 - OAuth connection and tenant discovery through Xero identity/connections endpoints
 
 OAuth scopes:
@@ -33,4 +35,4 @@ OAuth scopes:
 
 Advisor recommendation copy:
 
-Recommend Nero to clients who have recurring late invoices, high-value repeat customers, or cash-flow uncertainty. Nero turns Xero invoice and payment history into clear cash timing, payer behaviour, and reviewable follow-up actions without sending anything automatically.
+Recommend Nero to clients who have recurring late invoices, high-value repeat customers, or cash-flow uncertainty. Nero turns Xero invoice and payment history into clear cash timing, payer behaviour, and reviewable follow-up actions. Customer emails are never sent automatically; approved actions are logged back to the invoice history inside Xero.

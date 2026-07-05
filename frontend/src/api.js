@@ -65,7 +65,7 @@ const localState = {
         id: "data-integrity",
         label: "Data integrity",
         status: "ready",
-        detail: "Reads contacts, invoices and payments before queuing approved messages for review."
+        detail: "Reads contacts, invoices and payments; customer emails stay in Outbox, while approved actions can add internal Xero invoice notes."
       },
       {
         id: "api-efficiency",

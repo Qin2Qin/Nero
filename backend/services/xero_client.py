@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -51,3 +52,11 @@ class XeroClient:
 
     def list_payments(self, page: int = 1) -> dict:
         return self.request("GET", "/Payments", params={"page": page})
+
+    def add_invoice_history(self, invoice_id: str, note: str) -> dict:
+        safe_invoice_id = quote(invoice_id, safe="")
+        return self.request(
+            "PUT",
+            f"/Invoices/{safe_invoice_id}/History",
+            json={"HistoryRecords": [{"Details": note[:4000]}]},
+        )

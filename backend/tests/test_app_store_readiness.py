@@ -33,6 +33,7 @@ def test_app_store_readiness_exposes_xero_certification_checklist() -> None:
         "support-security",
     }.issubset(item_ids)
     scopes = next(item for item in body["items"] if item["id"] == "scopes")["detail"]
+    data_integrity = next(item for item in body["items"] if item["id"] == "data-integrity")
     efficiency = next(item for item in body["items"] if item["id"] == "api-efficiency")
     subscriptions = next(item for item in body["items"] if item["id"] == "subscriptions-webhooks")
     listing = next(item for item in body["items"] if item["id"] == "listing")
@@ -40,6 +41,7 @@ def test_app_store_readiness_exposes_xero_certification_checklist() -> None:
 
     assert "accounting.invoices" in scopes
     assert "accounting.payments" in scopes
+    assert "invoice notes" in data_integrity["detail"]
     assert efficiency["status"] == "ready"
     assert "Retry-After" in efficiency["detail"]
     assert subscriptions["status"] == "todo"
