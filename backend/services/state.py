@@ -232,6 +232,8 @@ def dismiss_proposal(state: dict[str, Any], proposal_id: str) -> dict:
     proposal = next((item for item in state["proposals"] if item["id"] == proposal_id), None)
     if proposal is None:
         raise KeyError(proposal_id)
+    if proposal["status"] != "pending":
+        return proposal
     proposal["status"] = "dismissed"
     append_log(state, "You", f"Dismissed the suggestion for {proposal['contact_name']}.")
     return proposal
@@ -241,6 +243,8 @@ def edit_proposal(state: dict[str, Any], proposal_id: str, draft_body: str) -> d
     proposal = next((item for item in state["proposals"] if item["id"] == proposal_id), None)
     if proposal is None:
         raise KeyError(proposal_id)
+    if proposal["status"] != "pending":
+        return proposal
     proposal["draft_body"] = draft_body
     append_log(state, "You", f"Edited the draft message for {proposal['contact_name']}.")
     return proposal

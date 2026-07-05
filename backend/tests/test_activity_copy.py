@@ -69,3 +69,18 @@ def test_dismiss_and_edit_logs_are_plain() -> None:
     assert "Edited the draft message for City Limousines." in events
     assert "Dismissed the suggestion for City Limousines." in events
     assert not any("reminder for" in event or "proposal" in event for event in events)
+
+
+def test_approved_proposal_cannot_be_dismissed_or_edited_later() -> None:
+    state = state_with_proposal()
+    approve_proposal(state, "proposal-1")
+
+    dismiss_proposal(state, "proposal-1")
+    edit_proposal(state, "proposal-1", "Changed after approval")
+
+    proposal = state["proposals"][0]
+    assert proposal["status"] == "approved"
+    assert proposal["draft_body"] == "Please confirm the payment date."
+    events = [entry["event"] for entry in state["action_log"]]
+    assert not any("Dismissed" in event for event in events)
+    assert not any("Edited" in event for event in events)
