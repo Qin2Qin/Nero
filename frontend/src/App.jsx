@@ -430,6 +430,24 @@ function buildRangeBuckets(buckets, range) {
   return { list: buckets, realN: buckets.length };
 }
 
+function ForecastTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  // The invisible fill-under-the-line Area shares a dataKey with the "Realistic
+  // forecast" Line but has no name of its own, so Recharts defaults its tooltip
+  // entry's name to the raw dataKey. Drop that duplicate, unnamed entry.
+  const rows = payload.filter((entry) => !(entry.dataKey === "predictedSolid" && entry.name === "predictedSolid"));
+  return (
+    <div style={{ border: "1px solid #E5E5EA", borderRadius: 8, boxShadow: "0 8px 24px rgba(20,35,46,0.12)", background: "#fff", padding: "10px 14px", fontSize: 13 }}>
+      <div style={{ fontWeight: 600, marginBottom: 4 }}>{`Week of ${label}`}</div>
+      {rows.map((entry) => (
+        <div key={entry.dataKey} style={{ color: entry.color }}>
+          {entry.name}: {entry.value === null || entry.value === undefined ? "" : formatCurrency(entry.value)}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ForecastChart({ forecast, range }) {
   const buckets = forecast?.buckets?.filter((bucket) => bucket.week_start !== "later") || [];
   if (!buckets.length) return <div className="empty">No forecast data</div>;
@@ -453,11 +471,7 @@ function ForecastChart({ forecast, range }) {
             <CartesianGrid stroke="#EEEEF2" vertical={false} />
             <XAxis dataKey="week" tick={{ fill: "#9094A0", fontSize: 12 }} tickLine={false} axisLine={false} />
             <YAxis tickFormatter={compactMoney} tick={{ fill: "#9094A0", fontSize: 12 }} tickLine={false} axisLine={false} width={54} />
-            <Tooltip
-              formatter={(value) => (value === null || value === undefined ? "" : formatCurrency(value))}
-              labelFormatter={(label) => `Week of ${label}`}
-              contentStyle={{ border: "1px solid #E5E5EA", borderRadius: 8, boxShadow: "0 8px 24px rgba(20,35,46,0.12)" }}
-            />
+            <Tooltip content={<ForecastTooltip />} />
             <ReferenceLine
               y={forecast.cash_floor}
               stroke="#C93A2B"
