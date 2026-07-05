@@ -451,9 +451,11 @@ def sync_from_xero(conn: sqlite3.Connection | None = None, materialize_state: bo
                 }
             else:
                 result["materialized"] = None
+                result["cash_data_ready"] = False
                 result["detail"] = _empty_sync_detail(contacts, invoices, payments)
         elif materialize_state:
             result["materialized"] = None
+            result["cash_data_ready"] = False
             result["detail"] = _empty_sync_detail(contacts, invoices, payments)
         return result
     finally:

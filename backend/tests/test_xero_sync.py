@@ -67,6 +67,38 @@ class EmptyClient:
         return {"OnlineInvoices": []}
 
 
+class UnusableInvoiceClient:
+    def __init__(self, credentials):
+        self.credentials = credentials
+
+    def list_contacts(self, page: int = 1) -> dict:
+        if page > 1:
+            return {"Contacts": []}
+        return {"Contacts": [{"ContactID": "contact-1", "Name": "Apex Corp"}]}
+
+    def list_invoices(self, statuses: str | None = None, page: int = 1) -> dict:
+        if page > 1:
+            return {"Invoices": []}
+        return {
+            "Invoices": [
+                {
+                    "InvoiceID": "invoice-1",
+                    "InvoiceNumber": "INV-1",
+                    "Status": "AUTHORISED",
+                    "Contact": {"ContactID": "contact-1", "Name": "Apex Corp"},
+                    "AmountDue": 2500,
+                    "Total": 2500,
+                }
+            ]
+        }
+
+    def list_payments(self, page: int = 1) -> dict:
+        return {"Payments": []}
+
+    def get_online_invoice(self, invoice_id: str) -> dict:
+        return {"OnlineInvoices": []}
+
+
 def test_sync_from_xero_stores_raw_payloads(monkeypatch, tmp_path: Path) -> None:
     conn = connect(tmp_path / "nero.db")
     FakeClient.online_invoice_calls = 0
@@ -112,6 +144,19 @@ def test_sync_from_xero_explains_empty_organisation(monkeypatch, tmp_path: Path)
     assert result["cash_data_ready"] is False
     assert result["materialized"] is None
     assert "Xero returned no contacts, invoices or payments" in result["detail"]
+
+
+def test_materialized_sync_reports_cash_not_ready_for_unusable_invoice_records(monkeypatch, tmp_path: Path) -> None:
+    conn = connect(tmp_path / "nero.db")
+    monkeypatch.setattr(xero_sync, "get_valid_access", lambda conn: {"access_token": "access", "tenant_id": "tenant"})
+    monkeypatch.setattr(xero_sync, "XeroClient", UnusableInvoiceClient)
+
+    result = xero_sync.sync_from_xero(conn, materialize_state=True)
+
+    assert result["fetched"] == {"contacts": 1, "invoices": 1, "payments": 0}
+    assert result["cash_data_ready"] is False
+    assert result["materialized"] is None
+    assert "no open invoices or paid invoice history" in result["detail"]
 
 
 def test_build_state_from_xero_materializes_dashboard_state() -> None:
