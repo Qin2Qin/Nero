@@ -49,6 +49,8 @@ def test_agent_uses_cautious_reasoning_for_no_paid_history() -> None:
     assert "limited paid-invoice history" in created[0]["reasoning_text"]
     assert "0 paid invoices" not in created[0]["reasoning_text"]
     assert "Could you confirm the planned payment date" in created[0]["draft_body"]
+    assert "I can resend the current statement if helpful." in created[0]["draft_body"]
+    assert "attached" not in created[0]["draft_body"].lower()
     assert state["action_log"][0]["actor"] == "Nero"
     assert state["action_log"][0]["event"] == "1 suggested action ready for your review."
 

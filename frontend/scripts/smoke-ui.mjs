@@ -192,7 +192,7 @@ async function runSmoke() {
     await page.getByText(/Send reminder|Send firmer reminder|Ask for deposit|Change payment terms/).first().waitFor();
     await page.getByText(/Could bring £[\d,]+ forward about \d+ days? sooner\./).first().waitFor();
     const actionsText = await page.locator("body").innerText();
-    if (/across 0 paid invoices|deposit_recommendation|terms_recommendation/.test(actionsText)) {
+    if (/across 0 paid invoices|deposit_recommendation|terms_recommendation|I have\s+attached/.test(actionsText)) {
       throw new Error(`Internal action copy leaked into UI:\n${actionsText}`);
     }
     await page.getByRole("button", { name: /Approve/ }).first().click();

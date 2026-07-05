@@ -65,7 +65,7 @@ def _email(
         "Could you confirm the planned payment date, or use {payment_link} when ready?"
     )
     if tone in {"firm", "final"}:
-        body += " I have attached the current statement for reference."
+        body += " I can resend the current statement if helpful."
     body += f"\n\nThanks,\n{sender_name}, {business_name}"
     return subject[:60], body
 
