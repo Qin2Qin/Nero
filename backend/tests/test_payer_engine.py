@@ -8,7 +8,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
 
-from services.payer_engine import compute_profiles, grade_for_avg, least_squares_slope, weighted_average_recent_first
+from services.payer_engine import (
+    compute_profiles,
+    grade_for_avg,
+    least_squares_slope,
+    payer_explanation,
+    weighted_average_recent_first,
+)
 
 
 def test_grade_boundaries() -> None:
@@ -60,3 +66,38 @@ def test_low_data_uses_portfolio_median() -> None:
     assert profiles["thin"]["grade"] == "C (low data)"
     assert profiles["thin"]["low_confidence"] is True
     assert profiles["thin"]["avg_days_late"] == 12
+
+
+def test_payer_explanation_uses_plain_english_and_pluralisation() -> None:
+    assert payer_explanation(
+        {
+            "name": "Hoyt Productions",
+            "invoice_count": 1,
+            "avg_days_late": 0,
+            "stdev_days_late": 0,
+            "trend_slope": 0,
+            "low_confidence": True,
+        }
+    ) == (
+        "Based on 1 paid invoice, Nero estimates Hoyt Productions pays on average 0 days late "
+        "until more payment history comes in, and that's been steady."
+    )
+
+
+def test_payer_explanation_mentions_unpredictable_timing_when_useful() -> None:
+    explanation = payer_explanation(
+        {
+            "name": "Deliveroo",
+            "invoice_count": 10,
+            "avg_days_late": 16.4,
+            "stdev_days_late": 13,
+            "trend_slope": 1.5,
+            "low_confidence": False,
+        }
+    )
+
+    assert explanation == (
+        "Based on 10 paid invoices, Deliveroo pays on average 16 days late, "
+        "though timing can be unpredictable, and it's getting slower."
+    )
+    assert "variance" not in explanation.lower()

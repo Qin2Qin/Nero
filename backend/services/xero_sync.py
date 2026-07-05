@@ -11,7 +11,7 @@ from db import connect, count_rows, upsert_payload
 from config import get_settings
 from services.agent_service import run_agent_cycle
 from services.forecast import build_forecast
-from services.payer_engine import recompute_all
+from services.payer_engine import payer_explanation, recompute_all
 from services.state import get_state, live_today, save_state, utc_now
 from services.xero_auth import get_valid_access, list_connections
 from services.xero_client import XeroClient, XeroCredentials
@@ -226,21 +226,20 @@ def build_state_from_xero(
         if "predicted_paid_date" not in invoice:
             invoice["predicted_paid_date"] = (_parse_xero_date(invoice["due_date"]) + timedelta(days=8)).isoformat()
         if invoice["contact_id"] not in profile_ids:
-            profiles.append(
-                {
-                    "id": invoice["contact_id"],
-                    "name": known_contacts.get(invoice["contact_id"], invoice["contact_name"]),
-                    "email": known_emails.get(invoice["contact_id"]),
-                    "revenue_12m": invoice["amount_due"],
-                    "grade": "C (low data)",
-                    "avg_days_late": 8,
-                    "stdev_days_late": 0,
-                    "trend_slope": 0,
-                    "invoice_count": 0,
-                    "low_confidence": True,
-                    "explanation": "No paid invoice history was returned for this customer, so Nero applies the portfolio fallback.",
-                }
-            )
+            profile = {
+                "id": invoice["contact_id"],
+                "name": known_contacts.get(invoice["contact_id"], invoice["contact_name"]),
+                "email": known_emails.get(invoice["contact_id"]),
+                "revenue_12m": invoice["amount_due"],
+                "grade": "C (low data)",
+                "avg_days_late": 8,
+                "stdev_days_late": 0,
+                "trend_slope": 0,
+                "invoice_count": 0,
+                "low_confidence": True,
+            }
+            profile["explanation"] = payer_explanation(profile)
+            profiles.append(profile)
             profile_ids.add(invoice["contact_id"])
 
     profiles.sort(key=lambda item: item["revenue_12m"], reverse=True)
