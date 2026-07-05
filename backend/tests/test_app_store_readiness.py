@@ -39,9 +39,11 @@ def test_app_store_readiness_exposes_xero_certification_checklist(monkeypatch) -
     subscriptions = next(item for item in body["items"] if item["id"] == "subscriptions-webhooks")
     listing = next(item for item in body["items"] if item["id"] == "listing")
     support_security = next(item for item in body["items"] if item["id"] == "support-security")
+    connection = next(item for item in body["items"] if item["id"] == "connection")
 
     assert "accounting.invoices" in scopes
     assert "accounting.payments" in scopes
+    assert "connection" in connection["label"].lower()
     assert "invoice notes" in data_integrity["detail"]
     assert efficiency["status"] == "ready"
     assert "Retry-After" in efficiency["detail"]

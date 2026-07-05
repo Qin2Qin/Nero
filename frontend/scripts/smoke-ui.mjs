@@ -119,6 +119,7 @@ async function runSmoke() {
   await reconnectPage.goto(frontendUrl, { waitUntil: "networkidle" });
   const reconnectLink = reconnectPage.getByRole("link", { name: "Reconnect Xero" }).first();
   await reconnectLink.waitFor();
+  await reconnectPage.getByRole("button", { name: "Disconnect" }).first().waitFor();
   const reconnectHref = await reconnectLink.getAttribute("href");
   if (reconnectHref !== `${backendUrl}/auth/login`) throw new Error(`Reconnect Xero link pointed to ${reconnectHref}`);
   if (await reconnectPage.getByText("Xero Connected").count()) {
@@ -172,6 +173,7 @@ async function runSmoke() {
   );
   await tenantMismatchPage.goto(frontendUrl, { waitUntil: "networkidle" });
   await tenantMismatchPage.getByText("Sync needed").waitFor();
+  await tenantMismatchPage.getByRole("button", { name: "Disconnect" }).first().waitFor();
   await tenantMismatchPage.getByText("Xero organisation changed. Sync Xero to update this dashboard before reviewing actions.").waitFor();
   await tenantMismatchPage.close();
 

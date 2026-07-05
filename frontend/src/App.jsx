@@ -10,6 +10,7 @@ import {
   FileText,
   HelpCircle,
   LayoutDashboard,
+  LogOut,
   Minus,
   Play,
   RefreshCw,
@@ -35,6 +36,7 @@ import {
 } from "recharts";
 import {
   approveProposal,
+  disconnectXero,
   dismissProposal,
   editProposal,
   fetchAll,
@@ -377,6 +379,9 @@ function xeroNeedsReconnect(status) {
 
 function syncSummary(result) {
   if (!result) return "";
+  if (result.status === "disconnected") {
+    return result.detail || "Disconnected Xero locally. Reconnect before syncing again.";
+  }
   if (result.status === "synced") {
     const base = `Synced ${result.fetched?.contacts ?? 0} contacts, ${result.fetched?.invoices ?? 0} invoices, ${result.fetched?.payments ?? 0} payments.`;
     if (result.detail) return `${base} ${result.detail}`;
@@ -662,7 +667,7 @@ function LateInvoicesByAge({ agedReceivables }) {
   );
 }
 
-function XeroConnection({ status, source, tenants, syncResult, onSyncXero, onSeedPortfolio, onSelectTenant, busy }) {
+function XeroConnection({ status, source, tenants, syncResult, onSyncXero, onSeedPortfolio, onSelectTenant, onDisconnectXero, busy }) {
   const badge = xeroBadge(status);
   const needsReconnect = xeroNeedsReconnect(status);
   const canSync = status?.demo_mode || (status?.connected && !needsReconnect);
@@ -711,6 +716,11 @@ function XeroConnection({ status, source, tenants, syncResult, onSyncXero, onSee
         <button className="button primary btn btn-primary btn-sm" onClick={onSyncXero} disabled={busy || !canSync}>
           <RefreshCw size={16} /> {status?.demo_mode ? "Check demo sync" : "Sync Xero"}
         </button>
+        {status?.connected && onDisconnectXero && (
+          <button className="button ghost btn btn-ghost btn-sm" type="button" onClick={onDisconnectXero} disabled={busy}>
+            <LogOut size={16} /> Disconnect
+          </button>
+        )}
         {needsReconnect && status?.client_credentials_configured && (
           <a className="button ghost btn btn-ghost btn-sm" href={XERO_LOGIN_URL}>
             <ExternalLink size={16} /> Reconnect Xero
@@ -787,7 +797,7 @@ function DataSourceBanner({ source, xeroStatus, xeroTenants }) {
   );
 }
 
-function LiveXeroControls({ status, tenants, source, busy, onSyncXero, onSelectTenant }) {
+function LiveXeroControls({ status, tenants, source, busy, onSyncXero, onSelectTenant, onDisconnectXero }) {
   if (!status || status.demo_mode) return null;
 
   if (!status.connected) {
@@ -803,9 +813,22 @@ function LiveXeroControls({ status, tenants, source, busy, onSyncXero, onSelectT
 
   if (xeroNeedsReconnect(status)) {
     return (
-      <a className="button ghost btn btn-ghost btn-sm" href={XERO_LOGIN_URL} title={status.refresh_error || "Reconnect Xero to continue syncing."}>
-        <ExternalLink size={16} /> Reconnect Xero
-      </a>
+      <>
+        <a className="button ghost btn btn-ghost btn-sm" href={XERO_LOGIN_URL} title={status.refresh_error || "Reconnect Xero to continue syncing."}>
+          <ExternalLink size={16} /> Reconnect Xero
+        </a>
+        {onDisconnectXero && (
+          <button
+            className="button ghost btn btn-ghost btn-sm"
+            type="button"
+            onClick={onDisconnectXero}
+            disabled={busy}
+            title="Remove the local Xero connection from this device"
+          >
+            <LogOut size={16} /> Disconnect
+          </button>
+        )}
+      </>
     );
   }
 
@@ -839,6 +862,17 @@ function LiveXeroControls({ status, tenants, source, busy, onSyncXero, onSelectT
       <button className="button ghost btn btn-ghost btn-sm" type="button" onClick={onSyncXero} disabled={busy || status.needs_tenant}>
         <RefreshCw size={16} /> Sync Xero
       </button>
+      {onDisconnectXero && (
+        <button
+          className="button ghost btn btn-ghost btn-sm"
+          type="button"
+          onClick={onDisconnectXero}
+          disabled={busy}
+          title="Remove the local Xero connection from this device"
+        >
+          <LogOut size={16} /> Disconnect
+        </button>
+      )}
       {syncedAt && (
         <span className="live-sync-meta" title={`${tenantLabel} last synced from Xero`}>
           Last synced {syncedAt}
@@ -854,6 +888,7 @@ function Dashboard({
   onFindActions,
   onSyncXero,
   onSelectTenant,
+  onDisconnectXero,
   onUpdateCashFloor,
   onReviewActions,
   onViewActivity,
@@ -943,6 +978,7 @@ function Dashboard({
             busy={busy}
             onSyncXero={onSyncXero}
             onSelectTenant={onSelectTenant}
+            onDisconnectXero={onDisconnectXero}
           />
           <button className="button primary btn btn-primary btn-sm" onClick={onFindActions} disabled={busy}>
             <Play size={16} /> Find actions
@@ -1588,6 +1624,7 @@ function DevToolsPanel({
   onSyncXero,
   onSeedPortfolio,
   onSelectTenant,
+  onDisconnectXero,
   onMarkFirstPaid,
   onScanResearch
 }) {
@@ -1618,6 +1655,7 @@ function DevToolsPanel({
             onSyncXero={onSyncXero}
             onSeedPortfolio={onSeedPortfolio}
             onSelectTenant={onSelectTenant}
+            onDisconnectXero={onDisconnectXero}
             busy={busy}
           />
           <ResearchSignals sources={researchSources} onScanResearch={onScanResearch} busy={busy} />
@@ -1671,6 +1709,14 @@ export function App() {
     }
   }
 
+  function confirmDisconnectXero() {
+    const confirmed = window.confirm(
+      "Disconnect Xero on this computer? Nero will keep the current dashboard snapshot, but it will not sync again until you reconnect."
+    );
+    if (!confirmed) return;
+    act(async () => setSyncResult(await disconnectXero()));
+  }
+
   const activeContent = useMemo(() => {
     if (!data) return <main className="content"><div className="empty">Loading Nero</div></main>;
     if (activeTab === "dashboard") {
@@ -1682,6 +1728,7 @@ export function App() {
           onFindActions={() => act(findActions)}
           onSyncXero={() => act(async () => setSyncResult(await syncXero()))}
           onSelectTenant={(tenantId) => act(async () => setSyncResult(await selectXeroTenant(tenantId)))}
+          onDisconnectXero={confirmDisconnectXero}
           onUpdateCashFloor={(cashFloor) => act(() => updateCashFloor(cashFloor))}
           onReviewActions={() => setActiveTab("queue")}
           onViewActivity={() => setActiveTab("activity")}
@@ -1768,6 +1815,7 @@ export function App() {
           onSyncXero={() => act(async () => setSyncResult(await syncXero()))}
           onSeedPortfolio={() => act(async () => setSyncResult(await seedSyntheticPortfolio()))}
           onSelectTenant={(tenantId) => act(async () => setSyncResult(await selectXeroTenant(tenantId)))}
+          onDisconnectXero={confirmDisconnectXero}
           onMarkFirstPaid={() => data?.invoices?.[0] && act(() => markPaid(data.invoices[0].id))}
           onScanResearch={() => act(scanResearch)}
         />

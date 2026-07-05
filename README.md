@@ -107,6 +107,9 @@ Live Xero flow:
 9. When an invoice reminder/escalation is approved from live Xero data, Nero
    keeps the customer-facing email in Outbox and adds an internal history note to
    the Xero invoice for auditability.
+10. Use the in-app **Disconnect** control, or `DELETE /auth/connection`, to
+    remove locally stored OAuth tokens before reconnecting a different Xero
+    organisation.
 
 Frontend deployment variables:
 

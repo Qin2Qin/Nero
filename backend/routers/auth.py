@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import RedirectResponse
 from typing import Optional
 
-from services.xero_auth import get_connection_summary, login_url, store_callback_tokens
+from services.xero_auth import disconnect_saved_connection, get_connection_summary, login_url, store_callback_tokens
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -56,3 +56,12 @@ def callback(
 @router.get("/status")
 def auth_status() -> dict:
     return get_connection_summary()
+
+
+@router.delete("/connection")
+def disconnect() -> dict:
+    return {
+        "status": "disconnected",
+        "detail": "Local Xero OAuth tokens were removed. Reconnect Xero before syncing again.",
+        "xero": disconnect_saved_connection(),
+    }
