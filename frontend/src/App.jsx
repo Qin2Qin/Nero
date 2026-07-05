@@ -705,7 +705,7 @@ function LateInvoicesByAge({ agedReceivables }) {
   );
 }
 
-function XeroConnection({ status, source, tenants, syncResult, onSyncXero, onSeedPortfolio, onSelectTenant, onDisconnectXero, busy }) {
+function XeroConnection({ status, source, tenants, syncResult, onSyncXero, onSelectTenant, onDisconnectXero, busy }) {
   const badge = xeroBadge(status);
   const needsReconnect = xeroNeedsReconnect(status);
   const canSync = status?.demo_mode || (status?.connected && !needsReconnect);
@@ -764,9 +764,6 @@ function XeroConnection({ status, source, tenants, syncResult, onSyncXero, onSee
             <ExternalLink size={16} /> Reconnect Xero
           </a>
         )}
-        <button className="button ghost btn btn-ghost btn-sm" onClick={onSeedPortfolio} disabled={busy}>
-          <Database size={16} /> Seed portfolio
-        </button>
         {!status?.demo_mode && !status?.connected && status?.client_credentials_configured && (
           <a className="button ghost btn btn-ghost btn-sm" href={XERO_LOGIN_URL}>
             <ExternalLink size={16} /> Connect
@@ -1753,7 +1750,6 @@ function DevToolsPanel({
             tenants={data.xeroTenants}
             syncResult={syncResult}
             onSyncXero={onSyncXero}
-            onSeedPortfolio={onSeedPortfolio}
             onSelectTenant={onSelectTenant}
             onDisconnectXero={onDisconnectXero}
             busy={busy}
