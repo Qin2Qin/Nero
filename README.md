@@ -51,8 +51,8 @@ Run a live-Xero judge demo preflight after the backend is running:
 ```
 
 The preflight prints only status, counts, and readiness checks. It fails if the
-backend is still in demo mode, Xero is disconnected, the data is stale, or no
-sendable action is ready.
+frontend is not serving Nero, the backend is still in demo mode, Xero is
+disconnected, the data is stale, or no sendable action is ready.
 
 Run the browser smoke test:
 

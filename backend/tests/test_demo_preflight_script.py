@@ -20,6 +20,7 @@ def load_module():
 def healthy_payloads() -> dict:
     return {
         "/health": {"ok": True, "demo_mode": False},
+        "frontend": {"url": "http://127.0.0.1:5173", "has_root": True, "has_title": True},
         "/api/xero/status": {
             "connected": True,
             "expired": False,
@@ -67,6 +68,7 @@ def test_demo_preflight_passes_for_live_xero_ready_state() -> None:
 
     assert exit_code == 0
     assert "PASS backend: running in live Xero mode" in lines
+    assert "PASS frontend: http://127.0.0.1:5173 is serving Nero" in lines
     assert "PASS xero: connected, token current, tenant tenant-1" in lines
     assert any("1 draft has customer email" in line for line in lines)
     assert lines[-1] == "result=passed"
@@ -76,6 +78,7 @@ def test_demo_preflight_fails_for_demo_or_disconnected_state() -> None:
     module = load_module()
     payloads = healthy_payloads()
     payloads["/health"] = {"ok": True, "demo_mode": True}
+    payloads["frontend"] = {"url": "http://127.0.0.1:5173", "has_root": False, "has_title": False}
     payloads["/api/xero/status"] = {
         "connected": False,
         "expired": False,
@@ -92,6 +95,7 @@ def test_demo_preflight_fails_for_demo_or_disconnected_state() -> None:
 
     assert exit_code == 1
     assert any(line.startswith("FAIL backend:") for line in lines)
+    assert any(line.startswith("FAIL frontend:") for line in lines)
     assert any(line.startswith("FAIL xero:") for line in lines)
     assert any(line.startswith("FAIL data:") for line in lines)
     assert any(line.startswith("FAIL actions:") for line in lines)

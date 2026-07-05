@@ -12,6 +12,7 @@ from urllib.request import Request, urlopen
 
 
 DEFAULT_BASE_URL = "http://127.0.0.1:8000"
+DEFAULT_FRONTEND_URL = "http://127.0.0.1:5173"
 
 
 def request_json(base_url: str, path: str, method: str = "GET", timeout: float = 10.0) -> dict[str, Any] | list[Any]:
@@ -29,6 +30,26 @@ def request_json(base_url: str, path: str, method: str = "GET", timeout: float =
         return json.loads(payload)
     except json.JSONDecodeError as error:
         raise RuntimeError(f"{method} {path} did not return JSON") from error
+
+
+def request_text(url: str, timeout: float = 10.0) -> str:
+    request = Request(url, headers={"Accept": "text/html"})
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            return response.read().decode("utf-8", errors="replace")
+    except HTTPError as error:
+        raise RuntimeError(f"GET {url} returned HTTP {error.code}") from error
+    except URLError as error:
+        raise RuntimeError(f"GET {url} failed: {error.reason}") from error
+
+
+def check_frontend(frontend_url: str, timeout: float = 10.0) -> dict[str, Any]:
+    text = request_text(frontend_url, timeout=timeout)
+    return {
+        "url": frontend_url,
+        "has_root": '<div id="root"' in text,
+        "has_title": "<title>Nero</title>" in text,
+    }
 
 
 def parse_datetime(value: str | None) -> datetime | None:
@@ -68,6 +89,13 @@ def evaluate_preflight(
         pass_line(lines, "backend", "running in live Xero mode")
     else:
         fail(failures, lines, "backend", "backend is not healthy or DEMO_MODE is still true")
+
+    frontend = payloads.get("frontend")
+    if frontend is not None:
+        if frontend.get("has_root") and frontend.get("has_title"):
+            pass_line(lines, "frontend", f"{frontend.get('url')} is serving Nero")
+        else:
+            fail(failures, lines, "frontend", f"{frontend.get('url', 'frontend')} did not look like the Nero app")
 
     xero_status = payloads.get("/api/xero/status") or {}
     if (
@@ -154,11 +182,19 @@ def evaluate_preflight(
     return 0, lines
 
 
-def collect_payloads(base_url: str, *, sync: bool, timeout: float) -> dict[str, Any]:
+def collect_payloads(
+    base_url: str,
+    *,
+    sync: bool,
+    timeout: float,
+    frontend_url: str | None = DEFAULT_FRONTEND_URL,
+) -> dict[str, Any]:
     payloads: dict[str, Any] = {
         "/health": request_json(base_url, "/health", timeout=timeout),
         "/api/xero/status": request_json(base_url, "/api/xero/status", timeout=timeout),
     }
+    if frontend_url:
+        payloads["frontend"] = check_frontend(frontend_url, timeout=timeout)
     if sync:
         payloads["/api/sync"] = request_json(base_url, "/api/sync", method="POST", timeout=max(timeout, 30.0))
     payloads.update(
@@ -175,13 +211,20 @@ def collect_payloads(base_url: str, *, sync: bool, timeout: float) -> dict[str, 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Check the local Nero live-Xero demo without printing secrets.")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help=f"Backend base URL. Default: {DEFAULT_BASE_URL}")
+    parser.add_argument(
+        "--frontend-url",
+        default=DEFAULT_FRONTEND_URL,
+        help=f"Frontend URL to check. Default: {DEFAULT_FRONTEND_URL}",
+    )
+    parser.add_argument("--skip-frontend", action="store_true", help="Only check backend/Xero readiness.")
     parser.add_argument("--sync", action="store_true", help="Run POST /api/sync before evaluating demo readiness.")
     parser.add_argument("--timeout", type=float, default=10.0, help="HTTP timeout in seconds.")
     parser.add_argument("--max-age-minutes", type=int, default=120, help="Maximum acceptable Xero snapshot age.")
     args = parser.parse_args(argv)
 
     try:
-        payloads = collect_payloads(args.base_url, sync=args.sync, timeout=args.timeout)
+        frontend_url = None if args.skip_frontend else args.frontend_url
+        payloads = collect_payloads(args.base_url, sync=args.sync, timeout=args.timeout, frontend_url=frontend_url)
         exit_code, lines = evaluate_preflight(payloads, max_age_minutes=args.max_age_minutes)
     except RuntimeError as error:
         print("Nero live demo preflight")
