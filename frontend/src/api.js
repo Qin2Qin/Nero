@@ -103,7 +103,18 @@ async function request(path, options = {}) {
     headers: { "Content-Type": "application/json" },
     ...options
   });
-  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+  if (!response.ok) {
+    let message = `${response.status} ${response.statusText}`;
+    try {
+      const payload = await response.json();
+      if (typeof payload.detail === "string") message = payload.detail;
+      else if (typeof payload.message === "string") message = payload.message;
+    } catch {
+      // Keep the HTTP fallback when the backend does not return JSON.
+    }
+    throw new Error(message);
+  }
+  if (response.status === 204) return null;
   return response.json();
 }
 
