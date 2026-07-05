@@ -20,6 +20,20 @@ Judging emphasis from the programme page:
 - 30% API Integration: show meaningful Accounting/Payments API usage, not just a superficial OAuth connection.
 - 20% Architecture: the demo should look reliable, testable, and production-minded.
 
+Current programme requirements called out on the page:
+
+- Use Xero's APIs.
+- Use the Xero MCP Server.
+- Use CLI tooling.
+- Automate a real, painful workflow with reliable, accurate, time-saving impact.
+
+Nero's evidence map for judging:
+
+- Xero APIs: live OAuth, tenant discovery, contacts, invoices, online invoice links, payments, and approved invoice history notes.
+- MCP Server: official remote MCP availability is tracked below; do not fake MCP usage if the connector is unavailable in this Codex workspace.
+- CLI tooling: repo scripts cover OAuth validation, token import, research monitoring, backend smoke checks, and the bounded Codex development loop.
+- Business impact: dashboard shows money currently at risk, likely cash timing, reviewable actions, and the expected cash/days brought forward.
+
 ## Implemented Xero Flow
 
 Backend OAuth and tenant management:
