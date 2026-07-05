@@ -1273,6 +1273,12 @@ function AgentQueue({ proposals, dataSource, onApprove, onDismiss, onEdit, busy 
     [proposals]
   );
 
+  function approveCurrentDraft(proposal, draftBody) {
+    const savedDraft = proposal.draft_body ?? "";
+    const changedDraft = proposal.draft_subject && draftBody !== savedDraft ? draftBody : undefined;
+    onApprove(proposal.id, changedDraft);
+  }
+
   return (
     <main className="content">
       <div className="panel-head page-head">
@@ -1309,12 +1315,12 @@ function AgentQueue({ proposals, dataSource, onApprove, onDismiss, onEdit, busy 
               <p className="approval-note">{approvalOutcomeText(proposal, dataSource)}</p>
               {proposal.recommendation_detail && <p className="recommendation">{proposal.recommendation_detail}</p>}
               <div className="actions">
-                <button className="button primary btn btn-primary btn-sm" disabled={busy} onClick={() => onApprove(proposal.id)}>
+                <button className="button primary btn btn-primary btn-sm" disabled={busy} onClick={() => approveCurrentDraft(proposal, draftBody)}>
                   <Check size={16} /> {copy.approveLabel}
                 </button>
                 {proposal.draft_subject && (
                   <button className="button ghost btn btn-ghost btn-sm" disabled={busy} onClick={() => onEdit(proposal.id, draftBody)}>
-                    Edit
+                    Save wording
                   </button>
                 )}
                 <button className="icon-button danger-icon btn btn-square btn-ghost btn-sm" disabled={busy} onClick={() => onDismiss(proposal.id)} title="Dismiss">
@@ -1638,7 +1644,12 @@ export function App() {
           proposals={data.proposals}
           dataSource={data.dataSource}
           busy={busy}
-          onApprove={(id) => act(() => approveProposal(id))}
+          onApprove={(id, draftBody) =>
+            act(async () => {
+              if (typeof draftBody === "string") await editProposal(id, draftBody);
+              await approveProposal(id);
+            })
+          }
           onDismiss={(id) => act(() => dismissProposal(id))}
           onEdit={(id, body) => act(() => editProposal(id, body))}
         />

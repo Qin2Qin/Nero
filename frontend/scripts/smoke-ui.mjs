@@ -207,10 +207,19 @@ async function runSmoke() {
     if (/across 0 paid invoices|deposit_recommendation|terms_recommendation|I have\s+attached|\{payment_link\}/.test(actionsText)) {
       throw new Error(`Internal action copy leaked into UI:\n${actionsText}`);
     }
-    await page.getByRole("button", { name: /Approve/ }).first().click();
+    const editMarker = "Please reply today so we can keep stock orders moving.";
+    const firstDraftCard = page.locator(".proposal-card").filter({
+      has: page.getByRole("button", { name: "Approve draft" })
+    }).first();
+    await firstDraftCard.locator("summary").click();
+    const draftTextarea = firstDraftCard.locator("textarea");
+    await draftTextarea.fill(`${await draftTextarea.inputValue()}\n\n${editMarker}`);
+    await firstDraftCard.getByRole("button", { name: "Approve draft" }).click();
     await page.getByRole("button", { name: "Outbox" }).click();
     await page.getByRole("heading", { name: "Outbox" }).waitFor();
     await page.getByText(/Foundry Lane Events|Juniper Borough Services|Alder House Retail|Canal House Workspace/).first().waitFor();
+    await page.locator(".message-preview").first().locator("summary").click();
+    await page.getByText(editMarker).waitFor();
     await expectText(page.locator(".recipient-email").first(), /^accounts@.+\.example\.com$/i, "outbox recipient email");
     await page.getByRole("button", { name: "Copy" }).first().waitFor();
     const outboxDraftLink = page.getByRole("link", { name: "Open draft" }).first();
