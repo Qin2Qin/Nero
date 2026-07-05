@@ -116,6 +116,8 @@ async function runSmoke() {
     await page.getByText(/^Updated /).first().waitFor();
     await page.getByText("Due now or soon").waitFor();
     await page.getByText("Likely by then").waitFor();
+    await page.getByText("Late invoices by age").waitFor();
+    await page.getByText("1-30 days late").waitFor();
     await page.getByText(/\d+ days overdue/).first().waitFor();
     await page.getByRole("button", { name: "Review action" }).first().click();
     await page.getByRole("heading", { name: "Actions to review" }).waitFor();

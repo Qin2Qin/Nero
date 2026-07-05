@@ -454,6 +454,91 @@ h2 {
   color: var(--fgColor-success);
 }
 
+.aging-strip {
+  margin: 0 0 var(--space-4);
+  padding: 16px 18px;
+  border: 1px solid var(--borderColor-default);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(135deg, rgba(148, 163, 184, 0.12), rgba(255, 255, 255, 0.035)),
+    rgba(15, 23, 42, 0.76);
+  box-shadow: var(--shadow-resting);
+  animation: surfaceIn var(--motion-medium) both;
+}
+
+.aging-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  align-items: baseline;
+  margin-bottom: var(--space-3);
+}
+
+.aging-head span,
+.aging-bucket em {
+  color: var(--fgColor-muted);
+  font-size: 12px;
+  font-weight: 700;
+  font-style: normal;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.aging-head strong {
+  color: #ffffff;
+  font-size: 18px;
+}
+
+.aging-buckets {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.aging-bucket {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.aging-bucket-top {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  align-items: baseline;
+  min-width: 0;
+}
+
+.aging-bucket-top span {
+  color: var(--fgColor-subtle);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.aging-bucket-top strong {
+  color: #ffffff;
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.aging-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.aging-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: rgba(129, 140, 248, 0.7);
+}
+
+.aging-bucket.late .aging-bar span {
+  background: rgba(251, 191, 36, 0.78);
+}
+
 .roi-strip {
   display: flex;
   gap: var(--space-4);
@@ -1520,6 +1605,10 @@ pre {
     grid-template-columns: 1fr;
   }
 
+  .aging-buckets {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .side-panel {
     position: static;
   }
@@ -1540,6 +1629,14 @@ pre {
 
   .command-strip div {
     padding: 14px 16px;
+  }
+
+  .aging-head {
+    display: grid;
+  }
+
+  .aging-buckets {
+    grid-template-columns: 1fr;
   }
 
   .roi-strip {
