@@ -549,6 +549,7 @@ function ResearchSignals({ sources, onScanResearch, busy }) {
 function DataSourceBanner({ source, xeroStatus }) {
   const liveConnected = xeroStatus?.connected && !xeroStatus?.demo_mode;
   const business = source?.business;
+  const updatedAt = source?.generated_at ? formatDateTime(source.generated_at) : "";
   const detail = business
     ? `${business.sector} / ${business.country} / ${business.base_currency}`
     : "Cash timing and payer behaviour from your accounting data.";
@@ -557,7 +558,10 @@ function DataSourceBanner({ source, xeroStatus }) {
       <div className="source-copy">
         <strong>{businessNameFor(source)}</strong>
         <p>{detail}</p>
-        {liveConnected && <span className="badge badge-success success">Xero connected</span>}
+        <div className="source-badges">
+          {liveConnected && <span className="badge badge-success success">Xero connected</span>}
+          {updatedAt && <span className="badge badge-outline neutral">Updated {updatedAt}</span>}
+        </div>
       </div>
       <figure className="source-visual-frame">
         <img src="/visuals/nero-cashflow-preview.png" alt="Nero cash forecast board preview" />

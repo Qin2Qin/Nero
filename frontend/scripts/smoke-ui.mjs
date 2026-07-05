@@ -101,6 +101,7 @@ async function runSmoke() {
     await page.goto(frontendUrl, { waitUntil: "networkidle" });
     await page.getByRole("heading", { name: "Nero" }).waitFor();
     await page.getByText("Northstar Fabrication Works").first().waitFor();
+    await page.getByText(/^Updated /).first().waitFor();
     await page.locator(".recharts-wrapper").waitFor();
     const lineCount = await page.locator(".recharts-line-curve").count();
     if (lineCount < 3) throw new Error(`Expected at least 3 rendered forecast lines, saw ${lineCount}`);
