@@ -972,6 +972,56 @@ tbody tr:hover {
   background: rgba(255, 255, 255, 0.055);
 }
 
+.date-cell {
+  display: grid;
+  gap: 2px;
+  min-width: 92px;
+}
+
+.date-cell strong {
+  color: var(--fgColor-default);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.date-cell span {
+  color: var(--fgColor-subtle);
+  font-size: 12px;
+}
+
+.invoice-step-button,
+.invoice-step-muted {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.invoice-step-button {
+  gap: 5px;
+  border: 1px solid rgba(52, 211, 153, 0.26);
+  background: rgba(52, 211, 153, 0.12);
+  color: var(--fgColor-success);
+  cursor: pointer;
+  transition: background var(--motion-fast), border-color var(--motion-fast), transform var(--motion-fast);
+}
+
+.invoice-step-button:hover {
+  background: rgba(52, 211, 153, 0.18);
+  border-color: rgba(52, 211, 153, 0.38);
+  transform: translateY(-1px);
+}
+
+.invoice-step-muted {
+  border: 1px solid var(--borderColor-muted);
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--fgColor-subtle);
+}
+
 .payers-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;

@@ -61,9 +61,12 @@ function parseDate(value) {
   return new Date(`${value}T00:00:00Z`);
 }
 
+function forecastAsOfValue(forecast) {
+  return forecast?.as_of || new Date().toISOString().slice(0, 10);
+}
+
 function todayForForecast(forecast) {
-  if (forecast?.as_of) return parseDate(forecast.as_of);
-  return parseDate(new Date().toISOString().slice(0, 10));
+  return parseDate(forecastAsOfValue(forecast));
 }
 
 function addDays(date, days) {
@@ -106,6 +109,27 @@ function formatWeekLabel(value) {
     month: "short",
     day: "numeric"
   }).format(parseDate(value));
+}
+
+function formatShortDate(value) {
+  return new Intl.DateTimeFormat("en-GB", {
+    month: "short",
+    day: "numeric"
+  }).format(parseDate(value));
+}
+
+function daysBetween(start, end) {
+  return Math.round((parseDate(end) - parseDate(start)) / 86400000);
+}
+
+function invoiceTimingText(dateValue, asOfValue) {
+  const days = daysBetween(asOfValue, dateValue);
+  if (days < 0) {
+    const count = Math.abs(days);
+    return `${count} ${plural(count, "day")} overdue`;
+  }
+  if (days === 0) return "Due today";
+  return `Due in ${days} ${plural(days, "day")}`;
 }
 
 function gradeClass(grade) {
@@ -652,6 +676,7 @@ function Dashboard({
 }) {
   const businessName = businessNameFor(data.dataSource);
   const [invoiceSort, requestInvoiceSort] = useSort("due_date", "asc");
+  const forecastAsOf = forecastAsOfValue(data.forecast);
   const cutoff = addDays(todayForForecast(data.forecast), 30);
   const dueNext30 = data.invoices
     .filter((invoice) => parseDate(invoice.due_date) <= cutoff)
@@ -662,6 +687,15 @@ function Dashboard({
   const warningBuckets = data.forecast.buckets.filter((bucket) => bucket.cumulative_predicted < data.forecast.cash_floor);
   const firstWarning = warningBuckets.find((bucket) => bucket.week_start !== "later");
   const pendingProposals = data.proposals.filter((proposal) => proposal.status === "pending");
+  const proposalByInvoice = useMemo(() => {
+    const indexed = new Map();
+    for (const proposal of data.proposals) {
+      if (proposal.status === "pending" && proposal.invoice_id) {
+        indexed.set(proposal.invoice_id, proposal);
+      }
+    }
+    return indexed;
+  }, [data.proposals]);
   const pendingActions = Number(data.metrics?.pending_actions_count ?? pendingProposals.length);
   const pendingImpactFallback = pendingProposals.reduce(
     (sum, proposal) => sum + Number(proposal.expected_impact_dollars || 0),
@@ -693,9 +727,10 @@ function Dashboard({
         contact_name: (invoice) => invoice.contact_name,
         due_date: (invoice) => Date.parse(`${invoice.due_date}T00:00:00Z`),
         predicted_paid_date: (invoice) => Date.parse(`${invoice.accelerated_paid_date || invoice.predicted_paid_date}T00:00:00Z`),
+        next_step: (invoice) => (proposalByInvoice.has(invoice.id) ? 0 : 1),
         amount_due: (invoice) => Number(invoice.amount_due || 0)
       }),
-    [data.invoices, invoiceSort]
+    [data.invoices, invoiceSort, proposalByInvoice]
   );
 
   return (
@@ -788,6 +823,7 @@ function Dashboard({
                     <SortableHeader label="Customer" sortKey="contact_name" sort={invoiceSort} onSort={requestInvoiceSort} />
                     <SortableHeader label="Due" sortKey="due_date" sort={invoiceSort} onSort={requestInvoiceSort} />
                     <SortableHeader label="Predicted" sortKey="predicted_paid_date" sort={invoiceSort} onSort={requestInvoiceSort} />
+                    <SortableHeader label="Next step" sortKey="next_step" sort={invoiceSort} onSort={requestInvoiceSort} />
                     <SortableHeader
                       label="Amount"
                       sortKey="amount_due"
@@ -799,18 +835,41 @@ function Dashboard({
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedInvoices.map((invoice) => (
-                    <tr key={invoice.id}>
-                      <td>{invoice.invoice_number}</td>
-                      <td>{invoice.contact_name}</td>
-                      <td>{invoice.due_date}</td>
-                      <td>{invoice.accelerated_paid_date || invoice.predicted_paid_date}</td>
-                      <td className="right">{formatCurrency(invoice.amount_due)}</td>
-                    </tr>
-                  ))}
+                  {sortedInvoices.map((invoice) => {
+                    const predictedDate = invoice.accelerated_paid_date || invoice.predicted_paid_date;
+                    const proposal = proposalByInvoice.get(invoice.id);
+                    return (
+                      <tr key={invoice.id}>
+                        <td>{invoice.invoice_number}</td>
+                        <td>{invoice.contact_name}</td>
+                        <td>
+                          <div className="date-cell">
+                            <strong>{formatShortDate(invoice.due_date)}</strong>
+                            <span>{invoiceTimingText(invoice.due_date, forecastAsOf)}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="date-cell">
+                            <strong>{formatShortDate(predictedDate)}</strong>
+                            <span>{invoiceTimingText(predictedDate, forecastAsOf)}</span>
+                          </div>
+                        </td>
+                        <td>
+                          {proposal ? (
+                            <button className="invoice-step-button" type="button" onClick={onReviewActions}>
+                              <Bot size={14} /> Review action
+                            </button>
+                          ) : (
+                            <span className="invoice-step-muted">Watch</span>
+                          )}
+                        </td>
+                        <td className="right">{formatCurrency(invoice.amount_due)}</td>
+                      </tr>
+                    );
+                  })}
                   {data.invoices.length === 0 && (
                     <tr>
-                      <td colSpan="5">
+                      <td colSpan="6">
                         <div className="empty inline-empty">No open invoices. Sync Xero to pull the latest records.</div>
                       </td>
                     </tr>
