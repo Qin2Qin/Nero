@@ -164,3 +164,103 @@ def test_build_state_from_xero_materializes_dashboard_state() -> None:
     assert state["forecast"]["cash_floor"] == 5000
     assert any("Updated from Xero" in entry["event"] for entry in state["action_log"])
     assert not any("Materialised" in entry["event"] or "profile(s)" in entry["event"] for entry in state["action_log"])
+
+
+def test_build_state_from_xero_preserves_same_tenant_decisions() -> None:
+    contacts = [{"ContactID": "contact-1", "Name": "Demo Retail", "EmailAddress": "accounts@demoretail.example.com"}]
+    invoices = []
+    for idx, days_late in enumerate([4, 7, 10]):
+        invoices.append(
+            {
+                "InvoiceID": f"paid-{idx}",
+                "InvoiceNumber": f"PAID-{idx}",
+                "Status": "PAID",
+                "Contact": {"ContactID": "contact-1", "Name": "Demo Retail"},
+                "DateString": f"2026-0{idx + 1}-01",
+                "DueDateString": f"2026-0{idx + 1}-15",
+                "FullyPaidOnDate": f"2026-0{idx + 1}-{15 + days_late}",
+                "Total": 1000,
+                "AmountPaid": 1000,
+            }
+        )
+    invoices.append(
+        {
+            "InvoiceID": "open-1",
+            "InvoiceNumber": "OPEN-1",
+            "Status": "AUTHORISED",
+            "Contact": {"ContactID": "contact-1", "Name": "Demo Retail"},
+            "DateString": "2026-06-01",
+            "DueDateString": "2026-07-10",
+            "AmountDue": 2500,
+            "Total": 2500,
+        }
+    )
+    previous_state = {
+        "data_source": {"mode": "xero", "tenant_id": "demo-tenant"},
+        "proposals": [
+            {
+                "id": "approved-open-1",
+                "type": "reminder",
+                "contact_id": "contact-1",
+                "contact_name": "Demo Retail",
+                "invoice_id": "open-1",
+                "draft_subject": "Reminder: OPEN-1",
+                "draft_body": "Approved wording",
+                "expected_impact_dollars": 2500,
+                "expected_days_accelerated": 3,
+                "status": "approved",
+            }
+        ],
+        "outbox": [{"id": "outbox-1", "body": "Approved wording"}],
+        "action_log": [{"id": "log-1", "actor": "You", "event": "Approved a payment reminder for Demo Retail."}],
+    }
+
+    state = xero_sync.build_state_from_xero(
+        contacts=contacts,
+        invoices=invoices,
+        payments=[],
+        tenant_id="demo-tenant",
+        tenant_name="Demo Company (UK)",
+        cash_floor=5000,
+        previous_state=previous_state,
+    )
+
+    proposals_for_invoice = [proposal for proposal in state["proposals"] if proposal.get("invoice_id") == "open-1"]
+    assert len(proposals_for_invoice) == 1
+    assert proposals_for_invoice[0]["status"] == "approved"
+    assert state["outbox"] == previous_state["outbox"]
+    assert any(entry["event"] == "Approved a payment reminder for Demo Retail." for entry in state["action_log"])
+    invoice = state["invoices"][0]
+    assert invoice["accelerated_paid_date"] < invoice["predicted_paid_date"]
+
+
+def test_build_state_from_xero_does_not_preserve_other_tenant_decisions() -> None:
+    state = xero_sync.build_state_from_xero(
+        contacts=[{"ContactID": "contact-1", "Name": "Demo Retail"}],
+        invoices=[
+            {
+                "InvoiceID": "open-1",
+                "InvoiceNumber": "OPEN-1",
+                "Status": "AUTHORISED",
+                "Contact": {"ContactID": "contact-1", "Name": "Demo Retail"},
+                "DateString": "2026-06-01",
+                "DueDateString": "2026-07-10",
+                "AmountDue": 2500,
+                "Total": 2500,
+            }
+        ],
+        payments=[],
+        tenant_id="new-tenant",
+        tenant_name="New Company",
+        cash_floor=5000,
+        previous_state={
+            "data_source": {"mode": "xero", "tenant_id": "old-tenant"},
+            "proposals": [{"id": "old", "type": "reminder", "contact_id": "contact-1", "invoice_id": "open-1", "status": "approved"}],
+            "outbox": [{"id": "old-outbox"}],
+            "action_log": [{"id": "old-log", "event": "Old tenant activity"}],
+        },
+    )
+
+    assert state["outbox"] == []
+    assert not any(proposal.get("id") == "old" for proposal in state["proposals"])
+    assert not any(entry.get("event") == "Old tenant activity" for entry in state["action_log"])

@@ -12,7 +12,7 @@ from config import get_settings
 from services.agent_service import run_agent_cycle
 from services.forecast import build_forecast
 from services.payer_engine import recompute_all
-from services.state import live_today, save_state, utc_now
+from services.state import get_state, live_today, save_state, utc_now
 from services.xero_auth import get_valid_access, list_connections
 from services.xero_client import XeroClient, XeroCredentials
 
@@ -90,6 +90,46 @@ def _payment_dates(payments: list[dict]) -> dict[str, list[date]]:
     return by_invoice
 
 
+def _same_xero_tenant(previous_state: dict | None, tenant_id: str) -> bool:
+    source = (previous_state or {}).get("data_source") or {}
+    return source.get("mode") == "xero" and source.get("tenant_id") == tenant_id
+
+
+def _carry_forward_proposals(previous_state: dict | None, current_invoice_ids: set[str], current_contact_ids: set[str]) -> list[dict]:
+    carried: list[dict] = []
+    seen: set[tuple[str, str, str | None]] = set()
+    for proposal in (previous_state or {}).get("proposals", []):
+        status = proposal.get("status")
+        invoice_id = proposal.get("invoice_id")
+        contact_id = proposal.get("contact_id")
+        keep = status in {"approved", "dismissed"}
+        if status == "pending":
+            keep = (invoice_id and invoice_id in current_invoice_ids) or (not invoice_id and contact_id in current_contact_ids)
+        if not keep:
+            continue
+        key = (str(proposal.get("type")), str(contact_id), str(invoice_id) if invoice_id else None)
+        if key in seen:
+            continue
+        seen.add(key)
+        carried.append(dict(proposal))
+    return carried
+
+
+def _apply_approved_accelerations(state: dict, today: date) -> None:
+    invoices_by_id = {invoice.get("id"): invoice for invoice in state.get("invoices", [])}
+    for proposal in state.get("proposals", []):
+        if proposal.get("status") != "approved" or not proposal.get("invoice_id"):
+            continue
+        invoice = invoices_by_id.get(proposal["invoice_id"])
+        if not invoice or not invoice.get("predicted_paid_date"):
+            continue
+        predicted = date.fromisoformat(invoice["predicted_paid_date"])
+        days = int(proposal.get("expected_days_accelerated") or 0)
+        if days <= 0:
+            continue
+        invoice["accelerated_paid_date"] = max(predicted - timedelta(days=days), today + timedelta(days=1)).isoformat()
+
+
 def build_state_from_xero(
     *,
     contacts: list[dict],
@@ -99,6 +139,7 @@ def build_state_from_xero(
     tenant_name: str | None = None,
     cash_floor: int | None = None,
     online_invoice_urls: dict[str, str] | None = None,
+    previous_state: dict | None = None,
 ) -> dict:
     today = live_today()
     online_invoice_urls = online_invoice_urls or {}
@@ -200,11 +241,22 @@ def build_state_from_xero(
         if tenant_name and "demo" in tenant_name.lower()
         else "Synced from the selected Xero organisation."
     )
+    carried_proposals = (
+        _carry_forward_proposals(
+            previous_state,
+            {invoice["id"] for invoice in predicted},
+            {profile["id"] for profile in profiles},
+        )
+        if _same_xero_tenant(previous_state, tenant_id)
+        else []
+    )
+    carried_outbox = list((previous_state or {}).get("outbox", [])) if _same_xero_tenant(previous_state, tenant_id) else []
+    carried_activity = list((previous_state or {}).get("action_log", [])) if _same_xero_tenant(previous_state, tenant_id) else []
     state = {
         "contacts": profiles,
         "invoices": predicted,
-        "forecast": build_forecast(predicted, today=today, cash_floor=cash_floor),
-        "proposals": [],
+        "forecast": {},
+        "proposals": carried_proposals,
         "action_log": [
             {
                 "id": f"xero-sync-{tenant_id}",
@@ -212,8 +264,9 @@ def build_state_from_xero(
                 "actor": "Xero",
                 "event": f"Updated from Xero: {len(profiles)} customers and {len(predicted)} open invoices are ready.",
             }
-        ],
-        "outbox": [],
+        ]
+        + carried_activity,
+        "outbox": carried_outbox,
         "settings": {"cash_floor": cash_floor},
         "data_source": {
             "mode": "xero",
@@ -223,6 +276,8 @@ def build_state_from_xero(
             "tenant_id": tenant_id,
         },
     }
+    _apply_approved_accelerations(state, today)
+    state["forecast"] = build_forecast(predicted, today=today, cash_floor=cash_floor)
     run_agent_cycle(state, today=today)
     return state
 
@@ -346,6 +401,7 @@ def sync_from_xero(conn: sqlite3.Connection | None = None, materialize_state: bo
         if materialize_state and (contacts or invoices or payments):
             tenant_name = _tenant_name(tokens["access_token"], tokens["tenant_id"])
             online_urls = _online_invoice_urls(client, invoices)
+            previous_state = get_state() if owns_conn else None
             state = build_state_from_xero(
                 contacts=contacts,
                 invoices=invoices,
@@ -353,6 +409,7 @@ def sync_from_xero(conn: sqlite3.Connection | None = None, materialize_state: bo
                 tenant_id=tokens["tenant_id"],
                 tenant_name=tenant_name,
                 online_invoice_urls=online_urls,
+                previous_state=previous_state,
             )
             if state["contacts"] or state["invoices"]:
                 save_state(state)
