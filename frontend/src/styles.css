@@ -199,6 +199,27 @@ nav {
   gap: var(--space-4);
 }
 
+.topbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.live-tenant-select {
+  width: min(240px, 42vw);
+  min-height: 34px;
+  border-color: var(--borderColor-default);
+  background: rgba(15, 23, 42, 0.82);
+  color: #ffffff;
+}
+
+.live-xero-badge {
+  align-self: center;
+  min-height: 32px;
+}
+
 .page-head {
   margin-bottom: var(--space-4);
 }
@@ -1465,6 +1486,16 @@ pre {
   .panel-head {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .topbar-actions {
+    justify-content: stretch;
+  }
+
+  .topbar-actions .button,
+  .topbar-actions .live-tenant-select {
+    width: 100%;
+    justify-content: center;
   }
 
   .source-banner {
