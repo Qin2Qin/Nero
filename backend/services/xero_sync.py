@@ -81,6 +81,13 @@ def _amount(value: object) -> int:
     return int(round(float(value or 0)))
 
 
+def _invoice_display_number(invoice_id: str, invoice: dict) -> str:
+    invoice_number = str(invoice.get("InvoiceNumber") or "").strip()
+    if invoice_number:
+        return invoice_number
+    return f"Xero invoice {invoice_id[:8]}"
+
+
 def _payment_dates(payments: list[dict]) -> dict[str, list[date]]:
     by_invoice: dict[str, list[date]] = {}
     for payment in payments:
@@ -229,7 +236,7 @@ def build_state_from_xero(
                 "contact_id": contact_id,
                 "contact_name": contact_name,
                 "contact_email": contact_email,
-                "invoice_number": str(invoice.get("InvoiceNumber") or invoice_id[:8]),
+                "invoice_number": _invoice_display_number(invoice_id, invoice),
                 "online_invoice_url": online_invoice_urls.get(invoice_id),
                 "amount_due": amount_due,
                 "issue_date": issue_date.isoformat(),

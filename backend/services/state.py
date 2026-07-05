@@ -15,6 +15,7 @@ from services.forecast import build_forecast
 STATE_KEY = "nero_state_v1"
 GBP_AMOUNT = re.compile(r"\bGBP\s+([0-9][0-9,]*(?:\.\d+)?)")
 SINGULAR_DAYS = re.compile(r"\b1 days\b")
+RAW_XERO_INVOICE_LABEL = re.compile(r"^[0-9a-f]{8}$", re.IGNORECASE)
 LEGACY_FIXTURE_SIGNATURE = "\n\nThanks,\nAlex, Harbour & Co"
 
 
@@ -88,11 +89,54 @@ def normalize_live_xero_draft_signatures(state: dict[str, Any]) -> bool:
     return changed
 
 
+def _is_raw_xero_invoice_label(invoice: dict[str, Any]) -> bool:
+    invoice_id = str(invoice.get("id") or "")
+    invoice_number = str(invoice.get("invoice_number") or "")
+    return (
+        bool(invoice_id)
+        and bool(invoice_number)
+        and len(invoice_id) > 8
+        and RAW_XERO_INVOICE_LABEL.fullmatch(invoice_number) is not None
+        and invoice_id.lower().startswith(invoice_number.lower())
+    )
+
+
+def normalize_live_xero_invoice_labels(state: dict[str, Any]) -> bool:
+    if data_source(state).get("mode") != "xero":
+        return False
+
+    replacements: dict[str, str] = {}
+    changed = False
+    for invoice in state.get("invoices", []):
+        if not isinstance(invoice, dict) or not _is_raw_xero_invoice_label(invoice):
+            continue
+        old_label = str(invoice["invoice_number"])
+        new_label = f"Xero invoice {old_label}"
+        invoice["invoice_number"] = new_label
+        replacements[old_label] = new_label
+        changed = True
+
+    if not replacements:
+        return changed
+
+    def replace_labels(text: str) -> str:
+        updated = text
+        for old_label, new_label in replacements.items():
+            updated = re.sub(rf"\b{re.escape(old_label)}\b", new_label, updated, flags=re.IGNORECASE)
+        return updated
+
+    if _normalize_user_facing_text(state, replace_labels):
+        changed = True
+    return changed
+
+
 def normalize_user_facing_state(state: dict[str, Any]) -> bool:
     changed = normalize_user_facing_currency(state)
     if normalize_user_facing_grammar(state):
         changed = True
     if normalize_live_xero_draft_signatures(state):
+        changed = True
+    if normalize_live_xero_invoice_labels(state):
         changed = True
     return changed
 

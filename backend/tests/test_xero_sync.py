@@ -293,6 +293,32 @@ def test_build_state_from_xero_materializes_dashboard_state() -> None:
     assert not any("Materialised" in entry["event"] or "profile(s)" in entry["event"] for entry in state["action_log"])
 
 
+def test_build_state_from_xero_uses_readable_fallback_when_invoice_number_missing() -> None:
+    invoice_id = "f9eb4838-d48b-4931-8dac-ed5ec55f6ad8"
+
+    state = xero_sync.build_state_from_xero(
+        contacts=[{"ContactID": "contact-1", "Name": "Bayside Club"}],
+        invoices=[
+            {
+                "InvoiceID": invoice_id,
+                "Status": "AUTHORISED",
+                "Contact": {"ContactID": "contact-1", "Name": "Bayside Club"},
+                "DateString": "2026-06-01",
+                "DueDateString": "2026-07-01",
+                "AmountDue": 130,
+                "Total": 130,
+            }
+        ],
+        payments=[],
+        tenant_id="demo-tenant",
+        tenant_name="Demo Company (UK)",
+    )
+
+    assert state["invoices"][0]["invoice_number"] == "Xero invoice f9eb4838"
+    assert state["proposals"][0]["draft_subject"] == "Reminder: Xero invoice f9eb4838"
+    assert "Xero invoice f9eb4838 for £130" in state["proposals"][0]["draft_body"]
+
+
 def test_build_state_from_xero_preserves_same_tenant_decisions() -> None:
     contacts = [{"ContactID": "contact-1", "Name": "Demo Retail", "EmailAddress": "accounts@demoretail.example.com"}]
     invoices = []

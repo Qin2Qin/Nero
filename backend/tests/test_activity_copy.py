@@ -162,3 +162,37 @@ def test_state_normalizer_fixes_singular_day_copy() -> None:
     assert state["proposals"][0]["draft_body"] == "INV-0042 for £1,995 is 1 day overdue."
     assert state["outbox"][0]["body"] == "INV-0042 is 1 day overdue."
     assert state["action_log"][0]["event"] == "1 day overdue draft approved."
+
+
+def test_state_normalizer_relabels_raw_xero_invoice_id_prefixes() -> None:
+    state = {
+        "invoices": [
+            {
+                "id": "f9eb4838-d48b-4931-8dac-ed5ec55f6ad8",
+                "invoice_number": "f9eb4838",
+            }
+        ],
+        "proposals": [
+            {
+                "reasoning_text": "A payment reminder for f9eb4838 could bring £130 forward.",
+                "draft_subject": "Reminder: f9eb4838",
+                "draft_body": "f9eb4838 for £130 is 2 days overdue.",
+            }
+        ],
+        "outbox": [{"subject": "Reminder: f9eb4838", "body": "Please pay f9eb4838."}],
+        "action_log": [{"event": "Approved a payment reminder for f9eb4838."}],
+        "data_source": {"mode": "xero", "label": "Xero: Demo Company (UK)"},
+    }
+
+    changed = normalize_user_facing_state(state)
+
+    assert changed is True
+    assert state["invoices"][0]["invoice_number"] == "Xero invoice f9eb4838"
+    assert state["proposals"][0]["reasoning_text"] == (
+        "A payment reminder for Xero invoice f9eb4838 could bring £130 forward."
+    )
+    assert state["proposals"][0]["draft_subject"] == "Reminder: Xero invoice f9eb4838"
+    assert state["proposals"][0]["draft_body"] == "Xero invoice f9eb4838 for £130 is 2 days overdue."
+    assert state["outbox"][0]["subject"] == "Reminder: Xero invoice f9eb4838"
+    assert state["outbox"][0]["body"] == "Please pay Xero invoice f9eb4838."
+    assert state["action_log"][0]["event"] == "Approved a payment reminder for Xero invoice f9eb4838."
