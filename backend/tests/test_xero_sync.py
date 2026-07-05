@@ -264,3 +264,69 @@ def test_build_state_from_xero_does_not_preserve_other_tenant_decisions() -> Non
     assert state["outbox"] == []
     assert not any(proposal.get("id") == "old" for proposal in state["proposals"])
     assert not any(entry.get("event") == "Old tenant activity" for entry in state["action_log"])
+
+
+def test_build_state_from_xero_preserves_same_tenant_cash_floor(monkeypatch) -> None:
+    monkeypatch.setenv("CASH_FLOOR", "5000")
+
+    state = xero_sync.build_state_from_xero(
+        contacts=[{"ContactID": "contact-1", "Name": "Demo Retail"}],
+        invoices=[
+            {
+                "InvoiceID": "open-1",
+                "InvoiceNumber": "OPEN-1",
+                "Status": "AUTHORISED",
+                "Contact": {"ContactID": "contact-1", "Name": "Demo Retail"},
+                "DateString": "2026-06-01",
+                "DueDateString": "2026-07-10",
+                "AmountDue": 2500,
+                "Total": 2500,
+            }
+        ],
+        payments=[],
+        tenant_id="demo-tenant",
+        tenant_name="Demo Company (UK)",
+        previous_state={
+            "data_source": {"mode": "xero", "tenant_id": "demo-tenant"},
+            "settings": {"cash_floor": 42000},
+            "proposals": [],
+            "outbox": [],
+            "action_log": [],
+        },
+    )
+
+    assert state["settings"]["cash_floor"] == 42000
+    assert state["forecast"]["cash_floor"] == 42000
+
+
+def test_build_state_from_xero_resets_other_tenant_cash_floor_to_config(monkeypatch) -> None:
+    monkeypatch.setenv("CASH_FLOOR", "5000")
+
+    state = xero_sync.build_state_from_xero(
+        contacts=[{"ContactID": "contact-1", "Name": "Demo Retail"}],
+        invoices=[
+            {
+                "InvoiceID": "open-1",
+                "InvoiceNumber": "OPEN-1",
+                "Status": "AUTHORISED",
+                "Contact": {"ContactID": "contact-1", "Name": "Demo Retail"},
+                "DateString": "2026-06-01",
+                "DueDateString": "2026-07-10",
+                "AmountDue": 2500,
+                "Total": 2500,
+            }
+        ],
+        payments=[],
+        tenant_id="new-tenant",
+        tenant_name="New Company",
+        previous_state={
+            "data_source": {"mode": "xero", "tenant_id": "old-tenant"},
+            "settings": {"cash_floor": 42000},
+            "proposals": [],
+            "outbox": [],
+            "action_log": [],
+        },
+    )
+
+    assert state["settings"]["cash_floor"] == 5000
+    assert state["forecast"]["cash_floor"] == 5000

@@ -130,6 +130,16 @@ def _apply_approved_accelerations(state: dict, today: date) -> None:
         invoice["accelerated_paid_date"] = max(predicted - timedelta(days=days), today + timedelta(days=1)).isoformat()
 
 
+def _cash_floor_for_sync(cash_floor: int | None, previous_state: dict | None, same_tenant: bool) -> int:
+    if cash_floor is not None:
+        return cash_floor
+    if same_tenant:
+        previous_value = (previous_state or {}).get("settings", {}).get("cash_floor")
+        if previous_value is not None:
+            return int(previous_value)
+    return get_settings().cash_floor
+
+
 def build_state_from_xero(
     *,
     contacts: list[dict],
@@ -234,7 +244,8 @@ def build_state_from_xero(
             profile_ids.add(invoice["contact_id"])
 
     profiles.sort(key=lambda item: item["revenue_12m"], reverse=True)
-    cash_floor = cash_floor if cash_floor is not None else get_settings().cash_floor
+    same_tenant = _same_xero_tenant(previous_state, tenant_id)
+    cash_floor = _cash_floor_for_sync(cash_floor, previous_state, same_tenant)
     source_label = f"Xero: {tenant_name}" if tenant_name else "Xero tenant"
     source_detail = (
         "Synced from Xero's demo company with fictional Xero data."
@@ -247,11 +258,11 @@ def build_state_from_xero(
             {invoice["id"] for invoice in predicted},
             {profile["id"] for profile in profiles},
         )
-        if _same_xero_tenant(previous_state, tenant_id)
+        if same_tenant
         else []
     )
-    carried_outbox = list((previous_state or {}).get("outbox", [])) if _same_xero_tenant(previous_state, tenant_id) else []
-    carried_activity = list((previous_state or {}).get("action_log", [])) if _same_xero_tenant(previous_state, tenant_id) else []
+    carried_outbox = list((previous_state or {}).get("outbox", [])) if same_tenant else []
+    carried_activity = list((previous_state or {}).get("action_log", [])) if same_tenant else []
     state = {
         "contacts": profiles,
         "invoices": predicted,
