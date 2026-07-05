@@ -152,6 +152,8 @@ def test_agent_uses_xero_organisation_for_live_draft_signature() -> None:
 
     created = run_agent_cycle(state, today=date.fromisoformat("2026-07-05"))
 
+    assert "INV-XERO for £500 is 1 day overdue." in created[0]["draft_body"]
+    assert "1 days overdue" not in created[0]["draft_body"]
     assert "Thanks,\nAccounts team, Demo Company (UK)" in created[0]["draft_body"]
     assert "Harbour & Co" not in created[0]["draft_body"]
 

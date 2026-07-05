@@ -14,6 +14,7 @@ from services.forecast import build_forecast
 
 STATE_KEY = "nero_state_v1"
 GBP_AMOUNT = re.compile(r"\bGBP\s+([0-9][0-9,]*(?:\.\d+)?)")
+SINGULAR_DAYS = re.compile(r"\b1 days\b")
 LEGACY_FIXTURE_SIGNATURE = "\n\nThanks,\nAlex, Harbour & Co"
 
 
@@ -22,6 +23,18 @@ def _plain_currency(text: str) -> str:
 
 
 def normalize_user_facing_currency(state: dict[str, Any]) -> bool:
+    return _normalize_user_facing_text(state, _plain_currency)
+
+
+def _plain_singular_days(text: str) -> str:
+    return SINGULAR_DAYS.sub("1 day", text)
+
+
+def normalize_user_facing_grammar(state: dict[str, Any]) -> bool:
+    return _normalize_user_facing_text(state, _plain_singular_days)
+
+
+def _normalize_user_facing_text(state: dict[str, Any], transform) -> bool:
     changed = False
     text_fields = {
         "proposals": ("reasoning_text", "draft_subject", "draft_body", "recommendation_detail"),
@@ -36,7 +49,7 @@ def normalize_user_facing_currency(state: dict[str, Any]) -> bool:
                 value = item.get(field)
                 if not isinstance(value, str):
                     continue
-                updated = _plain_currency(value)
+                updated = transform(value)
                 if updated != value:
                     item[field] = updated
                     changed = True
@@ -77,6 +90,8 @@ def normalize_live_xero_draft_signatures(state: dict[str, Any]) -> bool:
 
 def normalize_user_facing_state(state: dict[str, Any]) -> bool:
     changed = normalize_user_facing_currency(state)
+    if normalize_user_facing_grammar(state):
+        changed = True
     if normalize_live_xero_draft_signatures(state):
         changed = True
     return changed

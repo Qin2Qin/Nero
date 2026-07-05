@@ -24,6 +24,11 @@ def _money(value: int | float) -> str:
     return f"£{int(round(float(value or 0))):,}"
 
 
+def _days_phrase(days: int | float) -> str:
+    rounded = round(float(days or 0))
+    return f"{rounded} {'day' if abs(rounded) == 1 else 'days'}"
+
+
 def _payment_history_phrase(contact: dict[str, Any]) -> str:
     invoice_count = int(contact.get("invoice_count") or 0)
     if contact.get("low_confidence") or invoice_count < 3:
@@ -36,11 +41,11 @@ def _payment_history_phrase(contact: dict[str, Any]) -> str:
 
     avg_days_late = round(float(contact.get("avg_days_late") or 0))
     if avg_days_late < 0:
-        timing = f"{abs(avg_days_late)} days early"
+        timing = f"{_days_phrase(abs(avg_days_late))} early"
     elif avg_days_late == 0:
         timing = "on time"
     else:
-        timing = f"{avg_days_late} days late"
+        timing = f"{_days_phrase(avg_days_late)} late"
     return f"{contact['name']} usually pays {timing} across {invoice_count} paid invoices."
 
 
@@ -62,7 +67,7 @@ def _email(
     business_name: str | None = None,
 ) -> tuple[str, str]:
     subject = f"{'Payment date needed' if tone in {'firm', 'final'} else 'Reminder'}: {invoice['invoice_number']}"
-    due_phrase = f"{overdue_days} days overdue" if overdue_days > 0 else "due soon"
+    due_phrase = f"{_days_phrase(overdue_days)} overdue" if overdue_days > 0 else "due soon"
     online_invoice_url = invoice.get("online_invoice_url")
     payment_prompt = (
         f"Could you confirm the planned payment date, or use this secure Xero invoice link when ready?\n{online_invoice_url}"

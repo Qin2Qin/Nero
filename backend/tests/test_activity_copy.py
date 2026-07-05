@@ -140,3 +140,25 @@ def test_live_xero_signature_normalizer_removes_fixture_branding() -> None:
     assert "Harbour & Co" not in state["proposals"][0]["draft_body"]
     assert "Thanks,\nAccounts team, Demo Company (UK)" in state["proposals"][0]["draft_body"]
     assert "Thanks,\nAccounts team, Demo Company (UK)" in state["outbox"][0]["body"]
+
+
+def test_state_normalizer_fixes_singular_day_copy() -> None:
+    state = {
+        "proposals": [
+            {
+                "reasoning_text": "Could bring cash forward by 1 days.",
+                "draft_body": "INV-0042 for £1,995 is 1 days overdue.",
+            }
+        ],
+        "outbox": [{"body": "INV-0042 is 1 days overdue."}],
+        "action_log": [{"event": "1 days overdue draft approved."}],
+        "data_source": {"mode": "xero", "label": "Xero: Demo Company (UK)"},
+    }
+
+    changed = normalize_user_facing_state(state)
+
+    assert changed is True
+    assert state["proposals"][0]["reasoning_text"] == "Could bring cash forward by 1 day."
+    assert state["proposals"][0]["draft_body"] == "INV-0042 for £1,995 is 1 day overdue."
+    assert state["outbox"][0]["body"] == "INV-0042 is 1 day overdue."
+    assert state["action_log"][0]["event"] == "1 day overdue draft approved."
