@@ -1319,6 +1319,13 @@ textarea:focus,
   line-height: 1.4;
 }
 
+.approval-note {
+  margin: 0;
+  color: var(--fgColor-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 .actions {
   display: flex;
   align-items: center;

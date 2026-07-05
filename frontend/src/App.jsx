@@ -272,6 +272,14 @@ function proposalActionCopy(proposal) {
   };
 }
 
+function approvalOutcomeText(proposal, dataSource) {
+  if (!proposal.draft_subject) return "Approve to record this decision in Activity. Nothing is sent automatically.";
+  if (dataSource?.mode === "xero" && proposal.invoice_id) {
+    return "Approve to keep the email in Outbox and add an internal note to the Xero invoice. Nothing is sent automatically.";
+  }
+  return "Approve to keep the draft in Outbox. Nothing is sent automatically.";
+}
+
 function compareSortValues(a, b) {
   const aMissing = a === null || a === undefined || a === "";
   const bMissing = b === null || b === undefined || b === "";
@@ -1170,7 +1178,7 @@ function Payers({ contacts, invoices = [] }) {
   );
 }
 
-function AgentQueue({ proposals, onApprove, onDismiss, onEdit, busy }) {
+function AgentQueue({ proposals, dataSource, onApprove, onDismiss, onEdit, busy }) {
   const [drafts, setDrafts] = useState({});
   const pending = proposals.filter((proposal) => proposal.status === "pending");
 
@@ -1207,6 +1215,7 @@ function AgentQueue({ proposals, onApprove, onDismiss, onEdit, busy }) {
                   No customer email found in Xero. Approving keeps the draft in Outbox so you can copy it or add the email in Xero.
                 </p>
               )}
+              <p className="approval-note">{approvalOutcomeText(proposal, dataSource)}</p>
               {proposal.recommendation_detail && <p className="recommendation">{proposal.recommendation_detail}</p>}
               <div className="actions">
                 <button className="button primary btn btn-primary btn-sm" disabled={busy} onClick={() => onApprove(proposal.id)}>
@@ -1536,6 +1545,7 @@ export function App() {
       return (
         <AgentQueue
           proposals={data.proposals}
+          dataSource={data.dataSource}
           busy={busy}
           onApprove={(id) => act(() => approveProposal(id))}
           onDismiss={(id) => act(() => dismissProposal(id))}
