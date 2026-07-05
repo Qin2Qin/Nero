@@ -262,6 +262,12 @@ nav {
   min-width: 0;
 }
 
+.source-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 .source-banner strong {
   display: block;
   color: #ffffff;
