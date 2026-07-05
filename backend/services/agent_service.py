@@ -71,7 +71,7 @@ def _email(
         f"{payment_prompt}"
     )
     if tone in {"firm", "final"}:
-        body += " I can resend the current statement if helpful."
+        body += "\n\nI can resend the current statement if helpful." if online_invoice_url else " I can resend the current statement if helpful."
     body += f"\n\nThanks,\n{sender_name}, {business_name}"
     return subject[:60], body
 
