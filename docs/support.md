@@ -11,4 +11,4 @@ Use this address for:
 
 For support requests, include the business name, the Xero organisation name, the approximate time of the issue, and whether the dashboard is using live Xero data or synthetic portfolio data.
 
-Nero does not send customer emails automatically. Approved reminders are queued in the outbox for review.
+Nero does not send customer emails automatically. Approved reminders are queued in the outbox for review, and approved live-Xero reminder or escalation actions can add an internal invoice history note in Xero for auditability.
