@@ -8,6 +8,7 @@ from services.agent_service import run_agent_cycle
 from services.state import (
     append_log,
     approve_proposal,
+    data_source,
     dismiss_proposal,
     edit_proposal,
     get_state,
@@ -38,6 +39,14 @@ class SettingsPatch(BaseModel):
 
 class XeroTenantPatch(BaseModel):
     tenant_id: str
+
+
+DEMO_ONLY_LIVE_DETAIL = "Demo-only controls are disabled while this dashboard is using live Xero data."
+
+
+def ensure_demo_control_allowed(state: dict) -> None:
+    if data_source(state).get("mode") == "xero":
+        raise HTTPException(status_code=403, detail=DEMO_ONLY_LIVE_DETAIL)
 
 
 @router.post("/proposals/{proposal_id}/approve")
@@ -155,12 +164,14 @@ def select_xero_tenant(request: XeroTenantPatch) -> dict:
 
 @router.post("/demo/reset")
 def reset_demo() -> dict:
+    ensure_demo_control_allowed(get_state())
     return reset_state()
 
 
 @router.post("/demo/mark_paid")
 def mark_paid(request: MarkPaidRequest) -> dict:
     state = get_state()
+    ensure_demo_control_allowed(state)
     invoice = next((item for item in state["invoices"] if item["id"] == request.invoice_id), None)
     if invoice is None:
         raise HTTPException(status_code=404, detail="invoice not found")
