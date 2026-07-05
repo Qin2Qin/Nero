@@ -765,6 +765,22 @@ h2 {
   text-align: right;
 }
 
+.cash-floor-suggestion {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--borderColor-muted);
+  border-radius: var(--radius-2);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--fgColor-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.cash-floor-suggestion .button {
+  justify-self: start;
+}
+
 .range-input {
   width: 100%;
   accent-color: var(--fgColor-accent);
@@ -1714,18 +1730,21 @@ pre {
 .activity-mini-row {
   display: grid;
   gap: 2px;
-  padding-bottom: var(--space-2);
+  padding: var(--space-2);
   border-bottom: 1px solid var(--borderColor-muted);
+  border-radius: var(--radius-2);
+  background: rgba(255, 255, 255, 0.045);
 }
 
 .activity-mini-row span {
-  color: var(--fgColor-subtle);
+  color: var(--fgColor-muted);
   font-size: 12px;
+  font-weight: 650;
 }
 
 .activity-mini-row p {
   margin: 0;
-  color: var(--fgColor-default);
+  color: #ffffff;
   font-size: 13px;
   line-height: 1.4;
 }

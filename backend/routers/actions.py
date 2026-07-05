@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Literal, Optional
 
 import httpx
 from fastapi import APIRouter, HTTPException
@@ -19,6 +19,7 @@ from services.state import (
     reset_state,
     save_state,
     state_today,
+    update_cash_floor,
 )
 from services.synthetic_portfolio import build_synthetic_portfolio
 from services.xero_auth import authorized_tenants, get_connection_summary, get_token_status, select_authorized_tenant
@@ -42,7 +43,8 @@ class MarkPaidRequest(BaseModel):
 
 
 class SettingsPatch(BaseModel):
-    cash_floor: int
+    cash_floor: Optional[int] = None
+    cash_floor_mode: Literal["manual", "suggested"] = "manual"
 
 
 class XeroTenantPatch(BaseModel):
@@ -268,10 +270,14 @@ def mark_paid(request: MarkPaidRequest) -> dict:
 
 @router.patch("/settings")
 def patch_settings(request: SettingsPatch) -> dict:
-    if request.cash_floor < 0:
+    if request.cash_floor_mode == "manual" and request.cash_floor is None:
+        raise HTTPException(status_code=400, detail="cash_floor is required in manual mode")
+    if request.cash_floor is not None and request.cash_floor < 0:
         raise HTTPException(status_code=400, detail="cash_floor must be non-negative")
     state = get_state()
-    state.setdefault("settings", {})["cash_floor"] = request.cash_floor
-    append_log(state, "You", f"Minimum cash changed to £{request.cash_floor:,}.")
+    try:
+        settings = update_cash_floor(state, cash_floor=request.cash_floor, mode=request.cash_floor_mode)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     save_state(state)
-    return state["settings"]
+    return settings

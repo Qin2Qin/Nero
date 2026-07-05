@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +11,8 @@ try:
 except ModuleNotFoundError:
     FIXTURES_DIR = Path(__file__).resolve().parents[2] / "fixtures"
 
+from services.bills import generate_operating_bills
+
 
 def load_fixture(name: str) -> Any:
     path = FIXTURES_DIR / f"{name}.json"
@@ -17,14 +20,16 @@ def load_fixture(name: str) -> Any:
 
 
 def load_demo_state() -> dict[str, Any]:
+    forecast = load_fixture("forecast")
     return {
         "contacts": load_fixture("contacts"),
         "invoices": load_fixture("invoices"),
-        "forecast": load_fixture("forecast"),
+        "forecast": forecast,
         "proposals": load_fixture("proposals"),
         "action_log": load_fixture("action_log"),
         "outbox": [],
-        "settings": {"cash_floor": load_fixture("forecast")["cash_floor"]},
+        "bills": generate_operating_bills(date.fromisoformat("2026-07-04")),
+        "settings": {"cash_floor": forecast["cash_floor"], "cash_floor_mode": "manual"},
         "data_source": {
             "mode": "fixture",
             "label": "Fixture portfolio",
