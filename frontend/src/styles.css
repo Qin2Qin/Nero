@@ -862,6 +862,33 @@ blockquote {
   font-weight: 700;
 }
 
+.recently-actioned {
+  margin-top: var(--space-5);
+}
+
+.recently-actioned h2 {
+  font-size: 13px;
+  color: var(--fgColor-muted);
+  margin-bottom: var(--space-2);
+}
+
+.recently-actioned ul {
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+}
+
+.recently-actioned li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--borderColor-default);
+  border-radius: var(--radius-sm);
+  background: var(--bgColor-default);
+}
+
 .email-preview summary,
 .list-row summary,
 .message-preview summary {

@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from copy import deepcopy
 from datetime import date, datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
 from config import get_settings
 from db import connect, get_json, set_json
+from services.bills import compute_suggested_cash_floor
 from services.fixtures import fresh_demo_state
 from services.forecast import build_forecast
 
@@ -59,6 +60,17 @@ def reset_state() -> dict[str, Any]:
 def current_forecast(state: dict[str, Any]) -> dict:
     cash_floor = int(state.get("settings", {}).get("cash_floor", get_settings().cash_floor))
     return build_forecast(state["invoices"], today=demo_today(), cash_floor=cash_floor)
+
+
+def suggested_cash_floor(state: dict[str, Any]) -> int:
+    return compute_suggested_cash_floor(state.get("bills", []), demo_today())
+
+
+def update_cash_floor(state: dict[str, Any], *, cash_floor: int | None, mode: Literal["manual", "suggested"]) -> dict[str, Any]:
+    value = suggested_cash_floor(state) if mode == "suggested" else int(cash_floor)
+    state["settings"] = {"cash_floor": value, "cash_floor_mode": mode}
+    append_log(state, "You", f"Cash floor changed to GBP {value:,} ({mode})")
+    return state["settings"]
 
 
 def data_source(state: dict[str, Any]) -> dict[str, Any]:
@@ -135,6 +147,38 @@ def approve_proposal(state: dict[str, Any], proposal_id: str) -> dict[str, Any]:
 
     log_entry = append_log(state, "You", event)
     return {"proposal": proposal, "log_entry": log_entry, "outbox_entry": outbox_entry}
+
+
+def approve_proposals_batch(state: dict[str, Any], proposal_ids: list[str]) -> list[dict[str, Any]]:
+    results = []
+    for proposal_id in proposal_ids:
+        try:
+            results.append({"proposal_id": proposal_id, **approve_proposal(state, proposal_id)})
+        except KeyError:
+            results.append({"proposal_id": proposal_id, "error": "proposal not found"})
+    return results
+
+
+def undo_proposal(state: dict[str, Any], proposal_id: str) -> dict:
+    proposal = next((item for item in state["proposals"] if item["id"] == proposal_id), None)
+    if proposal is None:
+        raise KeyError(proposal_id)
+    if proposal["status"] not in {"approved", "dismissed"}:
+        return proposal
+
+    was_approved = proposal["status"] == "approved"
+    proposal["status"] = "pending"
+
+    if was_approved:
+        state["outbox"] = [entry for entry in state.get("outbox", []) if entry.get("proposal_id") != proposal_id]
+        if proposal.get("invoice_id"):
+            for invoice in state["invoices"]:
+                if invoice["id"] == proposal["invoice_id"]:
+                    invoice.pop("accelerated_paid_date", None)
+                    break
+
+    append_log(state, "You", f"Undid {proposal['type']} for {proposal['contact_name']}")
+    return proposal
 
 
 def dismiss_proposal(state: dict[str, Any], proposal_id: str) -> dict:

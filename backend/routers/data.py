@@ -3,7 +3,8 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from services.app_store_readiness import app_store_readiness
-from services.state import compute_metrics, current_forecast, data_source, get_state
+from services.bills import bills_summary
+from services.state import compute_metrics, current_forecast, data_source, get_state, suggested_cash_floor
 
 
 router = APIRouter(prefix="/api", tags=["data"])
@@ -46,7 +47,19 @@ def metrics() -> dict:
 
 @router.get("/settings")
 def settings() -> dict:
-    return get_state().get("settings", {"cash_floor": 5000})
+    state = get_state()
+    current = state.get("settings", {"cash_floor": 5000, "cash_floor_mode": "manual"})
+    return {
+        **current,
+        "cash_floor_mode": current.get("cash_floor_mode", "manual"),
+        "suggested_cash_floor": suggested_cash_floor(state),
+    }
+
+
+@router.get("/bills")
+def bills() -> dict:
+    state = get_state()
+    return {"bills": state.get("bills", []), "summary": bills_summary(state.get("bills", []))}
 
 
 @router.get("/data_source")

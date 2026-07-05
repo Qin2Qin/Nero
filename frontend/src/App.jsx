@@ -34,6 +34,7 @@ import {
 } from "recharts";
 import {
   approveProposal,
+  approveProposalsBatch,
   dismissProposal,
   editProposal,
   fetchAll,
@@ -44,6 +45,7 @@ import {
   seedSyntheticPortfolio,
   selectXeroTenant,
   syncXero,
+  undoProposal,
   updateCashFloor
 } from "./api.js";
 
@@ -287,7 +289,7 @@ function AppStoreReadiness({ readiness }) {
   );
 }
 
-function CashFloorControl({ value, forecast, onUpdateCashFloor, busy }) {
+function CashFloorControl({ value, mode, suggestedValue, forecast, onUpdateCashFloor, busy }) {
   const [draft, setDraft] = useState(value || 0);
   const warningCount = forecast?.buckets?.filter((bucket) => bucket.cumulative_predicted < draft).length || 0;
   const isChanged = Number(draft) !== Number(value || 0);
@@ -296,6 +298,8 @@ function CashFloorControl({ value, forecast, onUpdateCashFloor, busy }) {
   const presets = [...new Set([5000, Math.round(maxFloor * 0.45 / 5000) * 5000, Math.round(maxFloor * 0.7 / 5000) * 5000])]
     .filter((preset) => preset > 0 && preset <= maxFloor)
     .slice(0, 3);
+  const isSuggested = mode === "suggested";
+  const hasSuggestion = Number.isFinite(suggestedValue) && suggestedValue > 0;
 
   useEffect(() => {
     setDraft(value || 0);
@@ -315,7 +319,7 @@ function CashFloorControl({ value, forecast, onUpdateCashFloor, busy }) {
       </div>
       <div className="cash-floor-readout">
         <strong>{formatCurrency(draft)}</strong>
-        <span>Operating minimum</span>
+        <span>{isSuggested ? "Suggested from upcoming bills" : "Operating minimum"}</span>
       </div>
       <input
         className="range range-primary range-sm range-input"
@@ -339,9 +343,20 @@ function CashFloorControl({ value, forecast, onUpdateCashFloor, busy }) {
           </button>
         ))}
       </div>
-      <button className="button primary btn btn-primary btn-sm block" onClick={() => onUpdateCashFloor(draft)} disabled={busy || !isChanged}>
+      <button className="button primary btn btn-primary btn-sm block" onClick={() => onUpdateCashFloor(draft, "manual")} disabled={busy || !isChanged}>
         Apply floor
       </button>
+      {hasSuggestion && (
+        <button
+          className="button ghost btn btn-ghost btn-sm block"
+          type="button"
+          onClick={() => onUpdateCashFloor(suggestedValue, "suggested")}
+          disabled={busy || isSuggested}
+          title="Based on next payroll, rent and recurring bills"
+        >
+          Use suggested ({formatCurrency(suggestedValue)})
+        </button>
+      )}
     </section>
   );
 }
@@ -661,6 +676,8 @@ function Dashboard({
         <aside className="panel signal-panel">
           <CashFloorControl
             value={data.settings?.cash_floor ?? data.forecast.cash_floor}
+            mode={data.settings?.cash_floor_mode ?? "manual"}
+            suggestedValue={data.settings?.suggested_cash_floor}
             forecast={data.forecast}
             onUpdateCashFloor={onUpdateCashFloor}
             busy={busy}
@@ -823,14 +840,22 @@ function Payers({ contacts, invoices = [] }) {
   );
 }
 
-function AgentQueue({ proposals, onApprove, onDismiss, onEdit, busy }) {
+function AgentQueue({ proposals, onApprove, onDismiss, onEdit, onApproveAll, onUndo, busy }) {
   const [drafts, setDrafts] = useState({});
   const pending = proposals.filter((proposal) => proposal.status === "pending");
+  const recentlyActioned = proposals
+    .filter((proposal) => proposal.status === "approved" || proposal.status === "dismissed")
+    .slice(0, 3);
 
   return (
     <main className="content">
       <div className="panel-head page-head">
         <h1>Agent Queue</h1>
+        {pending.length > 1 && (
+          <button className="button primary btn btn-primary btn-sm" disabled={busy} onClick={() => onApproveAll(pending.map((proposal) => proposal.id))}>
+            <Check size={16} /> Approve all ({pending.length})
+          </button>
+        )}
       </div>
       <div className="proposal-grid">
         {pending.map((proposal) => {
@@ -873,6 +898,23 @@ function AgentQueue({ proposals, onApprove, onDismiss, onEdit, busy }) {
         })}
         {pending.length === 0 && <div className="empty">No pending proposals</div>}
       </div>
+      {recentlyActioned.length > 0 && (
+        <div className="recently-actioned">
+          <h2>Recently actioned</h2>
+          <ul>
+            {recentlyActioned.map((proposal) => (
+              <li key={proposal.id}>
+                <span>
+                  {proposal.status === "approved" ? "Approved" : "Dismissed"} · {proposal.contact_name}
+                </span>
+                <button className="button ghost btn btn-ghost btn-xs" disabled={busy} onClick={() => onUndo(proposal.id)}>
+                  Undo
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </main>
   );
 }
@@ -1136,7 +1178,7 @@ export function App() {
           cashDisplay={cashDisplay}
           busy={busy}
           onRunAgent={() => act(runAgent)}
-          onUpdateCashFloor={(cashFloor) => act(() => updateCashFloor(cashFloor))}
+          onUpdateCashFloor={(cashFloor, mode) => act(() => updateCashFloor(cashFloor, mode))}
           onViewActivity={() => setActiveTab("activity")}
           syncResult={syncResult}
         />
@@ -1151,6 +1193,8 @@ export function App() {
           onApprove={(id) => act(() => approveProposal(id))}
           onDismiss={(id) => act(() => dismissProposal(id))}
           onEdit={(id, body) => act(() => editProposal(id, body))}
+          onApproveAll={(ids) => act(() => approveProposalsBatch(ids))}
+          onUndo={(id) => act(() => undoProposal(id))}
         />
       );
     }

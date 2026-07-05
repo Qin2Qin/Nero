@@ -16,7 +16,7 @@ const localState = {
   outbox: [],
   metrics: { cash_accelerated_dollars: 0, avg_days_accelerated: 0 },
   research: { generated_at: null, sources: {}, files: [] },
-  settings: { cash_floor: forecast.cash_floor },
+  settings: { cash_floor: forecast.cash_floor, cash_floor_mode: "manual", suggested_cash_floor: forecast.cash_floor },
   dataSource: {
     mode: "fixture",
     label: "Offline portfolio",
@@ -303,22 +303,59 @@ export async function selectXeroTenant(tenantId) {
   return { status: "selected", tenant: { tenant_id: tenantId } };
 }
 
-export async function updateCashFloor(cashFloor) {
-  const payload = { cash_floor: Math.max(0, Number(cashFloor || 0)) };
+export async function updateCashFloor(cashFloor, mode = "manual") {
+  const payload =
+    mode === "suggested"
+      ? { cash_floor_mode: "suggested" }
+      : { cash_floor: Math.max(0, Number(cashFloor || 0)), cash_floor_mode: "manual" };
   if (!USE_FIXTURES) {
     return request("/api/settings", {
       method: "PATCH",
       body: JSON.stringify(payload)
     });
   }
-  localState.settings.cash_floor = payload.cash_floor;
+  const value = mode === "suggested" ? localState.settings.suggested_cash_floor : payload.cash_floor;
+  localState.settings.cash_floor = value;
+  localState.settings.cash_floor_mode = mode;
   localState.action_log.unshift({
     id: `cash-floor-${Date.now()}`,
     timestamp: nowIso(),
     actor: "You",
-    event: `Cash floor changed to GBP ${money(payload.cash_floor)}`
+    event: `Cash floor changed to GBP ${money(value)} (${mode})`
   });
   return localState.settings;
+}
+
+export async function approveProposalsBatch(ids) {
+  if (!USE_FIXTURES) {
+    return request("/api/proposals/approve_batch", {
+      method: "POST",
+      body: JSON.stringify({ ids })
+    });
+  }
+  const results = [];
+  for (const id of ids) {
+    results.push({ proposal_id: id, ...(await approveProposal(id)) });
+  }
+  return { results, pending_count: localState.proposals.filter((item) => item.status === "pending").length };
+}
+
+export async function undoProposal(id) {
+  if (!USE_FIXTURES) return request(`/api/proposals/${id}/undo`, { method: "POST" });
+  const proposal = localState.proposals.find((item) => item.id === id);
+  if (!proposal) return null;
+  if (proposal.status === "approved") {
+    localState.outbox = localState.outbox.filter((entry) => entry.proposal_id !== id);
+  }
+  proposal.status = "pending";
+  localState.action_log.unshift({
+    id: `undo-${id}`,
+    timestamp: nowIso(),
+    actor: "You",
+    event: `Undid ${proposal.type} for ${proposal.contact_name}`
+  });
+  recomputeLocalMetrics();
+  return proposal;
 }
 
 export async function seedSyntheticPortfolio() {

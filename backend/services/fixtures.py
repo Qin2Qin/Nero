@@ -2,13 +2,19 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
+from datetime import date
 from pathlib import Path
 from typing import Any
+
+from services.bills import generate_bills
 
 try:
     from config import FIXTURES_DIR
 except ModuleNotFoundError:
     FIXTURES_DIR = Path(__file__).resolve().parents[2] / "fixtures"
+
+
+TODAY = date.fromisoformat("2026-07-04")
 
 
 def load_fixture(name: str) -> Any:
@@ -24,7 +30,8 @@ def load_demo_state() -> dict[str, Any]:
         "proposals": load_fixture("proposals"),
         "action_log": load_fixture("action_log"),
         "outbox": [],
-        "settings": {"cash_floor": load_fixture("forecast")["cash_floor"]},
+        "bills": generate_bills(TODAY),
+        "settings": {"cash_floor": load_fixture("forecast")["cash_floor"], "cash_floor_mode": "manual"},
         "data_source": {
             "mode": "fixture",
             "label": "Fixture portfolio",

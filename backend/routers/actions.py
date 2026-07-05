@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal, Optional
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -8,11 +10,14 @@ from services.agent_service import run_agent_cycle
 from services.state import (
     append_log,
     approve_proposal,
+    approve_proposals_batch,
     dismiss_proposal,
     edit_proposal,
     get_state,
     reset_state,
     save_state,
+    undo_proposal,
+    update_cash_floor,
 )
 from services.synthetic_portfolio import build_synthetic_portfolio
 from services.xero_auth import authorized_tenants, get_connection_summary, get_token_status, select_authorized_tenant
@@ -31,7 +36,12 @@ class MarkPaidRequest(BaseModel):
 
 
 class SettingsPatch(BaseModel):
-    cash_floor: int
+    cash_floor: Optional[int] = None
+    cash_floor_mode: Literal["manual", "suggested"] = "manual"
+
+
+class ApproveBatchRequest(BaseModel):
+    ids: list[str]
 
 
 class XeroTenantPatch(BaseModel):
@@ -47,6 +57,25 @@ def approve(proposal_id: str) -> dict:
         raise HTTPException(status_code=404, detail="proposal not found") from exc
     save_state(state)
     return result
+
+
+@router.post("/proposals/approve_batch")
+def approve_batch(request: ApproveBatchRequest) -> dict:
+    state = get_state()
+    results = approve_proposals_batch(state, request.ids)
+    save_state(state)
+    return {"results": results, "pending_count": len([item for item in state["proposals"] if item["status"] == "pending"])}
+
+
+@router.post("/proposals/{proposal_id}/undo")
+def undo(proposal_id: str) -> dict:
+    state = get_state()
+    try:
+        proposal = undo_proposal(state, proposal_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="proposal not found") from exc
+    save_state(state)
+    return proposal
 
 
 @router.post("/proposals/{proposal_id}/dismiss")
@@ -161,10 +190,12 @@ def mark_paid(request: MarkPaidRequest) -> dict:
 
 @router.patch("/settings")
 def patch_settings(request: SettingsPatch) -> dict:
-    if request.cash_floor < 0:
-        raise HTTPException(status_code=400, detail="cash_floor must be non-negative")
+    if request.cash_floor_mode == "manual":
+        if request.cash_floor is None:
+            raise HTTPException(status_code=400, detail="cash_floor is required in manual mode")
+        if request.cash_floor < 0:
+            raise HTTPException(status_code=400, detail="cash_floor must be non-negative")
     state = get_state()
-    state.setdefault("settings", {})["cash_floor"] = request.cash_floor
-    append_log(state, "You", f"Cash floor changed to GBP {request.cash_floor:,}")
+    settings = update_cash_floor(state, cash_floor=request.cash_floor, mode=request.cash_floor_mode)
     save_state(state)
-    return state["settings"]
+    return settings
