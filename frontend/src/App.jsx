@@ -352,7 +352,9 @@ function syncSummary(result) {
     const base = `Synced ${result.fetched?.contacts ?? 0} contacts, ${result.fetched?.invoices ?? 0} invoices, ${result.fetched?.payments ?? 0} payments.`;
     if (result.detail) return `${base} ${result.detail}`;
     if (result.materialized) {
-      return `${base} Dashboard updated with ${result.materialized.contacts ?? 0} payers and ${result.materialized.invoices ?? 0} open invoices.`;
+      const linkCount = Number(result.materialized.online_invoice_links || 0);
+      const linkCopy = linkCount ? ` and ${linkCount} Xero invoice ${plural(linkCount, "link")}` : "";
+      return `${base} Dashboard updated with ${result.materialized.contacts ?? 0} payers, ${result.materialized.invoices ?? 0} open invoices${linkCopy}.`;
     }
     return base;
   }
@@ -743,7 +745,7 @@ function DataSourceBanner({ source, xeroStatus }) {
   );
 }
 
-function LiveXeroControls({ status, tenants, busy, onSyncXero, onSelectTenant }) {
+function LiveXeroControls({ status, tenants, source, busy, onSyncXero, onSelectTenant }) {
   if (!status || status.demo_mode) return null;
 
   if (!status.connected) {
@@ -760,6 +762,9 @@ function LiveXeroControls({ status, tenants, busy, onSyncXero, onSelectTenant })
   const tenantOptions = tenants?.tenants || [];
   const selectedTenantId = tenants?.active_tenant_id || status.tenant_id || "";
   const shouldPickTenant = status.needs_tenant || tenantOptions.length > 1;
+  const syncedAt = source?.mode === "xero" && source?.generated_at ? formatDateTime(source.generated_at) : "";
+  const selectedTenant = tenantOptions.find((tenant) => tenant.tenant_id === selectedTenantId);
+  const tenantLabel = selectedTenant?.tenant_name || source?.label?.replace(/^Xero:\s*/i, "") || "Xero";
 
   return (
     <>
@@ -784,6 +789,11 @@ function LiveXeroControls({ status, tenants, busy, onSyncXero, onSelectTenant })
       <button className="button ghost btn btn-ghost btn-sm" type="button" onClick={onSyncXero} disabled={busy || status.needs_tenant}>
         <RefreshCw size={16} /> Sync Xero
       </button>
+      {syncedAt && (
+        <span className="live-sync-meta" title={`${tenantLabel} last synced from Xero`}>
+          Last synced {syncedAt}
+        </span>
+      )}
     </>
   );
 }
@@ -871,6 +881,7 @@ function Dashboard({
           <LiveXeroControls
             status={data.xeroStatus}
             tenants={data.xeroTenants}
+            source={data.dataSource}
             busy={busy}
             onSyncXero={onSyncXero}
             onSelectTenant={onSelectTenant}

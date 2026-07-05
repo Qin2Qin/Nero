@@ -220,6 +220,16 @@ nav {
   min-height: 32px;
 }
 
+.live-sync-meta {
+  align-self: center;
+  max-width: 220px;
+  color: var(--fgColor-muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: right;
+}
+
 .page-head {
   margin-bottom: var(--space-4);
 }
@@ -1752,6 +1762,12 @@ pre {
 
   .topbar-actions {
     justify-content: stretch;
+  }
+
+  .live-sync-meta {
+    width: 100%;
+    max-width: none;
+    text-align: center;
   }
 
   .topbar-actions .button,
