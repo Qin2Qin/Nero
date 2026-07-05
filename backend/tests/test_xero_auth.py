@@ -265,6 +265,24 @@ def test_auth_callback_reports_token_exchange_failure(monkeypatch) -> None:
     assert response.json()["detail"] == "Xero token exchange failed: invalid_grant - Authorization code not found"
 
 
+def test_auth_callback_redirects_to_frontend_after_connection(monkeypatch) -> None:
+    monkeypatch.setenv("FRONTEND_ORIGINS", "http://localhost:5173,http://localhost:3000")
+
+    def fake_store_callback_tokens(code: str) -> dict:
+        assert code == "good-code"
+        return {"connected": True, "tenant_id": "tenant-123"}
+
+    import routers.auth as auth_router
+
+    monkeypatch.setattr(auth_router, "store_callback_tokens", fake_store_callback_tokens)
+    client = TestClient(create_app())
+
+    response = client.get("/auth/callback?code=good-code", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "http://localhost:5173/?xero=connected"
+
+
 def test_auth_disconnect_endpoint_clears_tokens(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("NERO_DB_PATH", str(tmp_path / "nero.db"))
     conn = connect()

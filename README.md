@@ -93,21 +93,22 @@ Live Xero flow:
 1. Set `DEMO_MODE=false` and the Xero client credentials in `.env`.
 2. Start the backend.
 3. Visit `http://localhost:8000/auth/login` and approve the demo organisation.
-4. Check `GET /api/xero/status`.
-5. Run `POST /api/sync` to pull raw Xero contacts, authorised/paid invoices,
+4. Xero returns you to the Nero frontend with a short connected message.
+5. Check `GET /api/xero/status`.
+6. Run `POST /api/sync` to pull raw Xero contacts, authorised/paid invoices,
    and payments into SQLite.
-6. Check `GET /api/xero/tenants`. If multiple organisations are authorised,
+7. Check `GET /api/xero/tenants`. If multiple organisations are authorised,
    select one with `POST /api/xero/tenant`.
-7. Optional: set `XERO_WEBHOOK_KEY` and configure `POST /webhooks/xero` as the
+8. Optional: set `XERO_WEBHOOK_KEY` and configure `POST /webhooks/xero` as the
    HTTPS webhook URL in Xero Developer Centre. Valid signed invoice/contact
    events trigger a background sync; invalid signatures return 401.
-8. If the connected organisation is empty, run `POST /api/synthetic/seed` to
+9. If the connected organisation is empty, run `POST /api/synthetic/seed` to
    populate the local dashboard with generated UK portfolio data. This does not
    write to Xero and is labelled in the UI as synthetic data.
-9. When an invoice reminder/escalation is approved from live Xero data, Nero
+10. When an invoice reminder/escalation is approved from live Xero data, Nero
    keeps the customer-facing email in Outbox and adds an internal history note to
    the Xero invoice for auditability.
-10. Use the in-app **Disconnect** control, or `DELETE /auth/connection`, to
+11. Use the in-app **Disconnect** control, or `DELETE /auth/connection`, to
     remove locally stored OAuth tokens before reconnecting a different Xero
     organisation.
 
