@@ -459,14 +459,14 @@ function CashFloorControl({ value, forecast, onUpdateCashFloor, busy }) {
   return (
     <section className="signal-section cash-floor-control">
       <div className="panel-head compact">
-        <h2>Cash floor</h2>
+        <h2>Minimum cash</h2>
         <span className={warningCount ? "badge badge-error danger" : "badge badge-success success"}>
           {warningCount ? `${warningCount} weeks below` : "Covered"}
         </span>
       </div>
       <div className="cash-floor-readout">
         <strong>{formatCurrency(draft)}</strong>
-        <span>Operating minimum</span>
+        <span>Keep at least this much available</span>
       </div>
       <input
         className="range range-primary range-sm range-input"
@@ -476,9 +476,9 @@ function CashFloorControl({ value, forecast, onUpdateCashFloor, busy }) {
         step="500"
         value={draft}
         onChange={(event) => setDraft(Number(event.target.value))}
-        aria-label="Cash floor"
+        aria-label="Minimum cash"
       />
-      <div className="preset-row" aria-label="Cash floor presets">
+      <div className="preset-row" aria-label="Minimum cash presets">
         {presets.map((preset) => (
           <button
             className={draft === preset ? "preset-chip btn btn-xs active" : "preset-chip btn btn-xs"}
@@ -491,7 +491,7 @@ function CashFloorControl({ value, forecast, onUpdateCashFloor, busy }) {
         ))}
       </div>
       <button className="button primary btn btn-primary btn-sm block" onClick={() => onUpdateCashFloor(draft)} disabled={busy || !isChanged}>
-        Apply floor
+        Apply minimum
       </button>
     </section>
   );
@@ -548,10 +548,10 @@ function ForecastChart({ forecast }) {
               y={forecast.cash_floor}
               stroke={chartColors.floor}
               strokeDasharray="4 5"
-              label={{ value: `Cash floor ${compactMoney(forecast.cash_floor)}`, fill: chartColors.floor, fontSize: 12 }}
+              label={{ value: `Minimum cash ${compactMoney(forecast.cash_floor)}`, fill: chartColors.floor, fontSize: 12 }}
             />
             <Area
-              name="Due envelope"
+              name="Invoice range"
               type="monotone"
               dataKey="due"
               fill={chartColors.area}
@@ -563,7 +563,7 @@ function ForecastChart({ forecast }) {
             />
             <Line
               className="forecast-line due-line"
-              name="By due dates"
+              name="If paid on due date"
               type="monotone"
               dataKey="due"
               stroke={chartColors.due}
@@ -573,7 +573,7 @@ function ForecastChart({ forecast }) {
             />
             <Line
               className="forecast-line predicted-line"
-              name="Predicted (Nero)"
+              name="Likely payment date"
               type="monotone"
               dataKey="predicted"
               stroke={chartColors.predicted}
@@ -583,7 +583,7 @@ function ForecastChart({ forecast }) {
             />
             <Line
               className="forecast-line accelerated-line"
-              name="After Nero actions"
+              name="After approved actions"
               type="monotone"
               dataKey="accelerated"
               stroke={chartColors.accelerated}
@@ -912,7 +912,7 @@ function Dashboard({
           <strong>{pendingActions} suggested actions</strong>
         </div>
         <div>
-          <span>Forecast floor</span>
+          <span>Minimum cash</span>
           <strong>{formatCurrency(data.settings?.cash_floor ?? data.forecast.cash_floor)}</strong>
         </div>
       </section>

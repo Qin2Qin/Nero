@@ -439,7 +439,7 @@ export async function updateCashFloor(cashFloor) {
     id: `cash-floor-${Date.now()}`,
     timestamp: nowIso(),
     actor: "You",
-    event: `Cash floor changed to £${money(payload.cash_floor)}.`
+    event: `Minimum cash changed to £${money(payload.cash_floor)}.`
   });
   return localState.settings;
 }

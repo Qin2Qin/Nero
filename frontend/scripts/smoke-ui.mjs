@@ -118,6 +118,9 @@ async function runSmoke() {
     await page.getByText("Likely by then").waitFor();
     await page.getByText("Ready to bring forward").waitFor();
     await page.getByRole("button", { name: "Find actions" }).waitFor();
+    await page.getByText("Minimum cash").first().waitFor();
+    await page.getByText("Likely payment date").waitFor();
+    await page.getByText("After approved actions").waitFor();
     await page.getByText("Late invoices by age").waitFor();
     await page.getByText("1-30 days late").waitFor();
     await page.getByText(/\d+ days overdue/).first().waitFor();
@@ -139,7 +142,7 @@ async function runSmoke() {
     await page.getByText(/suggested actions? ready for your review/i).first().waitFor();
 
     const dashboardText = await page.locator("body").innerText();
-    if (/Mark paid|Action Log|Open exposure|Variance|Seed portfolio|proposal\(s\)|profile\(s\)|Materialised|Agent run complete|Run agent/.test(dashboardText)) {
+    if (/Mark paid|Action Log|Open exposure|Variance|Seed portfolio|proposal\(s\)|profile\(s\)|Materialised|Agent run complete|Run agent|Cash floor|Forecast floor|Predicted \(Nero\)|Due envelope/.test(dashboardText)) {
       throw new Error(`Demo-only or jargon text leaked onto dashboard:\n${dashboardText}`);
     }
     await expectText(
