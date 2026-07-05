@@ -514,6 +514,7 @@ async function runSmoke() {
 
     await page.getByRole("button", { name: "Actions" }).click();
     await page.getByRole("heading", { name: "Actions to review" }).waitFor();
+    await page.getByText(/drafts? with customer email/).first().waitFor();
     await page.getByText(/Send reminder|Send firmer reminder|Ask for deposit|Change payment terms/).first().waitFor();
     const actionCards = await page.locator(".proposal-card").evaluateAll((cards) =>
       cards.map((card) => ({

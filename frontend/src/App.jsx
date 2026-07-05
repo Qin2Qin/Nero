@@ -1408,6 +1408,14 @@ function AgentQueue({ proposals, dataSource, approvalBlockedReason = "", onAppro
         }),
     [proposals]
   );
+  const queueSummary = useMemo(
+    () => ({
+      withEmail: pending.filter((proposal) => proposal.draft_subject && proposal.contact_email).length,
+      needsEmail: pending.filter((proposal) => proposal.draft_subject && !proposal.contact_email).length,
+      recommendations: pending.filter((proposal) => !proposal.draft_subject).length
+    }),
+    [pending]
+  );
 
   function approveCurrentDraft(proposal, draftBody) {
     const savedDraft = proposal.draft_body ?? "";
@@ -1424,6 +1432,17 @@ function AgentQueue({ proposals, dataSource, approvalBlockedReason = "", onAppro
         <div className="queue-warning">
           <RefreshCw size={16} />
           <span>{approvalBlockedReason}</span>
+        </div>
+      )}
+      {pending.length > 0 && (
+        <div className="queue-summary" aria-label="Action queue summary">
+          <span><strong>{queueSummary.withEmail}</strong> {plural(queueSummary.withEmail, "draft")} with customer email</span>
+          {queueSummary.needsEmail > 0 && (
+            <span><strong>{queueSummary.needsEmail}</strong> need customer email in Xero</span>
+          )}
+          {queueSummary.recommendations > 0 && (
+            <span><strong>{queueSummary.recommendations}</strong> {plural(queueSummary.recommendations, "recommendation")}</span>
+          )}
         </div>
       )}
       <div className="proposal-grid">
