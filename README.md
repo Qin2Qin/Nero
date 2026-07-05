@@ -1,9 +1,9 @@
-# Nero - Xero Opportunity Research
+# Nero - Xero Cash Accelerator
 
-Hackathon project. Nero is an accounts-receivable intelligence demo for Xero:
-fixtures-first data, a FastAPI backend, and a React dashboard that shows the
-cash-flow gap, payer behavior, approval-gated agent proposals, sandbox outbox,
-and audit log.
+Hackathon project. Nero is a live-Xero accounts-receivable assistant for small
+businesses: FastAPI backend, React dashboard, Xero OAuth/sync, cash-flow
+forecasting, payer behaviour, approval-gated suggested actions, reviewable
+Outbox drafts, and plain activity history.
 
 ## Quick start
 
@@ -41,6 +41,13 @@ Run a backend API smoke test:
 DEMO_MODE=true .venv/bin/python scripts/smoke_backend.py
 ```
 
+Run the browser smoke test:
+
+```bash
+cd frontend
+npm run smoke:ui
+```
+
 ## Credentials needed for real Xero mode
 
 Demo mode needs no credentials. For live integration, provide these in `.env`:
@@ -55,6 +62,8 @@ XERO_ACCESS_TOKEN=
 XERO_REFRESH_TOKEN=
 XERO_TOKEN_EXPIRES_AT=
 XERO_TOKEN_EXPIRES_IN=1800
+XERO_WEBHOOK_KEY=
+XERO_APP_STORE_SUBSCRIPTIONS_CONFIGURED=false
 DEMO_MODE=false
 FRONTEND_ORIGINS=http://localhost:5173,http://localhost:3000
 ```
@@ -132,7 +141,7 @@ Xero demo company flow:
 
 1. Log in to Xero, open the organisation menu, select **My Xero**, then click
    **Try the Demo Company**.
-2. Visit `http://localhost:8000/auth/login` and approve FlowCast for the demo
+2. Visit `http://localhost:8000/auth/login` and approve Nero for the demo
    company.
 3. Open `http://localhost:5173`. If more than one Xero organisation is
    authorised, choose the demo company in the Xero connection card.
@@ -198,9 +207,11 @@ xero-opportunity-research/raw/
 ## Collaboration workflow
 
 Two people work on this repo (`Qin2Qin`, `khanhbtrn`), so we keep `main` clean
-and ship everything through pull requests.
+and normally ship reviewable changes through pull requests. During the final
+hackathon sprint, a maintainer may push small verified commits directly to
+`main` when speed matters.
 
-1. **Never commit directly to `main`.** Branch first:
+1. Branch first when there is time for review:
    ```bash
    git switch -c <name>/<short-description>   # e.g. qin/forum-scraper
    ```
