@@ -85,6 +85,18 @@ async function runSmoke() {
     executablePath: chromePath,
     headless: true
   });
+  const errorPage = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  await errorPage.route("**/api/forecast", (route) =>
+    route.fulfill({
+      status: 502,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Forecast temporarily unavailable" })
+    })
+  );
+  await errorPage.goto(frontendUrl, { waitUntil: "networkidle" });
+  await errorPage.getByText("Forecast temporarily unavailable").waitFor();
+  await errorPage.close();
+
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   const browserErrors = [];
   page.on("pageerror", (error) => {
