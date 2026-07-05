@@ -26,3 +26,14 @@ def test_update_settings_logs_minimum_cash_copy(monkeypatch) -> None:
     activity = client.get("/api/action_log").json()
     assert activity[0]["event"] == "Minimum cash changed to £12,345."
     assert "Cash floor" not in activity[0]["event"]
+
+
+def test_favicon_is_served_for_statement_pages() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/favicon.ico")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("image/svg+xml")
+    assert "<svg" in response.text
+    assert 'viewBox="0 0 64 64"' in response.text
