@@ -845,6 +845,14 @@ function Dashboard({
   const pendingAverageFallback = pendingImpactFallback ? pendingWeightedDays / pendingImpactFallback : 0;
   const pendingImpact = Number(data.metrics?.pending_impact_dollars ?? pendingImpactFallback);
   const pendingAverageDays = Math.round(Number(data.metrics?.pending_avg_days_accelerated ?? pendingAverageFallback));
+  const approvedImpact = Number(data.metrics?.cash_accelerated_dollars || 0);
+  const hasApprovedImpact = approvedImpact > 0;
+  const cashActionMetricLabel = hasApprovedImpact
+    ? "Brought forward"
+    : pendingImpact > 0
+      ? "Ready to bring forward"
+      : "Cash impact";
+  const cashActionMetricValue = hasApprovedImpact ? cashDisplay : pendingImpact;
   const pendingDaysPhrase =
     pendingAverageDays > 0 ? ` about ${pendingAverageDays} ${plural(pendingAverageDays, "day")} sooner` : " sooner";
   const pendingValueText =
@@ -919,8 +927,8 @@ function Dashboard({
           <strong>{formatHeroCurrency(predictedNext30)}</strong>
         </article>
         <article className="metric-teal">
-          <span>Cash Accelerated</span>
-          <strong>{formatCurrency(cashDisplay)}</strong>
+          <span>{cashActionMetricLabel}</span>
+          <strong>{formatCurrency(cashActionMetricValue)}</strong>
         </article>
       </section>
 
