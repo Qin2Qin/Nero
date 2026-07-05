@@ -168,7 +168,7 @@ async function runSmoke() {
   }
   await reconnectPage.getByRole("button", { name: "Actions", exact: true }).click();
   await reconnectPage.getByRole("heading", { name: "Actions to review" }).waitFor();
-  await reconnectPage.getByText("Reconnect Xero before finding or approving actions for this organisation.").waitFor();
+  await reconnectPage.getByText("Reconnect Xero before changing actions for this organisation.").waitFor();
   const reconnectApproveButton = reconnectPage.getByRole("button", { name: /Approve/ }).first();
   await reconnectApproveButton.waitFor();
   if (!(await reconnectApproveButton.isDisabled())) {
@@ -247,7 +247,7 @@ async function runSmoke() {
   }
   await tenantMismatchPage.getByRole("button", { name: "Actions", exact: true }).click();
   await tenantMismatchPage.getByRole("heading", { name: "Actions to review" }).waitFor();
-  await tenantMismatchPage.getByText("Sync Xero before finding or approving actions for this organisation.").waitFor();
+  await tenantMismatchPage.getByText("Sync Xero before changing actions for this organisation.").waitFor();
   const staleApproveButton = tenantMismatchPage.getByRole("button", { name: /Approve/ }).first();
   await staleApproveButton.waitFor();
   if (!(await staleApproveButton.isDisabled())) {
