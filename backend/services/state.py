@@ -94,6 +94,16 @@ def append_log(state: dict[str, Any], actor: str, event: str) -> dict:
     return entry
 
 
+def _proposal_action_label(proposal: dict[str, Any]) -> str:
+    labels = {
+        "reminder": "payment reminder",
+        "escalation": "firmer payment reminder",
+        "deposit_recommendation": "deposit recommendation",
+        "terms_recommendation": "payment terms recommendation",
+    }
+    return labels.get(str(proposal.get("type")), "suggestion")
+
+
 def _proposal_rollup(state: dict[str, Any], status: str) -> dict[str, int | float]:
     proposals = [proposal for proposal in state["proposals"] if proposal["status"] == status]
     dollars = sum(int(proposal["expected_impact_dollars"]) for proposal in proposals)
@@ -144,9 +154,9 @@ def approve_proposal(state: dict[str, Any], proposal_id: str) -> dict[str, Any]:
             "proposal_id": proposal["id"],
         }
         state.setdefault("outbox", []).insert(0, outbox_entry)
-        event = f"Approved {proposal['type']} for {proposal['contact_name']} and queued message for review"
+        event = f"Approved a {_proposal_action_label(proposal)} for {proposal['contact_name']}. The draft is waiting in Outbox."
     else:
-        event = f"Recommendation accepted - apply on next quote for {proposal['contact_name']}"
+        event = f"Approved a {_proposal_action_label(proposal)} for {proposal['contact_name']}."
 
     if proposal.get("invoice_id"):
         today = state_today(state)
@@ -166,7 +176,7 @@ def dismiss_proposal(state: dict[str, Any], proposal_id: str) -> dict:
     if proposal is None:
         raise KeyError(proposal_id)
     proposal["status"] = "dismissed"
-    append_log(state, "You", f"Dismissed {proposal['type']} for {proposal['contact_name']}")
+    append_log(state, "You", f"Dismissed the suggestion for {proposal['contact_name']}.")
     return proposal
 
 
@@ -175,5 +185,5 @@ def edit_proposal(state: dict[str, Any], proposal_id: str, draft_body: str) -> d
     if proposal is None:
         raise KeyError(proposal_id)
     proposal["draft_body"] = draft_body
-    append_log(state, "You", f"Edited draft for {proposal['contact_name']}")
+    append_log(state, "You", f"Edited the draft message for {proposal['contact_name']}.")
     return proposal

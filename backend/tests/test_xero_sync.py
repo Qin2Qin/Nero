@@ -128,3 +128,5 @@ def test_build_state_from_xero_materializes_dashboard_state() -> None:
     assert state["invoices"][0]["invoice_number"] == "OPEN-1"
     assert state["invoices"][0]["predicted_paid_date"] > state["invoices"][0]["due_date"]
     assert state["forecast"]["cash_floor"] == 5000
+    assert any("Updated from Xero" in entry["event"] for entry in state["action_log"])
+    assert not any("Materialised" in entry["event"] or "profile(s)" in entry["event"] for entry in state["action_log"])

@@ -93,14 +93,13 @@ def run_agent_cycle(state: dict[str, Any], max_pending: int = 8, today: date | N
         if contact is None:
             continue
         due = date.fromisoformat(invoice["due_date"])
-        predicted = date.fromisoformat(invoice["predicted_paid_date"])
         overdue_days = (today - due).days
-        days_to_predicted = (predicted - today).days
+        days_until_due = (due - today).days
         grade = contact["grade"]
         action_type = None
         if overdue_days > 20 or (overdue_days > 10 and grade in {"D", "E"}):
             action_type = "escalation"
-        elif days_to_predicted <= 3 or overdue_days <= 10:
+        elif overdue_days >= 0 or 0 <= days_until_due <= 3:
             action_type = "reminder"
         if action_type is None:
             continue
@@ -192,5 +191,11 @@ def run_agent_cycle(state: dict[str, Any], max_pending: int = 8, today: date | N
                 state["proposals"].append(proposal)
                 created.append(proposal)
 
-    append_log(state, "Agent", f"Agent run complete - {len(created)} new proposal(s)")
+    if created:
+        count = len(created)
+        suffix = "s" if count != 1 else ""
+        event = f"{count} suggested action{suffix} ready for your review."
+    else:
+        event = "No new actions needed right now."
+    append_log(state, "Nero", event)
     return created

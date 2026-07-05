@@ -42,12 +42,15 @@ def test_agent_uses_cautious_reasoning_for_no_paid_history() -> None:
         "predicted_paid_date": "2026-05-09",
     }
 
-    created = run_agent_cycle(base_state(contact, invoice), today=date.fromisoformat("2026-07-05"))
+    state = base_state(contact, invoice)
+    created = run_agent_cycle(state, today=date.fromisoformat("2026-07-05"))
 
     assert created[0]["type"] == "escalation"
     assert "limited paid-invoice history" in created[0]["reasoning_text"]
     assert "0 paid invoices" not in created[0]["reasoning_text"]
     assert "Could you confirm the planned payment date" in created[0]["draft_body"]
+    assert state["action_log"][0]["actor"] == "Nero"
+    assert state["action_log"][0]["event"] == "1 suggested action ready for your review."
 
 
 def test_agent_keeps_specific_history_when_enough_paid_invoices_exist() -> None:
@@ -71,7 +74,38 @@ def test_agent_keeps_specific_history_when_enough_paid_invoices_exist() -> None:
         "predicted_paid_date": "2026-07-05",
     }
 
-    created = run_agent_cycle(base_state(contact, invoice), today=date.fromisoformat("2026-07-05"))
+    state = base_state(contact, invoice)
+    created = run_agent_cycle(state, today=date.fromisoformat("2026-07-05"))
 
     assert created[0]["type"] == "reminder"
     assert "usually pays on time across 11 paid invoices" in created[0]["reasoning_text"]
+
+
+def test_agent_logs_when_no_new_actions_are_needed() -> None:
+    state = base_state(
+        {
+            "id": "customer-3",
+            "name": "Quiet Customer",
+            "grade": "A",
+            "avg_days_late": 0,
+            "invoice_count": 5,
+            "low_confidence": False,
+            "revenue_12m": 1000,
+            "trend_slope": 0,
+        },
+        {
+            "id": "invoice-3",
+            "contact_id": "customer-3",
+            "contact_name": "Quiet Customer",
+            "invoice_number": "INV-3",
+            "amount_due": 100,
+            "due_date": "2026-08-20",
+            "predicted_paid_date": "2026-08-20",
+        },
+    )
+
+    created = run_agent_cycle(state, today=date.fromisoformat("2026-07-05"))
+
+    assert created == []
+    assert state["action_log"][0]["actor"] == "Nero"
+    assert state["action_log"][0]["event"] == "No new actions needed right now."
