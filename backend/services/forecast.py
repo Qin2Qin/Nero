@@ -88,7 +88,7 @@ def build_forecast(
         later["below_floor"] = False
         buckets.append(later)
 
-    return {"cash_floor": cash_floor, "buckets": buckets}
+    return {"cash_floor": cash_floor, "as_of": today.isoformat(), "buckets": buckets}
 
 
 def totals_by_series(forecast: dict) -> dict[str, int]:

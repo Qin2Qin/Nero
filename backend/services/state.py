@@ -22,6 +22,16 @@ def demo_today() -> date:
     return date.fromisoformat("2026-07-04")
 
 
+def live_today() -> date:
+    return datetime.now(timezone.utc).date()
+
+
+def state_today(state: dict[str, Any]) -> date:
+    if data_source(state).get("mode") == "xero":
+        return live_today()
+    return demo_today()
+
+
 def initial_state() -> dict[str, Any]:
     return fresh_demo_state()
 
@@ -58,7 +68,7 @@ def reset_state() -> dict[str, Any]:
 
 def current_forecast(state: dict[str, Any]) -> dict:
     cash_floor = int(state.get("settings", {}).get("cash_floor", get_settings().cash_floor))
-    return build_forecast(state["invoices"], today=demo_today(), cash_floor=cash_floor)
+    return build_forecast(state["invoices"], today=state_today(state), cash_floor=cash_floor)
 
 
 def data_source(state: dict[str, Any]) -> dict[str, Any]:
@@ -139,7 +149,7 @@ def approve_proposal(state: dict[str, Any], proposal_id: str) -> dict[str, Any]:
         event = f"Recommendation accepted - apply on next quote for {proposal['contact_name']}"
 
     if proposal.get("invoice_id"):
-        today = demo_today()
+        today = state_today(state)
         for invoice in state["invoices"]:
             if invoice["id"] == proposal["invoice_id"]:
                 predicted = date.fromisoformat(invoice["predicted_paid_date"])

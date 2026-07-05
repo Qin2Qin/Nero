@@ -13,6 +13,7 @@ from services.state import (
     get_state,
     reset_state,
     save_state,
+    state_today,
 )
 from services.synthetic_portfolio import build_synthetic_portfolio
 from services.xero_auth import authorized_tenants, get_connection_summary, get_token_status, select_authorized_tenant
@@ -74,7 +75,7 @@ def edit(proposal_id: str, request: EditProposalRequest) -> dict:
 @router.post("/agent/run")
 def run_agent() -> dict:
     state = get_state()
-    created = run_agent_cycle(state)
+    created = run_agent_cycle(state, today=state_today(state))
     save_state(state)
     return {"created": created, "pending_count": len([item for item in state["proposals"] if item["status"] == "pending"])}
 

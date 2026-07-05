@@ -130,6 +130,7 @@ function buildLocalForecast() {
   const cashFloor = localState.settings.cash_floor;
   return {
     ...localState.forecast,
+    as_of: localState.forecast.as_of || "2026-07-04",
     cash_floor: cashFloor,
     buckets: localState.forecast.buckets.map((bucket) => ({
       ...bucket,
