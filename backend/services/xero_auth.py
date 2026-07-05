@@ -131,6 +131,12 @@ def get_token_status(conn: sqlite3.Connection | None = None) -> dict:
 def get_connection_summary(conn: sqlite3.Connection | None = None) -> dict:
     settings = get_settings()
     status = get_token_status(conn)
+    if status.get("connected") and status.get("expired"):
+        try:
+            get_valid_access(conn)
+            status = get_token_status(conn)
+        except (RuntimeError, httpx.HTTPError):
+            status["refresh_error"] = "Xero token refresh failed. Reconnect Xero to continue syncing."
     return {
         **status,
         "demo_mode": settings.demo_mode,
