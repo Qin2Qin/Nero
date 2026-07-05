@@ -129,6 +129,52 @@ async function runSmoke() {
   }
   await reconnectPage.close();
 
+  const tenantMismatchPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await tenantMismatchPage.route("**/api/xero/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        connected: true,
+        expired: false,
+        needs_tenant: false,
+        demo_mode: false,
+        tenant_id: "new-tenant",
+        client_credentials_configured: true
+      })
+    })
+  );
+  await tenantMismatchPage.route("**/api/xero/tenants", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        active_tenant_id: "new-tenant",
+        tenants: [
+          { tenant_id: "old-tenant", tenant_name: "Old Coffee Ltd", is_active: false },
+          { tenant_id: "new-tenant", tenant_name: "New Coffee Ltd", is_active: true }
+        ]
+      })
+    })
+  );
+  await tenantMismatchPage.route("**/api/data_source", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        mode: "xero",
+        label: "Xero: Old Coffee Ltd",
+        detail: "Synced from the selected Xero organisation.",
+        generated_at: "2026-07-05T03:00:00+00:00",
+        tenant_id: "old-tenant"
+      })
+    })
+  );
+  await tenantMismatchPage.goto(frontendUrl, { waitUntil: "networkidle" });
+  await tenantMismatchPage.getByText("Sync needed").waitFor();
+  await tenantMismatchPage.getByText("Xero organisation changed. Sync Xero to update this dashboard before reviewing actions.").waitFor();
+  await tenantMismatchPage.close();
+
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   const browserErrors = [];
   const initialReadPreflights = [];
