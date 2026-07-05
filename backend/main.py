@@ -1,5 +1,14 @@
 from __future__ import annotations
 
+import os
+import sys
+
+# Vercel's Python runtime imports this file without adding its own directory
+# to sys.path, so sibling modules (config, routers, services) would otherwise
+# fail to resolve. Local `uvicorn main:app` runs from backend/ already, so
+# this is a no-op duplicate path entry there.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

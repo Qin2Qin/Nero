@@ -41,3 +41,4 @@ xero-opportunity-research/research_index.json
 # Uncomment if raw data should NOT be committed:
 # xero-opportunity-research/raw/**/*.json
 # xero-opportunity-research/raw/**/*.csv
+.vercel
