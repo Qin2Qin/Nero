@@ -508,7 +508,7 @@ async function runSmoke() {
       "early payer timing sentence"
     );
     const payerText = await page.locator("body").innerText();
-    if (/Variance|Open exposure|Average days late/.test(payerText)) {
+    if (/Variance|Open exposure|Average days late|Low Data|Grade/.test(payerText)) {
       throw new Error(`Payer jargon leaked into UI:\n${payerText}`);
     }
 

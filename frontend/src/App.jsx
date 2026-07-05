@@ -182,6 +182,17 @@ function gradeClass(grade) {
   return `grade grade-${String(grade).charAt(0).toLowerCase()}`;
 }
 
+function reliabilityLabel(contact) {
+  const grade = String(contact?.grade || "").toUpperCase();
+  if (grade.includes("LOW DATA")) return "Low history";
+  if (grade.startsWith("A")) return "Reliable";
+  if (grade.startsWith("B")) return "Mostly on time";
+  if (grade.startsWith("C")) return "Watch";
+  if (grade.startsWith("D")) return "Often late";
+  if (grade.startsWith("E")) return "High risk";
+  return "Unknown";
+}
+
 function TrendCell({ slope }) {
   if (slope > 1) return <span className="trend-cell trend-up"><TrendingUp size={15} /> worsening</span>;
   if (slope < -1) return <span className="trend-cell trend-down"><TrendingDown size={15} /> improving</span>;
@@ -1292,7 +1303,7 @@ function Payers({ contacts, invoices = [] }) {
             <thead>
               <tr>
                 <SortableHeader label="Name" sortKey="name" sort={payerSort} onSort={requestPayerSort} />
-                <SortableHeader label="Grade" sortKey="grade" sort={payerSort} onSort={requestPayerSort} />
+                <SortableHeader label="Reliability" sortKey="grade" sort={payerSort} onSort={requestPayerSort} />
                 <SortableHeader
                   label="Currently owes"
                   sortKey="exposure"
@@ -1334,7 +1345,7 @@ function Payers({ contacts, invoices = [] }) {
                   onClick={() => setSelectedId(contact.id)}
                 >
                   <td>{contact.name}</td>
-                  <td><span className={gradeClass(contact.grade)}>{contact.grade}</span></td>
+                  <td><span className={gradeClass(contact.grade)}>{reliabilityLabel(contact)}</span></td>
                   <td className="right exposure-cell">{formatCurrency(contact.exposure)}</td>
                   <td className="right">{paymentTimingText(contact.avg_days_late)}</td>
                   <td><TrendCell slope={contact.trend_slope} /></td>
@@ -1358,7 +1369,7 @@ function Payers({ contacts, invoices = [] }) {
           <>
             <div className="payer-title">
               <h2>{selected.name}</h2>
-              <span className={gradeClass(selected.grade)}>{selected.grade}</span>
+              <span className={gradeClass(selected.grade)}>{reliabilityLabel(selected)}</span>
             </div>
             <dl className="stats-list">
               <div><dt>What they currently owe you</dt><dd>{formatCurrency(selected.exposure)}</dd></div>
