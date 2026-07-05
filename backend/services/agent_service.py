@@ -58,8 +58,8 @@ def _email(
     tone: str,
     overdue_days: int,
     *,
-    sender_name: str = "Alex",
-    business_name: str = "Harbour & Co",
+    sender_name: str = "Accounts team",
+    business_name: str | None = None,
 ) -> tuple[str, str]:
     subject = f"{'Payment date needed' if tone in {'firm', 'final'} else 'Reminder'}: {invoice['invoice_number']}"
     due_phrase = f"{overdue_days} days overdue" if overdue_days > 0 else "due soon"
@@ -76,8 +76,23 @@ def _email(
     )
     if tone in {"firm", "final"}:
         body += "\n\nI can resend the current statement if helpful." if online_invoice_url else " I can resend the current statement if helpful."
-    body += f"\n\nThanks,\n{sender_name}, {business_name}"
+    signature = f"{sender_name}, {business_name}" if business_name else sender_name
+    body += f"\n\nThanks,\n{signature}"
     return subject[:60], body
+
+
+def _sender_identity(state: dict[str, Any]) -> tuple[str, str | None]:
+    source = state.get("data_source") or {}
+    business = state.get("business") or source.get("business") or {}
+    sender_name = str(business.get("sender_name") or "Accounts team")
+    business_name = business.get("name")
+    if not business_name and source.get("mode") == "xero":
+        label = str(source.get("label") or "")
+        if label:
+            business_name = label.replace("Xero:", "", 1).strip()
+    if not business_name:
+        return sender_name, None
+    return sender_name, str(business_name)
 
 
 def run_agent_cycle(state: dict[str, Any], max_pending: int = 8, today: date | None = None) -> list[dict]:
@@ -90,9 +105,7 @@ def run_agent_cycle(state: dict[str, Any], max_pending: int = 8, today: date | N
     }
     created: list[dict] = []
     today = today or demo_today()
-    business = state.get("business") or state.get("data_source", {}).get("business") or {}
-    sender_name = business.get("sender_name", "Alex")
-    business_name = business.get("name", "Harbour & Co")
+    sender_name, business_name = _sender_identity(state)
 
     def can_add() -> bool:
         return len([proposal for proposal in state["proposals"] if proposal["status"] == "pending"]) < max_pending

@@ -7,7 +7,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
 
-from services.state import approve_proposal, dismiss_proposal, edit_proposal, normalize_user_facing_currency
+from services.state import (
+    approve_proposal,
+    dismiss_proposal,
+    edit_proposal,
+    normalize_user_facing_currency,
+    normalize_user_facing_state,
+)
 
 
 def state_with_proposal(proposal_type: str = "reminder") -> dict:
@@ -110,3 +116,27 @@ def test_currency_normalizer_cleans_saved_user_facing_copy_only() -> None:
     assert state["outbox"][0]["body"] == "Please pay £250."
     assert state["action_log"][0]["event"] == "Approved £250 draft."
     assert state["data_source"]["business"]["base_currency"] == "GBP"
+
+
+def test_live_xero_signature_normalizer_removes_fixture_branding() -> None:
+    state = {
+        "proposals": [
+            {
+                "draft_body": "Hi City Limousines,\n\nPlease confirm the payment date.\n\nThanks,\nAlex, Harbour & Co",
+            }
+        ],
+        "outbox": [
+            {
+                "body": "Hi City Limousines,\n\nPlease confirm the payment date.\n\nThanks,\nAlex, Harbour & Co",
+            }
+        ],
+        "action_log": [],
+        "data_source": {"mode": "xero", "label": "Xero: Demo Company (UK)"},
+    }
+
+    changed = normalize_user_facing_state(state)
+
+    assert changed is True
+    assert "Harbour & Co" not in state["proposals"][0]["draft_body"]
+    assert "Thanks,\nAccounts team, Demo Company (UK)" in state["proposals"][0]["draft_body"]
+    assert "Thanks,\nAccounts team, Demo Company (UK)" in state["outbox"][0]["body"]

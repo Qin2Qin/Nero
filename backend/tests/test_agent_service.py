@@ -122,6 +122,40 @@ def test_agent_includes_xero_online_invoice_link_when_available() -> None:
     assert "{payment_link}" not in body
 
 
+def test_agent_uses_xero_organisation_for_live_draft_signature() -> None:
+    contact = {
+        "id": "customer-xero",
+        "name": "Demo Retail",
+        "grade": "C",
+        "avg_days_late": 4,
+        "invoice_count": 4,
+        "low_confidence": False,
+        "revenue_12m": 3200,
+        "trend_slope": 0,
+    }
+    invoice = {
+        "id": "invoice-xero",
+        "contact_id": "customer-xero",
+        "contact_name": "Demo Retail",
+        "invoice_number": "INV-XERO",
+        "amount_due": 500,
+        "due_date": "2026-07-04",
+        "predicted_paid_date": "2026-07-08",
+    }
+    state = {
+        "contacts": [contact],
+        "invoices": [invoice],
+        "proposals": [],
+        "action_log": [],
+        "data_source": {"mode": "xero", "label": "Xero: Demo Company (UK)"},
+    }
+
+    created = run_agent_cycle(state, today=date.fromisoformat("2026-07-05"))
+
+    assert "Thanks,\nAccounts team, Demo Company (UK)" in created[0]["draft_body"]
+    assert "Harbour & Co" not in created[0]["draft_body"]
+
+
 def test_agent_prioritizes_sendable_high_impact_invoice_actions() -> None:
     state = {
         "contacts": [

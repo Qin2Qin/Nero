@@ -14,6 +14,7 @@ from services.forecast import build_forecast
 
 STATE_KEY = "nero_state_v1"
 GBP_AMOUNT = re.compile(r"\bGBP\s+([0-9][0-9,]*(?:\.\d+)?)")
+LEGACY_FIXTURE_SIGNATURE = "\n\nThanks,\nAlex, Harbour & Co"
 
 
 def _plain_currency(text: str) -> str:
@@ -39,6 +40,45 @@ def normalize_user_facing_currency(state: dict[str, Any]) -> bool:
                 if updated != value:
                     item[field] = updated
                     changed = True
+    return changed
+
+
+def _xero_business_name(state: dict[str, Any]) -> str | None:
+    source = data_source(state)
+    if source.get("mode") != "xero":
+        return None
+    business = source.get("business") or {}
+    if business.get("name"):
+        return str(business["name"])
+    label = str(source.get("label") or "")
+    if not label:
+        return None
+    return label.replace("Xero:", "", 1).strip() or None
+
+
+def normalize_live_xero_draft_signatures(state: dict[str, Any]) -> bool:
+    business_name = _xero_business_name(state)
+    if not business_name:
+        return False
+    replacement = f"\n\nThanks,\nAccounts team, {business_name}"
+    changed = False
+    for collection, fields in {"proposals": ("draft_body",), "outbox": ("body",)}.items():
+        for item in state.get(collection, []):
+            if not isinstance(item, dict):
+                continue
+            for field in fields:
+                value = item.get(field)
+                if not isinstance(value, str) or LEGACY_FIXTURE_SIGNATURE not in value:
+                    continue
+                item[field] = value.replace(LEGACY_FIXTURE_SIGNATURE, replacement)
+                changed = True
+    return changed
+
+
+def normalize_user_facing_state(state: dict[str, Any]) -> bool:
+    changed = normalize_user_facing_currency(state)
+    if normalize_live_xero_draft_signatures(state):
+        changed = True
     return changed
 
 
@@ -70,7 +110,7 @@ def get_state() -> dict[str, Any]:
         if not hasattr(get_state, "_demo_state"):
             setattr(get_state, "_demo_state", initial_state())
         state = deepcopy(getattr(get_state, "_demo_state"))
-        if normalize_user_facing_currency(state):
+        if normalize_user_facing_state(state):
             setattr(get_state, "_demo_state", deepcopy(state))
         return state
 
@@ -79,14 +119,14 @@ def get_state() -> dict[str, Any]:
         if state is None:
             state = initial_state()
             set_json(conn, STATE_KEY, state)
-        elif normalize_user_facing_currency(state):
+        elif normalize_user_facing_state(state):
             set_json(conn, STATE_KEY, state)
         return state
 
 
 def save_state(state: dict[str, Any]) -> None:
     settings = get_settings()
-    normalize_user_facing_currency(state)
+    normalize_user_facing_state(state)
     if settings.demo_mode:
         setattr(get_state, "_demo_state", deepcopy(state))
         return
