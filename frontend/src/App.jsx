@@ -1225,7 +1225,7 @@ function Payers({ contacts, invoices = [] }) {
             aria-label="Search customers"
           />
         </label>
-        <div className="table-wrap">
+        <div className="table-wrap payer-table-wrap">
           <table className="table table-sm">
             <thead>
               <tr>
@@ -1291,6 +1291,43 @@ function Payers({ contacts, invoices = [] }) {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="mobile-payer-list" aria-label="Customers">
+          {sorted.map((contact) => (
+            <button
+              type="button"
+              key={contact.id}
+              className={selected?.id === contact.id ? "mobile-payer-card is-selected" : "mobile-payer-card"}
+              aria-pressed={selected?.id === contact.id}
+              onClick={() => setSelectedId(contact.id)}
+            >
+              <span className="payer-card-head">
+                <strong>{contact.name}</strong>
+                <span className={gradeClass(contact.grade)}>{reliabilityLabel(contact)}</span>
+              </span>
+              <span className="payer-card-metrics">
+                <span>
+                  <small>Owes now</small>
+                  <b>{formatCurrency(contact.exposure)}</b>
+                </span>
+                <span>
+                  <small>Usually pays</small>
+                  <b>{paymentTimingText(contact.avg_days_late)}</b>
+                </span>
+                <span>
+                  <small>Direction</small>
+                  <TrendCell slope={contact.trend_slope} />
+                </span>
+                <span>
+                  <small>Paid invoices</small>
+                  <b>{contact.invoice_count}</b>
+                </span>
+              </span>
+            </button>
+          ))}
+          {sorted.length === 0 && (
+            <div className="empty inline-empty">No matching customers. Clear the search or sync Xero history.</div>
+          )}
         </div>
       </section>
 

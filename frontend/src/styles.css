@@ -1297,6 +1297,79 @@ tbody tr:focus-visible {
   color: var(--fgColor-default);
 }
 
+.mobile-payer-list {
+  display: none;
+}
+
+.mobile-payer-card {
+  width: 100%;
+  border: 1px solid var(--borderColor-muted);
+  border-radius: var(--radius-sm);
+  background: rgba(15, 23, 42, 0.58);
+  color: var(--fgColor-default);
+  padding: var(--space-3);
+  text-align: left;
+  display: grid;
+  gap: var(--space-3);
+  cursor: pointer;
+  transition: background var(--motion-fast), border-color var(--motion-fast), transform var(--motion-fast);
+}
+
+.mobile-payer-card:hover,
+.mobile-payer-card:focus-visible,
+.mobile-payer-card.is-selected {
+  background: rgba(129, 140, 248, 0.14);
+  border-color: rgba(129, 140, 248, 0.42);
+  outline: none;
+}
+
+.mobile-payer-card:active {
+  transform: translateY(1px);
+}
+
+.payer-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+.payer-card-head strong {
+  min-width: 0;
+  color: #ffffff;
+  line-height: 1.25;
+}
+
+.payer-card-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.payer-card-metrics > span {
+  min-width: 0;
+  border: 1px solid var(--borderColor-subtle);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 9px 10px;
+}
+
+.payer-card-metrics small,
+.mobile-invoice-card small {
+  display: block;
+  color: var(--fgColor-subtle);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.payer-card-metrics b {
+  display: block;
+  margin-top: 3px;
+  color: var(--fgColor-default);
+  font-size: 13px;
+}
+
 .exposure-cell {
   font-weight: 600;
 }
@@ -1970,6 +2043,15 @@ pre {
   }
 
   .mobile-invoice-list {
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .payer-table-wrap {
+    display: none;
+  }
+
+  .mobile-payer-list {
     display: grid;
     gap: var(--space-2);
   }
