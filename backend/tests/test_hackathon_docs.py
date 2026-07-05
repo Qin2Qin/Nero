@@ -38,6 +38,7 @@ def test_current_docs_describe_agent_boundary_without_overclaiming_llm_runtime()
     assert "Do not use app-runtime inference credentials for development automation" in combined
     assert "optional app-runtime free inference can polish draft wording only" in combined
     assert "OPENROUTER_MODEL` ends in `:free" in combined
+    assert "official OpenRouter HTTPS" in combined
     assert "still requires manual approval" in combined
     assert "LLM-written emails are implemented" not in combined
     assert "supports autonomous sending" not in combined

@@ -40,7 +40,7 @@ Nero uses Xero as the source of truth for the whole workflow. OAuth connects a X
 
 What development platform did you use?
 
-FastAPI/Python backend, React/Vite frontend, SQLite local state for the hackathon demo, Xero OAuth 2.0 and Accounting API, Playwright browser smoke tests, and optional OpenRouter-compatible free-model inference for review-only draft polishing. Development automation stayed in the Codex harness; app-runtime inference credentials are not used for development.
+FastAPI/Python backend, React/Vite frontend, SQLite local state for the hackathon demo, Xero OAuth 2.0 and Accounting API, Playwright browser smoke tests, and optional OpenRouter free-model inference for review-only draft polishing. Development automation stayed in the Codex harness; app-runtime inference credentials are not used for development.
 
 Which specific Xero API endpoints did your application interact with?
 

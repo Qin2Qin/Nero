@@ -43,6 +43,17 @@ def test_ai_copy_status_requires_feature_flag_key_and_free_model(monkeypatch) ->
 
     monkeypatch.setenv("NERO_AI_COPY_ENABLED", "true")
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-openrouter-key")
+    monkeypatch.setenv("OPENROUTER_BASE_URL", "https://example.com/api/v1/chat/completions")
+    wrong_endpoint_status = ai_copy.ai_copy_status(get_settings())
+    assert wrong_endpoint_status.enabled is False
+    assert "official OpenRouter HTTPS endpoint" in wrong_endpoint_status.detail
+
+    monkeypatch.setenv("OPENROUTER_BASE_URL", "http://openrouter.ai/api/v1/chat/completions")
+    insecure_status = ai_copy.ai_copy_status(get_settings())
+    assert insecure_status.enabled is False
+    assert "official OpenRouter HTTPS endpoint" in insecure_status.detail
+
+    monkeypatch.setenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1/chat/completions/")
     monkeypatch.setenv("OPENROUTER_MODEL", "provider/paid-model")
     paid_status = ai_copy.ai_copy_status(get_settings())
     assert paid_status.enabled is False
@@ -103,6 +114,19 @@ def test_polish_draft_body_rejects_unsafe_provider_copy(monkeypatch) -> None:
     monkeypatch.setattr(ai_copy.httpx, "post", lambda *args, **kwargs: FakeResponse())
 
     with pytest.raises(RuntimeError, match="unsafe"):
+        ai_copy.polish_draft_body(proposal(), proposal()["draft_body"])
+
+
+def test_polish_draft_body_rejects_non_openrouter_endpoint_without_request(monkeypatch) -> None:
+    configured_ai_env(monkeypatch)
+    monkeypatch.setenv("OPENROUTER_BASE_URL", "https://example.com/api/v1/chat/completions")
+
+    def unexpected_post(*args, **kwargs):
+        raise AssertionError("AI request should not be sent to a non-OpenRouter endpoint")
+
+    monkeypatch.setattr(ai_copy.httpx, "post", unexpected_post)
+
+    with pytest.raises(RuntimeError, match="official OpenRouter HTTPS endpoint"):
         ai_copy.polish_draft_body(proposal(), proposal()["draft_body"])
 
 

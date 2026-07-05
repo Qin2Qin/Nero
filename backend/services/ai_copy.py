@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
@@ -32,11 +33,24 @@ def ai_copy_status(settings: Settings | None = None) -> AiCopyStatus:
         return AiCopyStatus(False, None, "", "disabled", "AI draft polishing is disabled.")
     if not settings.openrouter_api_key:
         return AiCopyStatus(False, None, "", "disabled", "Set OPENROUTER_API_KEY to enable AI draft polishing.")
+    if not _is_openrouter_endpoint(settings.openrouter_base_url):
+        return AiCopyStatus(False, None, "", "disabled", "OPENROUTER_BASE_URL must use the official OpenRouter HTTPS endpoint.")
     if not settings.openrouter_model:
         return AiCopyStatus(False, None, "", "disabled", "Set OPENROUTER_MODEL to an OpenRouter free model ending in :free.")
     if not settings.openrouter_model.endswith(":free"):
         return AiCopyStatus(False, None, "", "disabled", "OPENROUTER_MODEL must end in :free for this hackathon build.")
     return AiCopyStatus(True, "openrouter", settings.openrouter_model, "free", "AI draft polishing is available for review-only copy.")
+
+
+def _is_openrouter_endpoint(value: str) -> bool:
+    parsed = urlparse(value or "")
+    return (
+        parsed.scheme == "https"
+        and parsed.hostname == "openrouter.ai"
+        and not parsed.username
+        and not parsed.password
+        and parsed.path.rstrip("/") == "/api/v1/chat/completions"
+    )
 
 
 def _prompt(proposal: dict[str, Any], draft_body: str) -> list[dict[str, str]]:

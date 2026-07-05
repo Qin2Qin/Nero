@@ -73,7 +73,7 @@ Nero's current agent is intentionally deterministic by default: it reads Xero co
 
 No customer-facing action is sent automatically. The user edits and approves each draft, then Nero keeps the outbound message in Outbox and, for live Xero reminder approvals, writes only an internal invoice history note back to Xero.
 
-The app also implements opt-in AI draft polishing through OpenRouter-compatible app-runtime inference. It is disabled unless `NERO_AI_COPY_ENABLED=true`, `OPENROUTER_API_KEY` is set, and `OPENROUTER_MODEL` ends in `:free`; paid-model names are rejected for this hackathon build. The AI action only rewrites a draft already visible to the owner, logs the change, and still requires manual approval before anything reaches Outbox. Do not use app-runtime inference credentials for development automation.
+The app also implements opt-in AI draft polishing through the official OpenRouter HTTPS chat-completions endpoint. It is disabled unless `NERO_AI_COPY_ENABLED=true`, `OPENROUTER_API_KEY` is set, and `OPENROUTER_MODEL` ends in `:free`; paid-model names and non-OpenRouter endpoints are rejected for this hackathon build. The AI action only rewrites a draft already visible to the owner, logs the change, and still requires manual approval before anything reaches Outbox. Do not use app-runtime inference credentials for development automation.
 
 ## OAuth Scopes
 

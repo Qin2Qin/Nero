@@ -188,6 +188,8 @@ Optional AI draft polishing:
 - Keep `NERO_AI_COPY_ENABLED=false` for the deterministic baseline.
 - To enable owner-triggered draft polishing, set `NERO_AI_COPY_ENABLED=true`,
   `OPENROUTER_API_KEY`, and an `OPENROUTER_MODEL` ending in `:free`.
+- Keep `OPENROUTER_BASE_URL` on the official HTTPS OpenRouter chat completions
+  endpoint; Nero rejects other OpenAI-compatible endpoints for this key path.
 - The feature is review-only: it rewrites draft wording in Actions, then the
   owner still edits and approves before anything reaches Outbox.
 
