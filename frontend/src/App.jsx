@@ -355,6 +355,15 @@ function businessNameFor(source) {
   return "Your business";
 }
 
+function selectedXeroTenantId(status, tenants) {
+  return tenants?.active_tenant_id || status?.tenant_id || "";
+}
+
+function xeroDashboardNeedsSync(source, status, tenants) {
+  const selectedTenantId = selectedXeroTenantId(status, tenants);
+  return Boolean(source?.mode === "xero" && source?.tenant_id && selectedTenantId && source.tenant_id !== selectedTenantId);
+}
+
 function xeroBadge(status) {
   if (xeroNeedsReconnect(status)) return { className: "badge badge-error danger", label: "Reconnect Xero" };
   if (status?.connected) return { className: "badge badge-success success", label: "Connected" };
@@ -750,11 +759,14 @@ function ResearchSignals({ sources, onScanResearch, busy }) {
   );
 }
 
-function DataSourceBanner({ source, xeroStatus }) {
-  const liveConnected = xeroStatus?.connected && !xeroStatus?.demo_mode && !xeroNeedsReconnect(xeroStatus);
+function DataSourceBanner({ source, xeroStatus, xeroTenants }) {
+  const needsTenantSync = xeroDashboardNeedsSync(source, xeroStatus, xeroTenants);
+  const liveConnected = xeroStatus?.connected && !xeroStatus?.demo_mode && !xeroNeedsReconnect(xeroStatus) && !needsTenantSync;
   const business = source?.business;
   const updatedAt = source?.generated_at ? formatDateTime(source.generated_at) : "";
-  const detail = business
+  const detail = needsTenantSync
+    ? "Xero organisation changed. Sync Xero to update this dashboard before reviewing actions."
+    : business
     ? `${business.sector} / ${business.country} / ${business.base_currency}`
     : "Cash timing and payer behaviour from your accounting data.";
   return (
@@ -764,6 +776,7 @@ function DataSourceBanner({ source, xeroStatus }) {
         <p>{detail}</p>
         <div className="source-badges">
           {liveConnected && <span className="badge badge-success success">Xero connected</span>}
+          {needsTenantSync && <span className="badge attention">Sync needed</span>}
           {updatedAt && <span className="badge badge-outline neutral">Updated {updatedAt}</span>}
         </div>
       </div>
@@ -937,7 +950,7 @@ function Dashboard({
         </div>
       </div>
 
-      <DataSourceBanner source={data.dataSource} xeroStatus={data.xeroStatus} />
+      <DataSourceBanner source={data.dataSource} xeroStatus={data.xeroStatus} xeroTenants={data.xeroTenants} />
 
       <section className="command-strip" aria-label="Cash control summary">
         <div>
