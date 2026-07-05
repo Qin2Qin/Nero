@@ -120,6 +120,18 @@ async function runSmoke() {
       })
     })
   );
+  await connectedButUnsyncedPage.route("**/api/xero/tenants", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        active_tenant_id: "demo-tenant",
+        tenants: [
+          { tenant_id: "demo-tenant", tenant_name: "Demo Coffee Ltd", is_active: true }
+        ]
+      })
+    })
+  );
   await connectedButUnsyncedPage.route("**/api/data_source", (route) =>
     route.fulfill({
       status: 200,
