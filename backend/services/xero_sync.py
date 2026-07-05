@@ -267,6 +267,7 @@ def build_state_from_xero(
         if tenant_name and "demo" in tenant_name.lower()
         else "Synced from the selected Xero organisation."
     )
+    synced_at = utc_now()
     current_invoice_ids = {invoice["id"] for invoice in predicted}
     current_contact_ids = {profile["id"] for profile in profiles}
     carried_proposals = (
@@ -287,8 +288,8 @@ def build_state_from_xero(
         "proposals": carried_proposals,
         "action_log": [
             {
-                "id": f"xero-sync-{tenant_id}",
-                "timestamp": utc_now(),
+                "id": f"xero-sync-{tenant_id}-{synced_at}",
+                "timestamp": synced_at,
                 "actor": "Xero",
                 "event": f"Updated from Xero: {len(profiles)} customers and {len(predicted)} open invoices are ready.",
             }
@@ -300,7 +301,7 @@ def build_state_from_xero(
             "mode": "xero",
             "label": source_label,
             "detail": source_detail,
-            "generated_at": utc_now(),
+            "generated_at": synced_at,
             "tenant_id": tenant_id,
         },
     }

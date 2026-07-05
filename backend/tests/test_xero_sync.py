@@ -286,6 +286,54 @@ def test_build_state_from_xero_disables_outbox_drafts_for_closed_invoices() -> N
     assert state["outbox"][0]["send_disabled_reason"] == "This invoice is no longer open in Xero."
 
 
+def test_build_state_from_xero_uses_unique_sync_activity_ids(monkeypatch) -> None:
+    timestamps = iter(["2026-07-05T03:00:00+00:00", "2026-07-05T03:05:00+00:00"])
+    monkeypatch.setattr(xero_sync, "utc_now", lambda: next(timestamps))
+
+    first_state = xero_sync.build_state_from_xero(
+        contacts=[{"ContactID": "contact-1", "Name": "Demo Retail"}],
+        invoices=[
+            {
+                "InvoiceID": "open-1",
+                "InvoiceNumber": "OPEN-1",
+                "Status": "AUTHORISED",
+                "Contact": {"ContactID": "contact-1", "Name": "Demo Retail"},
+                "DateString": "2026-06-01",
+                "DueDateString": "2026-07-10",
+                "AmountDue": 2500,
+                "Total": 2500,
+            }
+        ],
+        payments=[],
+        tenant_id="demo-tenant",
+        tenant_name="Demo Company (UK)",
+    )
+    second_state = xero_sync.build_state_from_xero(
+        contacts=[{"ContactID": "contact-1", "Name": "Demo Retail"}],
+        invoices=[
+            {
+                "InvoiceID": "open-1",
+                "InvoiceNumber": "OPEN-1",
+                "Status": "AUTHORISED",
+                "Contact": {"ContactID": "contact-1", "Name": "Demo Retail"},
+                "DateString": "2026-06-01",
+                "DueDateString": "2026-07-10",
+                "AmountDue": 2500,
+                "Total": 2500,
+            }
+        ],
+        payments=[],
+        tenant_id="demo-tenant",
+        tenant_name="Demo Company (UK)",
+        previous_state=first_state,
+    )
+
+    sync_ids = [entry["id"] for entry in second_state["action_log"] if entry["actor"] == "Xero"]
+    assert len(sync_ids) == 2
+    assert len(set(sync_ids)) == 2
+    assert second_state["data_source"]["generated_at"] == "2026-07-05T03:05:00+00:00"
+
+
 def test_build_state_from_xero_does_not_preserve_other_tenant_decisions() -> None:
     state = xero_sync.build_state_from_xero(
         contacts=[{"ContactID": "contact-1", "Name": "Demo Retail"}],
