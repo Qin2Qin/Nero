@@ -191,6 +191,12 @@ async function runSmoke() {
     await page.getByRole("button", { name: "Actions" }).click();
     await page.getByRole("heading", { name: "Actions to review" }).waitFor();
     await page.getByText(/Send reminder|Send firmer reminder|Ask for deposit|Change payment terms/).first().waitFor();
+    const impactAmounts = (await page.locator(".proposal-card .impact").allTextContents()).map((text) =>
+      Number((text.match(/£([\d,]+)/)?.[1] || "0").replace(/,/g, ""))
+    );
+    if (impactAmounts.length > 1 && impactAmounts.some((amount, index) => index > 0 && amount > impactAmounts[index - 1])) {
+      throw new Error(`Action cards were not sorted by cash impact: ${impactAmounts.join(", ")}`);
+    }
     await page.getByText(/Could bring £[\d,]+ forward about \d+ days? sooner\./).first().waitFor();
     await page.getByText("Approve to keep the draft in Outbox. Nothing is sent automatically.").first().waitFor();
     const actionsText = await page.locator("body").innerText();
