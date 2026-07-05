@@ -51,12 +51,3 @@ class XeroClient:
 
     def list_payments(self, page: int = 1) -> dict:
         return self.request("GET", "/Payments", params={"page": page})
-
-    def create_invoices(self, invoices: list[dict]) -> dict:
-        return self.request("POST", "/Invoices", json={"Invoices": invoices})
-
-    def create_payments(self, payments: list[dict]) -> dict:
-        return self.request("POST", "/Payments", json={"Payments": payments})
-
-    def add_invoice_history(self, invoice_id: str, details: str) -> dict:
-        return self.request("PUT", f"/Invoices/{invoice_id}/History", json={"HistoryRecords": [{"Details": details}]})
