@@ -131,6 +131,73 @@ def test_demo_preflight_allows_rate_limited_sync_when_cached_xero_data_is_fresh(
     assert lines[-1] == "result=passed"
 
 
+def test_demo_preflight_allows_older_cached_xero_data_when_refresh_is_rate_limited() -> None:
+    module = load_module()
+    payloads = healthy_payloads()
+    payloads.pop("/api/sync")
+    payloads["sync_error"] = "POST /api/sync returned HTTP 503: Xero is asking Nero to wait before syncing again. (Retry-After: 62021s)"
+    payloads["/api/data_source"] = {
+        "mode": "xero",
+        "label": "Xero: Demo Company (UK)",
+        "generated_at": "2026-07-05T03:00:00+00:00",
+    }
+
+    exit_code, lines = module.evaluate_preflight(
+        payloads,
+        max_age_minutes=120,
+        rate_limited_max_age_minutes=1440,
+        now=datetime(2026, 7, 5, 7, 0, tzinfo=timezone.utc),
+    )
+
+    assert exit_code == 0
+    assert "PASS data: Xero: Demo Company (UK) updated 240 minutes ago; refresh is rate-limited, using last successful Xero snapshot" in lines
+    assert lines[-1] == "result=passed"
+
+
+def test_demo_preflight_still_fails_for_stale_xero_data_without_rate_limit() -> None:
+    module = load_module()
+    payloads = healthy_payloads()
+    payloads.pop("/api/sync")
+    payloads["/api/data_source"] = {
+        "mode": "xero",
+        "label": "Xero: Demo Company (UK)",
+        "generated_at": "2026-07-05T03:00:00+00:00",
+    }
+
+    exit_code, lines = module.evaluate_preflight(
+        payloads,
+        max_age_minutes=120,
+        now=datetime(2026, 7, 5, 7, 0, tzinfo=timezone.utc),
+    )
+
+    assert exit_code == 1
+    assert "FAIL data: Xero: Demo Company (UK) updated 240 minutes ago; run preflight with --sync or click Sync Xero" in lines
+    assert lines[-1] == "result=failed"
+
+
+def test_demo_preflight_rate_limit_grace_is_bounded() -> None:
+    module = load_module()
+    payloads = healthy_payloads()
+    payloads.pop("/api/sync")
+    payloads["sync_error"] = "POST /api/sync returned HTTP 503: Xero is asking Nero to wait before syncing again. (Retry-After: 62021s)"
+    payloads["/api/data_source"] = {
+        "mode": "xero",
+        "label": "Xero: Demo Company (UK)",
+        "generated_at": "2026-07-03T00:00:00+00:00",
+    }
+
+    exit_code, lines = module.evaluate_preflight(
+        payloads,
+        max_age_minutes=120,
+        rate_limited_max_age_minutes=1440,
+        now=datetime(2026, 7, 5, 7, 0, tzinfo=timezone.utc),
+    )
+
+    assert exit_code == 1
+    assert any("cached snapshot is older than 1440 minutes" in line for line in lines)
+    assert lines[-1] == "result=failed"
+
+
 def test_demo_preflight_fails_for_missing_submission_image() -> None:
     module = load_module()
     payloads = healthy_payloads()

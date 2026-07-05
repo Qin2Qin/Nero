@@ -33,6 +33,7 @@ ACTION_COPY_BANNED_PATTERNS = {
 }
 RAW_XERO_ID_LABEL = re.compile(r"(?<!invoice )\b[0-9a-f]{8}\b", re.IGNORECASE)
 AI_DISABLED_DETAIL = "AI draft polishing is disabled."
+DEFAULT_RATE_LIMITED_MAX_AGE_MINUTES = 24 * 60
 
 
 def request_json(base_url: str, path: str, method: str = "GET", timeout: float = 10.0) -> dict[str, Any] | list[Any]:
@@ -151,6 +152,11 @@ def ai_boundary_issue(ai_status: dict[str, Any]) -> str | None:
     return detail or "AI polishing is misconfigured"
 
 
+def sync_refresh_rate_limited(sync_error: Any) -> bool:
+    text = str(sync_error or "").lower()
+    return "http 503" in text and ("retry-after" in text or "wait before syncing" in text or "rate limit" in text)
+
+
 def fail(failures: list[str], lines: list[str], label: str, detail: str) -> None:
     failures.append(f"{label}: {detail}")
     lines.append(f"FAIL {label}: {detail}")
@@ -164,6 +170,7 @@ def evaluate_preflight(
     payloads: dict[str, Any],
     *,
     max_age_minutes: int = 120,
+    rate_limited_max_age_minutes: int = DEFAULT_RATE_LIMITED_MAX_AGE_MINUTES,
     strict_app_store: bool = False,
     now: datetime | None = None,
 ) -> tuple[int, list[str]]:
@@ -210,8 +217,9 @@ def evaluate_preflight(
         reason = xero_status.get("refresh_error") or "connect Xero, select a tenant, or refresh the OAuth token"
         fail(failures, lines, "xero", reason)
 
-    sync_result = payloads.get("/api/sync")
     sync_error = payloads.get("sync_error")
+    sync_rate_limited = sync_refresh_rate_limited(sync_error)
+    sync_result = payloads.get("/api/sync")
     if sync_error:
         lines.append(f"INFO sync: requested refresh was not completed: {sync_error}")
     if sync_result is not None:
@@ -236,8 +244,17 @@ def evaluate_preflight(
         detail = f"{data_source.get('label', 'Xero data')} updated {age_minutes} minutes ago"
         if age_minutes <= max_age_minutes:
             pass_line(lines, "data", detail)
+        elif sync_rate_limited and age_minutes <= rate_limited_max_age_minutes:
+            pass_line(lines, "data", f"{detail}; refresh is rate-limited, using last successful Xero snapshot")
         else:
-            fail(failures, lines, "data", f"{detail}; run preflight with --sync or click Sync Xero")
+            if sync_rate_limited:
+                stale_detail = (
+                    f"{detail}; Xero asked Nero to wait before syncing, "
+                    f"but the cached snapshot is older than {rate_limited_max_age_minutes} minutes"
+                )
+            else:
+                stale_detail = f"{detail}; run preflight with --sync or click Sync Xero"
+            fail(failures, lines, "data", stale_detail)
     else:
         fail(failures, lines, "data", "dashboard is not using live Xero data")
 
@@ -353,6 +370,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--sync", action="store_true", help="Run POST /api/sync before evaluating demo readiness.")
     parser.add_argument("--timeout", type=float, default=10.0, help="HTTP timeout in seconds.")
     parser.add_argument("--max-age-minutes", type=int, default=120, help="Maximum acceptable Xero snapshot age.")
+    parser.add_argument(
+        "--rate-limited-max-age-minutes",
+        type=int,
+        default=DEFAULT_RATE_LIMITED_MAX_AGE_MINUTES,
+        help="Maximum acceptable Xero snapshot age after a requested refresh is rate-limited.",
+    )
     parser.add_argument("--strict-app-store", action="store_true", help="Fail if any App Store readiness item is not ready.")
     args = parser.parse_args(argv)
 
@@ -362,6 +385,7 @@ def main(argv: list[str] | None = None) -> int:
         exit_code, lines = evaluate_preflight(
             payloads,
             max_age_minutes=args.max_age_minutes,
+            rate_limited_max_age_minutes=args.rate_limited_max_age_minutes,
             strict_app_store=args.strict_app_store,
         )
     except RuntimeError as error:
