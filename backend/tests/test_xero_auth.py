@@ -13,7 +13,7 @@ sys.path.insert(0, str(ROOT / "backend"))
 from db import connect
 from main import create_app
 import services.xero_auth as xero_auth
-from services.xero_auth import bootstrap_tokens_from_env, get_saved_tokens, get_token_status, save_token_set
+from services.xero_auth import bootstrap_tokens_from_env, get_connection_summary, get_saved_tokens, get_token_status, save_token_set
 
 
 def test_save_token_set_persists_status(tmp_path: Path) -> None:
@@ -74,6 +74,61 @@ def test_save_token_set_normalises_z_expiry(tmp_path: Path) -> None:
     )
 
     assert get_saved_tokens(conn)["expires_at"] == "2099-01-01T00:00:00+00:00"
+
+
+def test_connection_summary_refreshes_expired_token(monkeypatch, tmp_path: Path) -> None:
+    conn = connect(tmp_path / "nero.db")
+    save_token_set(
+        {
+            "access_token": "old-access",
+            "refresh_token": "old-refresh",
+            "expires_at": "2000-01-01T00:00:00+00:00",
+        },
+        tenant_id="tenant-123",
+        conn=conn,
+    )
+    monkeypatch.setattr(
+        xero_auth,
+        "refresh_token",
+        lambda refresh: {
+            "access_token": "new-access",
+            "refresh_token": "new-refresh",
+            "expires_at": "2099-01-01T00:00:00Z",
+        },
+    )
+
+    summary = get_connection_summary(conn)
+    saved = get_saved_tokens(conn)
+
+    assert summary["connected"] is True
+    assert summary["expired"] is False
+    assert summary["tenant_id"] == "tenant-123"
+    assert saved["access_token"] == "new-access"
+    assert saved["expires_at"] == "2099-01-01T00:00:00+00:00"
+
+
+def test_connection_summary_reports_refresh_failure(monkeypatch, tmp_path: Path) -> None:
+    conn = connect(tmp_path / "nero.db")
+    save_token_set(
+        {
+            "access_token": "old-access",
+            "refresh_token": "old-refresh",
+            "expires_at": "2000-01-01T00:00:00+00:00",
+        },
+        tenant_id="tenant-123",
+        conn=conn,
+    )
+
+    def fail_refresh(refresh: str) -> dict:
+        raise RuntimeError("refresh failed")
+
+    monkeypatch.setattr(xero_auth, "refresh_token", fail_refresh)
+
+    summary = get_connection_summary(conn)
+
+    assert summary["connected"] is True
+    assert summary["expired"] is True
+    assert summary["refresh_error"] == "Xero token refresh failed. Reconnect Xero to continue syncing."
 
 
 def test_bootstrap_tokens_from_env_imports_direct_tokens(tmp_path: Path, monkeypatch) -> None:
