@@ -97,6 +97,31 @@ async function runSmoke() {
   await errorPage.getByText("Forecast temporarily unavailable").waitFor();
   await errorPage.close();
 
+  const reconnectPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await reconnectPage.route("**/api/xero/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        connected: true,
+        expired: true,
+        needs_tenant: false,
+        demo_mode: false,
+        client_credentials_configured: true,
+        refresh_error: "Xero token refresh failed. Reconnect Xero to continue syncing."
+      })
+    })
+  );
+  await reconnectPage.goto(frontendUrl, { waitUntil: "networkidle" });
+  const reconnectLink = reconnectPage.getByRole("link", { name: "Reconnect Xero" }).first();
+  await reconnectLink.waitFor();
+  const reconnectHref = await reconnectLink.getAttribute("href");
+  if (reconnectHref !== `${backendUrl}/auth/login`) throw new Error(`Reconnect Xero link pointed to ${reconnectHref}`);
+  if (await reconnectPage.getByText("Xero Connected").count()) {
+    throw new Error("Xero connected badge showed while token refresh required reconnect");
+  }
+  await reconnectPage.close();
+
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   const browserErrors = [];
   page.on("pageerror", (error) => {
