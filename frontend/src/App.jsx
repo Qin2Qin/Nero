@@ -366,6 +366,11 @@ function xeroDashboardNeedsSync(source, status, tenants) {
   return Boolean(source?.mode === "xero" && source?.tenant_id && selectedTenantId && source.tenant_id !== selectedTenantId);
 }
 
+function xeroActionBlockReason(source, status, tenants) {
+  if (!xeroDashboardNeedsSync(source, status, tenants)) return "";
+  return "Sync Xero before finding or approving actions for this organisation.";
+}
+
 function xeroBadge(status) {
   if (xeroNeedsReconnect(status)) return { className: "badge badge-error danger", label: "Reconnect Xero" };
   if (status?.connected) return { className: "badge badge-success success", label: "Connected" };
@@ -903,6 +908,7 @@ function Dashboard({
   busy
 }) {
   const businessName = businessNameFor(data.dataSource);
+  const actionBlockReason = xeroActionBlockReason(data.dataSource, data.xeroStatus, data.xeroTenants);
   const [invoiceSort, requestInvoiceSort] = useSort("due_date", "asc");
   const forecastAsOf = forecastAsOfValue(data.forecast);
   const cutoff = addDays(todayForForecast(data.forecast), 30);
@@ -987,7 +993,12 @@ function Dashboard({
             onSelectTenant={onSelectTenant}
             onDisconnectXero={onDisconnectXero}
           />
-          <button className="button primary btn btn-primary btn-sm" onClick={onFindActions} disabled={busy}>
+          <button
+            className="button primary btn btn-primary btn-sm"
+            onClick={onFindActions}
+            disabled={busy || Boolean(actionBlockReason)}
+            title={actionBlockReason || "Find suggested actions"}
+          >
             <Play size={16} /> Find actions
           </button>
         </div>
@@ -1347,7 +1358,7 @@ function Payers({ contacts, invoices = [] }) {
   );
 }
 
-function AgentQueue({ proposals, dataSource, onApprove, onDismiss, onEdit, busy }) {
+function AgentQueue({ proposals, dataSource, approvalBlockedReason = "", onApprove, onDismiss, onEdit, busy }) {
   const [drafts, setDrafts] = useState({});
   const pending = useMemo(
     () =>
@@ -1379,6 +1390,12 @@ function AgentQueue({ proposals, dataSource, onApprove, onDismiss, onEdit, busy 
       <div className="panel-head page-head">
         <h1>Actions to review</h1>
       </div>
+      {approvalBlockedReason && (
+        <div className="queue-warning">
+          <RefreshCw size={16} />
+          <span>{approvalBlockedReason}</span>
+        </div>
+      )}
       <div className="proposal-grid">
         {pending.map((proposal) => {
           const draftBody = drafts[proposal.id] ?? proposal.draft_body ?? "";
@@ -1410,7 +1427,12 @@ function AgentQueue({ proposals, dataSource, onApprove, onDismiss, onEdit, busy 
               <p className="approval-note">{approvalOutcomeText(proposal, dataSource)}</p>
               {proposal.recommendation_detail && <p className="recommendation">{proposal.recommendation_detail}</p>}
               <div className="actions">
-                <button className="button primary btn btn-primary btn-sm" disabled={busy} onClick={() => approveCurrentDraft(proposal, draftBody)}>
+                <button
+                  className="button primary btn btn-primary btn-sm"
+                  disabled={busy || Boolean(approvalBlockedReason)}
+                  onClick={() => approveCurrentDraft(proposal, draftBody)}
+                  title={approvalBlockedReason || copy.approveLabel}
+                >
                   <Check size={16} /> {copy.approveLabel}
                 </button>
                 {proposal.draft_subject && (
@@ -1765,6 +1787,7 @@ export function App() {
         <AgentQueue
           proposals={data.proposals}
           dataSource={data.dataSource}
+          approvalBlockedReason={xeroActionBlockReason(data.dataSource, data.xeroStatus, data.xeroTenants)}
           busy={busy}
           onApprove={(id, draftBody) =>
             act(async () => {

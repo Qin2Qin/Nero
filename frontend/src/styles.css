@@ -1358,6 +1358,20 @@ dd {
   gap: var(--space-3);
 }
 
+.queue-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  padding: 10px 12px;
+  border: 1px solid rgba(251, 191, 36, 0.22);
+  border-radius: var(--radius-sm);
+  background: var(--bgColor-attention-muted);
+  color: #fde68a;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .proposal-card {
   padding: var(--space-4);
   display: grid;
