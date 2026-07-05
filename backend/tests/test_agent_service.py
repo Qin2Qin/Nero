@@ -88,7 +88,7 @@ def test_agent_includes_xero_online_invoice_link_when_available() -> None:
     contact = {
         "id": "customer-4",
         "name": "Bayside Club",
-        "grade": "B",
+        "grade": "C",
         "avg_days_late": 4,
         "invoice_count": 8,
         "low_confidence": False,
@@ -101,7 +101,7 @@ def test_agent_includes_xero_online_invoice_link_when_available() -> None:
         "contact_name": "Bayside Club",
         "invoice_number": "INV-0043",
         "amount_due": 3200,
-        "due_date": "2026-07-05",
+        "due_date": "2026-05-05",
         "predicted_paid_date": "2026-07-13",
         "online_invoice_url": "https://in.xero.com/example-invoice",
     }
@@ -112,6 +112,7 @@ def test_agent_includes_xero_online_invoice_link_when_available() -> None:
     body = created[0]["draft_body"]
     assert "secure Xero invoice link" in body
     assert "https://in.xero.com/example-invoice" in body
+    assert "https://in.xero.com/example-invoice\n\nI can resend" in body
     assert "{payment_link}" not in body
 
 
