@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -29,6 +30,39 @@ def _as_bool(value: str | None, default: bool = False) -> bool:
     return value.lower() in {"1", "true", "yes", "on"}
 
 
+def _local_origin_variant(origin: str) -> str | None:
+    try:
+        parsed = urlsplit(origin)
+        port = parsed.port
+    except ValueError:
+        return None
+    if parsed.scheme not in {"http", "https"} or parsed.path not in {"", "/"}:
+        return None
+    if parsed.hostname == "localhost":
+        return urlunsplit((parsed.scheme, f"127.0.0.1:{port}" if port else "127.0.0.1", "", "", ""))
+    if parsed.hostname == "127.0.0.1":
+        return urlunsplit((parsed.scheme, f"localhost:{port}" if port else "localhost", "", "", ""))
+    return None
+
+
+def _frontend_origins(value: str) -> tuple[str, ...]:
+    origins: list[str] = []
+    seen: set[str] = set()
+
+    def add(origin: str) -> None:
+        if origin and origin not in seen:
+            seen.add(origin)
+            origins.append(origin)
+
+    for raw_origin in value.split(","):
+        origin = raw_origin.strip()
+        add(origin)
+        variant = _local_origin_variant(origin)
+        if variant:
+            add(variant)
+    return tuple(origins)
+
+
 @dataclass(frozen=True)
 class Settings:
     demo_mode: bool
@@ -48,11 +82,7 @@ class Settings:
 
 def get_settings() -> Settings:
     _read_dotenv()
-    origins = tuple(
-        origin.strip()
-        for origin in os.getenv("FRONTEND_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
-        if origin.strip()
-    )
+    origins = _frontend_origins(os.getenv("FRONTEND_ORIGINS", "http://localhost:5173,http://localhost:3000"))
     return Settings(
         demo_mode=_as_bool(os.getenv("DEMO_MODE"), True),
         xero_client_id=os.getenv("XERO_CLIENT_ID", ""),
