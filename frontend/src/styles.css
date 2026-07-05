@@ -591,6 +591,10 @@ h2 {
   font-weight: 600;
 }
 
+.sync-result.warning {
+  color: var(--fgColor-attention);
+}
+
 .app-store-readiness {
   display: grid;
   gap: var(--space-3);

@@ -212,6 +212,23 @@ def _tenant_name(access_token: str, tenant_id: str) -> str | None:
     return str(match.get("tenantName")) if match and match.get("tenantName") else None
 
 
+def _empty_sync_detail(contacts: list[dict[str, Any]], invoices: list[dict[str, Any]], payments: list[dict[str, Any]]) -> str:
+    if not contacts and not invoices and not payments:
+        return (
+            "Xero returned no contacts, invoices or payments. If you expected sample data, choose the Xero Demo "
+            "Company or add invoices in Xero, then sync again."
+        )
+    if not invoices:
+        return (
+            "Xero returned contacts but no invoices. Nero needs invoices and payment history before it can build a "
+            "cash forecast."
+        )
+    return (
+        "Xero returned records, but there were no open invoices or paid invoice history Nero can use for a cash "
+        "forecast yet."
+    )
+
+
 def sync_from_xero(conn: sqlite3.Connection | None = None, materialize_state: bool | None = None) -> dict:
     owns_conn = conn is None
     if materialize_state is None:
@@ -273,6 +290,8 @@ def sync_from_xero(conn: sqlite3.Connection | None = None, materialize_state: bo
                 "invoices": count_rows(conn, "xero_invoices"),
                 "payments": count_rows(conn, "xero_payments"),
             },
+            "empty": not (contacts or invoices or payments),
+            "cash_data_ready": bool(invoices),
         }
         if materialize_state and (contacts or invoices or payments):
             tenant_name = _tenant_name(tokens["access_token"], tokens["tenant_id"])
@@ -293,9 +312,10 @@ def sync_from_xero(conn: sqlite3.Connection | None = None, materialize_state: bo
                 }
             else:
                 result["materialized"] = None
+                result["detail"] = _empty_sync_detail(contacts, invoices, payments)
         elif materialize_state:
             result["materialized"] = None
-            result["detail"] = "Xero returned no records, so the dashboard state was left unchanged."
+            result["detail"] = _empty_sync_detail(contacts, invoices, payments)
         return result
     finally:
         if owns_conn:

@@ -234,7 +234,12 @@ function xeroBadge(status) {
 function syncSummary(result) {
   if (!result) return "";
   if (result.status === "synced") {
-    return `Synced ${result.fetched?.contacts ?? 0} contacts, ${result.fetched?.invoices ?? 0} invoices, ${result.fetched?.payments ?? 0} payments.`;
+    const base = `Synced ${result.fetched?.contacts ?? 0} contacts, ${result.fetched?.invoices ?? 0} invoices, ${result.fetched?.payments ?? 0} payments.`;
+    if (result.detail) return `${base} ${result.detail}`;
+    if (result.materialized) {
+      return `${base} Dashboard updated with ${result.materialized.contacts ?? 0} payers and ${result.materialized.invoices ?? 0} open invoices.`;
+    }
+    return base;
   }
   if (result.status === "demo") {
     return `Demo sync checked ${result.contacts ?? 0} contacts and ${result.invoices ?? 0} invoices.`;
@@ -248,6 +253,11 @@ function syncSummary(result) {
     return `Selected ${result.tenant?.tenant_name || "Xero organisation"}. Run Sync Xero to pull its records.`;
   }
   return result.detail || result.status || "Sync checked.";
+}
+
+function syncResultClass(result) {
+  if (result?.empty || result?.materialized === null) return "sync-result warning";
+  return "sync-result";
 }
 
 function readinessBadge(status) {
@@ -503,7 +513,7 @@ function XeroConnection({ status, source, tenants, syncResult, onSyncXero, onSee
           </a>
         )}
       </div>
-      {syncResult && <p className="sync-result">{syncSummary(syncResult)}</p>}
+      {syncResult && <p className={syncResultClass(syncResult)}>{syncSummary(syncResult)}</p>}
       {source?.detail && <p className="muted compact-note">{source.detail}</p>}
       {!status?.demo_mode && !status?.connected && !status?.client_credentials_configured && (
         <p className="muted compact-note">Live credentials missing.</p>
@@ -792,7 +802,7 @@ function Dashboard({
             busy={busy}
           />
           <RecentActivity entries={data.actionLog} onViewAll={onViewActivity} />
-          {syncResult?.status === "synced" && <p className="sync-result">{syncSummary(syncResult)}</p>}
+          {syncResult?.status === "synced" && <p className={syncResultClass(syncResult)}>{syncSummary(syncResult)}</p>}
         </aside>
       </section>
     </main>
