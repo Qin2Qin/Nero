@@ -6,9 +6,9 @@ Use this when presenting Nero from the local live-Xero setup.
 
 1. Backend: `cd backend && DEMO_MODE=false .venv/bin/python -m uvicorn main:app --reload --port 8000`.
 2. Frontend: `cd frontend && VITE_API_BASE=http://localhost:8000 npm run dev`.
-3. Confirm `http://127.0.0.1:8000/health` returns `"demo_mode":false`.
-4. Confirm `http://127.0.0.1:8000/api/xero/status` is connected and not expired.
-5. If the dashboard is stale, click **Sync Xero** before presenting.
+3. Run `.venv/bin/python scripts/demo_preflight.py --sync` from the repo root.
+4. Confirm the final line is `result=passed`.
+5. If it fails, follow the printed failing line first, then retry the preflight.
 
 ## 90-Second Flow
 
@@ -31,5 +31,6 @@ Use this when presenting Nero from the local live-Xero setup.
 
 - Reconnect Xero: open `http://localhost:8000/auth/login`.
 - Refresh data: `curl -X POST http://localhost:8000/api/sync`.
+- Preflight live demo state: `.venv/bin/python scripts/demo_preflight.py --sync`.
 - Check current data source: `curl http://localhost:8000/api/data_source`.
 - Run UI regression smoke: `cd frontend && npm run smoke:ui`.

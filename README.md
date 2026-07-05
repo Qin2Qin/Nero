@@ -44,6 +44,16 @@ DEMO_MODE=true .venv/bin/python scripts/smoke_backend.py
 The backend smoke script defaults to demo mode and a temporary SQLite database
 unless `DEMO_MODE` or `NERO_DB_PATH` are explicitly set.
 
+Run a live-Xero judge demo preflight after the backend is running:
+
+```bash
+.venv/bin/python scripts/demo_preflight.py --sync
+```
+
+The preflight prints only status, counts, and readiness checks. It fails if the
+backend is still in demo mode, Xero is disconnected, the data is stale, or no
+sendable action is ready.
+
 Run the browser smoke test:
 
 ```bash
