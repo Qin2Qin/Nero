@@ -408,6 +408,77 @@ async function runSmoke() {
   }
   await staleOutboxPage.close();
 
+  const noEmailQueuePage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await noEmailQueuePage.route("**/api/proposals", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "proposal-no-email-1",
+          type: "reminder",
+          contact_id: "contact-no-email",
+          contact_name: "No Email Customer",
+          contact_email: null,
+          invoice_id: "invoice-no-email-1",
+          invoice_number: "NOEMAIL-1",
+          status: "pending",
+          reasoning_text: "Payment history suggests this invoice needs a reminder.",
+          expected_impact_dollars: 1200,
+          expected_days_accelerated: 4,
+          draft_subject: "Reminder: NOEMAIL-1",
+          draft_body: "Please confirm when NOEMAIL-1 will be paid.",
+          recommendation_detail: null
+        }
+      ])
+    })
+  );
+  await noEmailQueuePage.goto(frontendUrl, { waitUntil: "networkidle" });
+  await noEmailQueuePage.getByRole("button", { name: "Actions", exact: true }).click();
+  await noEmailQueuePage.getByRole("heading", { name: "Actions to review" }).waitFor();
+  await noEmailQueuePage.getByText("1 need customer email in Xero").waitFor();
+  await noEmailQueuePage.getByText("No customer email found in Xero.").waitFor();
+  const noEmailProposalPriority = await noEmailQueuePage.locator(".proposal-card").first().getAttribute("data-priority");
+  if (noEmailProposalPriority !== "2") {
+    throw new Error(`No-email draft was not deprioritised behind sendable actions: ${noEmailProposalPriority}`);
+  }
+  await noEmailQueuePage.close();
+
+  const noEmailOutboxPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await noEmailOutboxPage.route("**/api/outbox", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "no-email-outbox-1",
+          timestamp: "2026-07-05T03:00:00+00:00",
+          to: "No Email Customer",
+          to_email: null,
+          subject: "Reminder: NOEMAIL-1",
+          body: "Please confirm when NOEMAIL-1 will be paid.",
+          invoice_id: "invoice-no-email-1",
+          proposal_id: "proposal-no-email-1",
+          status: "active"
+        }
+      ])
+    })
+  );
+  await noEmailOutboxPage.goto(frontendUrl, { waitUntil: "networkidle" });
+  await noEmailOutboxPage.getByRole("button", { name: "Outbox" }).click();
+  await noEmailOutboxPage.getByRole("heading", { name: "Outbox" }).waitFor();
+  await noEmailOutboxPage.getByText("No email in Xero").waitFor();
+  await noEmailOutboxPage.getByText("Add email first").waitFor();
+  if (await noEmailOutboxPage.getByRole("link", { name: "Open draft" }).count()) {
+    throw new Error("Missing-email outbox entry exposed a blank-address mail draft");
+  }
+  const noEmailCopyButton = noEmailOutboxPage.getByRole("button", { name: "Copy" }).first();
+  await noEmailCopyButton.waitFor();
+  if (await noEmailCopyButton.isDisabled()) {
+    throw new Error("Missing-email outbox draft could not be copied for manual follow-up");
+  }
+  await noEmailOutboxPage.close();
+
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   const browserErrors = [];
   const initialReadPreflights = [];
