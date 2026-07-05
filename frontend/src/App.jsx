@@ -366,6 +366,10 @@ function xeroDashboardNeedsSync(source, status, tenants) {
   return Boolean(source?.mode === "xero" && source?.tenant_id && selectedTenantId && source.tenant_id !== selectedTenantId);
 }
 
+function xeroConnectedNeedsInitialSync(source, status) {
+  return Boolean(status?.connected && !status?.demo_mode && !xeroNeedsReconnect(status) && source?.mode !== "xero");
+}
+
 function xeroActionBlockReason(source, status, tenants) {
   if (source?.mode !== "xero") return "";
   if (!status?.connected || xeroNeedsReconnect(status)) {
@@ -794,11 +798,14 @@ function ResearchSignals({ sources, onScanResearch, busy }) {
 
 function DataSourceBanner({ source, xeroStatus, xeroTenants }) {
   const needsTenantSync = xeroDashboardNeedsSync(source, xeroStatus, xeroTenants);
-  const liveConnected = xeroStatus?.connected && !xeroStatus?.demo_mode && !xeroNeedsReconnect(xeroStatus) && !needsTenantSync;
+  const needsInitialXeroSync = xeroConnectedNeedsInitialSync(source, xeroStatus);
+  const liveConnected = source?.mode === "xero" && xeroStatus?.connected && !xeroStatus?.demo_mode && !xeroNeedsReconnect(xeroStatus) && !needsTenantSync;
   const business = source?.business;
   const updatedAt = source?.generated_at ? formatDateTime(source.generated_at) : "";
   const detail = needsTenantSync
     ? "Xero organisation changed. Sync Xero to update this dashboard before reviewing actions."
+    : needsInitialXeroSync
+    ? "Xero is connected. Sync Xero to replace this dashboard with live accounting data."
     : business
     ? `${business.sector} / ${business.country} / ${business.base_currency}`
     : "Cash timing and payer behaviour from your accounting data.";
@@ -809,6 +816,7 @@ function DataSourceBanner({ source, xeroStatus, xeroTenants }) {
         <p>{detail}</p>
         <div className="source-badges">
           {liveConnected && <span className="badge badge-success success">Xero connected</span>}
+          {needsInitialXeroSync && <span className="badge attention">Sync Xero</span>}
           {needsTenantSync && <span className="badge attention">Sync needed</span>}
           {updatedAt && <span className="badge badge-outline neutral">Updated {updatedAt}</span>}
         </div>

@@ -105,6 +105,41 @@ async function runSmoke() {
   }
   await connectedReturnPage.close();
 
+  const connectedButUnsyncedPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await connectedButUnsyncedPage.route("**/api/xero/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        connected: true,
+        expired: false,
+        needs_tenant: false,
+        tenant_id: "demo-tenant",
+        demo_mode: false,
+        client_credentials_configured: true
+      })
+    })
+  );
+  await connectedButUnsyncedPage.route("**/api/data_source", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        mode: "synthetic",
+        label: "Northstar Fabrication Works",
+        detail: "Local synthetic portfolio.",
+        generated_at: "2026-07-05T03:00:00+00:00"
+      })
+    })
+  );
+  await connectedButUnsyncedPage.goto(frontendUrl, { waitUntil: "networkidle" });
+  await connectedButUnsyncedPage.getByText("Xero is connected. Sync Xero to replace this dashboard with live accounting data.").waitFor();
+  await connectedButUnsyncedPage.getByText("Sync Xero").first().waitFor();
+  if (await connectedButUnsyncedPage.getByText("Xero connected").count()) {
+    throw new Error("Unsynced local dashboard appeared to be live Xero data");
+  }
+  await connectedButUnsyncedPage.close();
+
   const erroredReturnPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   await erroredReturnPage.goto(
     `${frontendUrl}/?xero=error&message=${encodeURIComponent("Xero connection was cancelled. Try Connect Xero again when ready.")}`,
