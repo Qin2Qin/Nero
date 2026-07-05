@@ -5,10 +5,12 @@ ROOT = Path(__file__).resolve().parents[2]
 CURRENT_DOCS = [
     ROOT / "README.md",
     ROOT / "docs" / "demo-script.md",
+    ROOT / "docs" / "final-submission-answers.md",
     ROOT / "docs" / "xero-app-store-submission.md",
     ROOT / "docs" / "xero-hackathon-and-mcp.md",
 ]
 ARCHIVED_BUILD_GUIDE = ROOT / "nero-build-guide-with-prompts.md"
+PROJECT_IMAGE = ROOT / "frontend" / "public" / "visuals" / "nero-cashflow-preview.png"
 
 
 def test_current_docs_do_not_claim_unverified_mcp_execution() -> None:
@@ -49,6 +51,25 @@ def test_current_docs_preserve_hackathon_requirements_and_judging_weights() -> N
     assert "30% API Integration" in text
     assert "20% Architecture" in text
     assert "Utilize AI for complex scenarios" in text
+
+
+def test_final_submission_answers_match_current_xero_integration() -> None:
+    text = (ROOT / "docs" / "final-submission-answers.md").read_text()
+
+    assert "Nero (FlowCast)" in text
+    assert "frontend/public/visuals/nero-cashflow-preview.png" in text
+    assert PROJECT_IMAGE.exists()
+    for endpoint in (
+        "GET /Contacts",
+        "GET /Invoices?Statuses=AUTHORISED,PAID",
+        "GET /Invoices/{InvoiceID}/OnlineInvoice",
+        "GET /Payments",
+        "PUT /Invoices/{InvoiceID}/History",
+    ):
+        assert endpoint in text
+    assert "openid profile email accounting.invoices accounting.contacts accounting.payments accounting.settings offline_access" in text
+    assert "do not claim fake MCP execution" in text
+    assert "Development automation stayed in the Codex harness" in text
 
 
 def test_archived_build_guide_is_marked_non_authoritative() -> None:
