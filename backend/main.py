@@ -30,6 +30,7 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["Retry-After"],
     )
     app.include_router(data_router)
     app.include_router(actions_router)

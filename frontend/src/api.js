@@ -474,7 +474,33 @@ export async function scanResearch() {
 }
 
 export async function syncXero() {
-  if (!USE_FIXTURES) return request("/api/sync", { method: "POST" });
+  if (!USE_FIXTURES) {
+    let response;
+    try {
+      response = await fetch(`${API_BASE}/api/sync`, { method: "POST" });
+    } catch {
+      return {
+        status: "sync_failed",
+        detail: "Nero could not reach the sync service."
+      };
+    }
+    let payload = {};
+    try {
+      payload = await response.json();
+    } catch {
+      payload = {};
+    }
+    if (!response.ok) {
+      const retryAfter = Number.parseInt(response.headers.get("Retry-After") || "", 10);
+      return {
+        status: response.status === 503 ? "rate_limited" : "sync_failed",
+        detail: payload.detail || payload.message || `${response.status} ${response.statusText}`,
+        http_status: response.status,
+        retry_after_seconds: Number.isFinite(retryAfter) ? retryAfter : null
+      };
+    }
+    return payload;
+  }
   const state = await ensureLocalState();
   return {
     status: "demo",

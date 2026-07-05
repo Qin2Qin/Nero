@@ -120,7 +120,9 @@ def test_sync_rate_limit_returns_demo_safe_error(monkeypatch, tmp_path: Path) ->
     monkeypatch.setattr(actions_router, "sync_from_xero", rate_limited_sync)
     client = TestClient(create_app())
 
-    sync_response = client.post("/api/sync")
+    sync_response = client.post("/api/sync", headers={"Origin": "http://localhost:5173"})
 
     assert sync_response.status_code == 503
-    assert sync_response.json()["detail"].startswith("Xero is rate limiting sync right now.")
+    assert sync_response.headers["Retry-After"] == "60"
+    assert sync_response.headers["access-control-expose-headers"] == "Retry-After"
+    assert sync_response.json()["detail"] == "Xero is asking Nero to wait before syncing again."

@@ -396,8 +396,24 @@ function xeroNeedsReconnect(status) {
   return Boolean(status?.refresh_error || (status?.connected && status?.expired));
 }
 
+function retryAfterCopy(seconds) {
+  const numericSeconds = Number(seconds || 0);
+  if (!Number.isFinite(numericSeconds) || numericSeconds <= 0) return "";
+  if (numericSeconds < 60) return `Try again in about ${Math.ceil(numericSeconds)} seconds.`;
+  const minutes = Math.ceil(numericSeconds / 60);
+  return `Try again in about ${minutes} ${plural(minutes, "minute")}.`;
+}
+
 function syncSummary(result) {
   if (!result) return "";
+  if (result.status === "rate_limited") {
+    const retryCopy = retryAfterCopy(result.retry_after_seconds);
+    const retrySentence = retryCopy ? ` ${retryCopy}` : "";
+    return `${result.detail || "Xero is asking Nero to wait before syncing again."}${retrySentence} Nero is still showing the last successful Xero snapshot.`;
+  }
+  if (result.status === "sync_failed") {
+    return `${result.detail || "Sync could not finish."} Nero is still showing the last saved dashboard.`;
+  }
   if (result.status === "connected") {
     return result.detail || "Xero connected. Click Sync Xero to pull the latest records.";
   }
@@ -432,6 +448,7 @@ function syncSummary(result) {
 }
 
 function syncResultClass(result) {
+  if (["rate_limited", "sync_failed"].includes(result?.status)) return "sync-result warning";
   if (result?.status === "error") return "sync-result warning";
   if (result?.empty || result?.materialized === null) return "sync-result warning";
   return "sync-result";

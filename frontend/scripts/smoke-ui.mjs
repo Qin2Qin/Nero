@@ -217,6 +217,69 @@ async function runSmoke() {
   }
   await connectedButUnsyncedPage.close();
 
+  const rateLimitedSyncPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await rateLimitedSyncPage.route("**/api/xero/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        connected: true,
+        expired: false,
+        needs_tenant: false,
+        tenant_id: "demo-tenant",
+        demo_mode: false,
+        client_credentials_configured: true
+      })
+    })
+  );
+  await rateLimitedSyncPage.route("**/api/xero/tenants", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        active_tenant_id: "demo-tenant",
+        tenants: [
+          { tenant_id: "demo-tenant", tenant_name: "Demo Coffee Ltd", is_active: true }
+        ]
+      })
+    })
+  );
+  await rateLimitedSyncPage.route("**/api/data_source", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        mode: "xero",
+        label: "Xero: Demo Coffee Ltd",
+        detail: "Synced from the selected Xero organisation.",
+        generated_at: "2026-07-05T03:00:00+00:00",
+        tenant_id: "demo-tenant"
+      })
+    })
+  );
+  await rateLimitedSyncPage.route("**/api/sync", (route) =>
+    route.fulfill({
+      status: 503,
+      headers: {
+        "Access-Control-Allow-Origin": frontendUrl,
+        "Access-Control-Expose-Headers": "Retry-After",
+        "Retry-After": "60"
+      },
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Xero is asking Nero to wait before syncing again." })
+    })
+  );
+  await rateLimitedSyncPage.goto(frontendUrl, { waitUntil: "networkidle" });
+  await rateLimitedSyncPage.getByRole("heading", { name: "Nero" }).waitFor();
+  await rateLimitedSyncPage.getByRole("button", { name: "Sync Xero" }).first().click();
+  await rateLimitedSyncPage.getByText("Xero is asking Nero to wait before syncing again.").waitFor();
+  await rateLimitedSyncPage.getByText("Try again in about 1 minute.").waitFor();
+  await rateLimitedSyncPage.getByText("Nero is still showing the last successful Xero snapshot.").waitFor();
+  if (await rateLimitedSyncPage.locator(".error-box").count()) {
+    throw new Error("Rate-limited sync surfaced as a global error instead of an inline Xero warning");
+  }
+  await rateLimitedSyncPage.close();
+
   const erroredReturnPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   await erroredReturnPage.goto(
     `${frontendUrl}/?xero=error&message=${encodeURIComponent("Xero connection was cancelled. Try Connect Xero again when ready.")}`,

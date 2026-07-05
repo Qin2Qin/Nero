@@ -193,9 +193,11 @@ def sync() -> dict:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code == 429:
+            retry_after = exc.response.headers.get("Retry-After")
             raise HTTPException(
                 status_code=503,
-                detail="Xero is rate limiting sync right now. Existing synced data is still available; try again in a few minutes.",
+                detail="Xero is asking Nero to wait before syncing again.",
+                headers={"Retry-After": retry_after} if retry_after else None,
             ) from exc
         raise HTTPException(status_code=502, detail="Xero rejected the sync request. Reconnect Xero and try again.") from exc
     except httpx.HTTPError as exc:
