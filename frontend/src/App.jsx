@@ -260,6 +260,12 @@ function syncResultClass(result) {
   return "sync-result";
 }
 
+function mailtoDraftHref(entry) {
+  const subject = encodeURIComponent(entry.subject || "");
+  const body = encodeURIComponent(entry.body || "");
+  return `mailto:?subject=${subject}&body=${body}`;
+}
+
 function readinessBadge(status) {
   if (status === "ready") return "badge badge-success success";
   if (status === "blocked") return "badge badge-error danger";
@@ -1050,6 +1056,7 @@ function Outbox({ outbox }) {
                 />
                 <SortableHeader label="Customer" sortKey="to" sort={outboxSort} onSort={requestOutboxSort} />
                 <SortableHeader label="Subject" sortKey="subject" sort={outboxSort} onSort={requestOutboxSort} />
+                <th className="right">Draft</th>
               </tr>
             </thead>
             <tbody>
@@ -1063,11 +1070,16 @@ function Outbox({ outbox }) {
                       <pre>{entry.body}</pre>
                     </details>
                   </td>
+                  <td className="right">
+                    <a className="button ghost btn btn-ghost btn-xs outbox-draft-link" href={mailtoDraftHref(entry)}>
+                      <ExternalLink size={14} /> Open draft
+                    </a>
+                  </td>
                 </tr>
               ))}
               {sorted.length === 0 && (
                 <tr>
-                  <td colSpan="3">
+                  <td colSpan="4">
                     <div className="empty inline-empty">No approved messages yet</div>
                   </td>
                 </tr>

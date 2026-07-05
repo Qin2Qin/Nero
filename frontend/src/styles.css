@@ -1193,6 +1193,10 @@ pre {
   background: rgba(255, 255, 255, 0.055);
 }
 
+.outbox-draft-link {
+  white-space: nowrap;
+}
+
 .recent-activity {
   display: grid;
   gap: var(--space-3);

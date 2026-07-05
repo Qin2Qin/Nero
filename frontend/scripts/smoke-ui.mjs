@@ -149,6 +149,12 @@ async function runSmoke() {
     await page.getByRole("button", { name: "Outbox" }).click();
     await page.getByRole("heading", { name: "Outbox" }).waitFor();
     await page.getByText(/Foundry Lane Events|Juniper Borough Services|Alder House Retail|Canal House Workspace/).first().waitFor();
+    const outboxDraftLink = page.getByRole("link", { name: "Open draft" }).first();
+    await outboxDraftLink.waitFor();
+    const outboxDraftHref = await outboxDraftLink.getAttribute("href");
+    if (!outboxDraftHref?.startsWith("mailto:?subject=")) {
+      throw new Error(`Outbox draft link did not open a mail draft: ${outboxDraftHref}`);
+    }
 
     await page.getByRole("button", { name: "Guide" }).click();
     await page.getByRole("heading", { name: "How to use Nero" }).waitFor();
