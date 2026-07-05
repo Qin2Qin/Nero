@@ -52,6 +52,7 @@ const TABS = [
 ];
 
 const SUPPORT_EMAIL = import.meta.env.VITE_SUPPORT_EMAIL || "support@nero.cash";
+const MOBILE_INVOICE_PREVIEW_COUNT = 8;
 
 function parseDate(value) {
   return new Date(`${value}T00:00:00Z`);
@@ -828,6 +829,7 @@ function Dashboard({
   const businessName = businessNameFor(data.dataSource);
   const actionBlockReason = xeroActionBlockReason(data.dataSource, data.xeroStatus, data.xeroTenants);
   const [invoiceSort, requestInvoiceSort] = useSort("due_date", "asc");
+  const [showAllMobileInvoices, setShowAllMobileInvoices] = useState(false);
   const forecastAsOf = forecastAsOfValue(data.forecast);
   const cutoff = addDays(todayForForecast(data.forecast), 30);
   const dueNext30 = data.invoices
@@ -893,6 +895,8 @@ function Dashboard({
       }),
     [data.invoices, invoiceSort, proposalByInvoice]
   );
+  const mobileInvoices = showAllMobileInvoices ? sortedInvoices : sortedInvoices.slice(0, MOBILE_INVOICE_PREVIEW_COUNT);
+  const hasMoreMobileInvoices = sortedInvoices.length > MOBILE_INVOICE_PREVIEW_COUNT;
 
   return (
     <main className="content">
@@ -1059,7 +1063,7 @@ function Dashboard({
               </table>
             </div>
             <div className="mobile-invoice-list">
-              {sortedInvoices.map((invoice) => {
+              {mobileInvoices.map((invoice) => {
                 const predictedDate = invoice.accelerated_paid_date || invoice.predicted_paid_date;
                 const proposal = proposalByInvoice.get(invoice.id);
                 return (
@@ -1102,7 +1106,16 @@ function Dashboard({
                   </article>
                 );
               })}
-              {data.invoices.length === 0 && (
+              {hasMoreMobileInvoices && (
+                <button
+                  className="button ghost btn btn-ghost btn-sm mobile-invoice-toggle"
+                  type="button"
+                  onClick={() => setShowAllMobileInvoices((current) => !current)}
+                >
+                  {showAllMobileInvoices ? "Show fewer invoices" : `Show all ${sortedInvoices.length} invoices`}
+                </button>
+              )}
+              {sortedInvoices.length === 0 && (
                 <div className="empty inline-empty">No open invoices. Sync Xero to pull the latest records.</div>
               )}
             </div>

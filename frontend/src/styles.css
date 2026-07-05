@@ -1254,6 +1254,10 @@ tbody tr:hover {
   color: var(--fgColor-accent);
 }
 
+.mobile-invoice-toggle {
+  width: 100%;
+}
+
 .payers-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;

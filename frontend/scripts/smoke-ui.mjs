@@ -758,6 +758,22 @@ async function runSmoke() {
     if (!(await mobilePage.locator(".mobile-invoice-card").first().isVisible())) {
       throw new Error("Mobile invoice cards were not visible at phone width");
     }
+    const mobileCardsBeforeExpand = await mobilePage.locator(".mobile-invoice-card").count();
+    if (mobileCardsBeforeExpand > 8) {
+      throw new Error(`Mobile invoice list rendered too many cards before expand: ${mobileCardsBeforeExpand}`);
+    }
+    const showAllInvoices = mobilePage.getByRole("button", { name: /Show all \d+ invoices/ });
+    await showAllInvoices.waitFor();
+    await showAllInvoices.click();
+    const mobileCardsAfterExpand = await mobilePage.locator(".mobile-invoice-card").count();
+    if (mobileCardsAfterExpand <= mobileCardsBeforeExpand) {
+      throw new Error(`Mobile invoice list did not expand: ${mobileCardsBeforeExpand} -> ${mobileCardsAfterExpand}`);
+    }
+    await mobilePage.getByRole("button", { name: "Show fewer invoices" }).click();
+    const mobileCardsAfterCollapse = await mobilePage.locator(".mobile-invoice-card").count();
+    if (mobileCardsAfterCollapse !== mobileCardsBeforeExpand) {
+      throw new Error(`Mobile invoice list did not collapse back: ${mobileCardsAfterCollapse}`);
+    }
     await mobilePage.close();
 
     await page.keyboard.press("Control+Shift+D");
