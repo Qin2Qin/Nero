@@ -115,6 +115,22 @@ def _carry_forward_proposals(previous_state: dict | None, current_invoice_ids: s
     return carried
 
 
+def _carry_forward_outbox(previous_state: dict | None, current_invoice_ids: set[str]) -> list[dict]:
+    carried: list[dict] = []
+    for entry in (previous_state or {}).get("outbox", []):
+        next_entry = dict(entry)
+        invoice_id = next_entry.get("invoice_id")
+        if invoice_id and invoice_id not in current_invoice_ids:
+            next_entry["status"] = "stale"
+            next_entry["send_disabled_reason"] = "This invoice is no longer open in Xero."
+        else:
+            if next_entry.get("status") == "stale":
+                next_entry.pop("status", None)
+            next_entry.pop("send_disabled_reason", None)
+        carried.append(next_entry)
+    return carried
+
+
 def _apply_approved_accelerations(state: dict, today: date) -> None:
     invoices_by_id = {invoice.get("id"): invoice for invoice in state.get("invoices", [])}
     for proposal in state.get("proposals", []):
@@ -251,16 +267,18 @@ def build_state_from_xero(
         if tenant_name and "demo" in tenant_name.lower()
         else "Synced from the selected Xero organisation."
     )
+    current_invoice_ids = {invoice["id"] for invoice in predicted}
+    current_contact_ids = {profile["id"] for profile in profiles}
     carried_proposals = (
         _carry_forward_proposals(
             previous_state,
-            {invoice["id"] for invoice in predicted},
-            {profile["id"] for profile in profiles},
+            current_invoice_ids,
+            current_contact_ids,
         )
         if same_tenant
         else []
     )
-    carried_outbox = list((previous_state or {}).get("outbox", [])) if same_tenant else []
+    carried_outbox = _carry_forward_outbox(previous_state, current_invoice_ids) if same_tenant else []
     carried_activity = list((previous_state or {}).get("action_log", [])) if same_tenant else []
     state = {
         "contacts": profiles,

@@ -234,6 +234,58 @@ def test_build_state_from_xero_preserves_same_tenant_decisions() -> None:
     assert invoice["accelerated_paid_date"] < invoice["predicted_paid_date"]
 
 
+def test_build_state_from_xero_disables_outbox_drafts_for_closed_invoices() -> None:
+    state = xero_sync.build_state_from_xero(
+        contacts=[{"ContactID": "contact-1", "Name": "Demo Retail"}],
+        invoices=[
+            {
+                "InvoiceID": "closed-1",
+                "InvoiceNumber": "PAID-1",
+                "Status": "PAID",
+                "Contact": {"ContactID": "contact-1", "Name": "Demo Retail"},
+                "DateString": "2026-06-01",
+                "DueDateString": "2026-06-15",
+                "FullyPaidOnDate": "2026-06-20",
+                "AmountPaid": 2500,
+                "Total": 2500,
+            }
+        ],
+        payments=[],
+        tenant_id="demo-tenant",
+        tenant_name="Demo Company (UK)",
+        previous_state={
+            "data_source": {"mode": "xero", "tenant_id": "demo-tenant"},
+            "proposals": [
+                {
+                    "id": "approved-closed-1",
+                    "type": "reminder",
+                    "contact_id": "contact-1",
+                    "contact_name": "Demo Retail",
+                    "invoice_id": "closed-1",
+                    "status": "approved",
+                }
+            ],
+            "outbox": [
+                {
+                    "id": "outbox-closed-1",
+                    "timestamp": "2026-07-05T03:00:00+00:00",
+                    "to": "Demo Retail",
+                    "to_email": "accounts@demoretail.example.com",
+                    "subject": "Reminder: PAID-1",
+                    "body": "Please pay PAID-1.",
+                    "invoice_id": "closed-1",
+                    "proposal_id": "approved-closed-1",
+                }
+            ],
+            "action_log": [],
+        },
+    )
+
+    assert state["invoices"] == []
+    assert state["outbox"][0]["status"] == "stale"
+    assert state["outbox"][0]["send_disabled_reason"] == "This invoice is no longer open in Xero."
+
+
 def test_build_state_from_xero_does_not_preserve_other_tenant_decisions() -> None:
     state = xero_sync.build_state_from_xero(
         contacts=[{"ContactID": "contact-1", "Name": "Demo Retail"}],

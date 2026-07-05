@@ -1537,6 +1537,14 @@ pre {
   font-size: 13px;
 }
 
+.outbox-row-stale {
+  color: var(--fgColor-muted);
+}
+
+.outbox-row-stale .message-preview summary {
+  color: var(--fgColor-muted);
+}
+
 .outbox-actions {
   display: inline-flex;
   flex-wrap: wrap;

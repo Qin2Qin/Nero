@@ -326,6 +326,41 @@ async function runSmoke() {
   }
   await tenantMismatchPage.close();
 
+  const staleOutboxPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await staleOutboxPage.route("**/api/outbox", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "stale-outbox-1",
+          timestamp: "2026-07-05T03:00:00+00:00",
+          to: "Demo Retail",
+          to_email: "accounts@demoretail.example.com",
+          subject: "Reminder: PAID-1",
+          body: "Please pay PAID-1.",
+          invoice_id: "paid-1",
+          proposal_id: "proposal-paid-1",
+          status: "stale",
+          send_disabled_reason: "This invoice is no longer open in Xero."
+        }
+      ])
+    })
+  );
+  await staleOutboxPage.goto(frontendUrl, { waitUntil: "networkidle" });
+  await staleOutboxPage.getByRole("button", { name: "Outbox" }).click();
+  await staleOutboxPage.getByRole("heading", { name: "Outbox" }).waitFor();
+  await staleOutboxPage.getByText("Closed in Xero").waitFor();
+  if (await staleOutboxPage.getByRole("link", { name: "Open draft" }).count()) {
+    throw new Error("Closed Xero invoice still exposed a sendable outbox draft");
+  }
+  const staleCopyButton = staleOutboxPage.getByRole("button", { name: "Copy" }).first();
+  await staleCopyButton.waitFor();
+  if (!(await staleCopyButton.isDisabled())) {
+    throw new Error("Closed Xero invoice outbox draft could still be copied");
+  }
+  await staleOutboxPage.close();
+
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   const browserErrors = [];
   const initialReadPreflights = [];

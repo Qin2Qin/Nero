@@ -435,6 +435,12 @@ function mailtoDraftHref(entry) {
   return `mailto:${recipient}?subject=${subject}&body=${body}`;
 }
 
+function outboxSendDisabledReason(entry) {
+  if (entry.send_disabled_reason) return entry.send_disabled_reason;
+  if (!entry.to_email) return "Add this customer's email address in Xero, then sync Nero.";
+  return "";
+}
+
 async function copyToClipboard(text) {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(text);
@@ -1517,41 +1523,51 @@ function Outbox({ outbox }) {
               </tr>
             </thead>
             <tbody>
-              {sorted.map((entry) => (
-                <tr key={entry.id}>
-                  <td>{formatDateTime(entry.timestamp)}</td>
-                  <td>{entry.to}</td>
-                  <td className="recipient-cell">
-                    {entry.to_email ? (
-                      <span className="recipient-email">{entry.to_email}</span>
-                    ) : (
-                      <span className="badge attention">No email in Xero</span>
-                    )}
-                  </td>
-                  <td>
-                    <details className="message-preview">
-                      <summary>{entry.subject}</summary>
-                      <pre>{entry.body}</pre>
-                    </details>
-                  </td>
-                  <td className="right">
-                    <div className="outbox-actions">
+              {sorted.map((entry) => {
+                const disabledReason = outboxSendDisabledReason(entry);
+                const staleDraft = entry.status === "stale";
+                return (
+                  <tr className={staleDraft ? "outbox-row-stale" : ""} key={entry.id}>
+                    <td>{formatDateTime(entry.timestamp)}</td>
+                    <td>{entry.to}</td>
+                    <td className="recipient-cell">
                       {entry.to_email ? (
-                        <a className="button ghost btn btn-ghost btn-xs outbox-draft-link" href={mailtoDraftHref(entry)}>
-                          <ExternalLink size={14} /> Open draft
-                        </a>
+                        <span className="recipient-email">{entry.to_email}</span>
                       ) : (
-                        <span className="draft-disabled" title="Add this customer's email address in Xero, then sync Nero.">
-                          Add email first
-                        </span>
+                        <span className="badge attention">No email in Xero</span>
                       )}
-                      <button className="button ghost btn btn-ghost btn-xs" type="button" onClick={() => copyDraft(entry)}>
-                        {copiedId === entry.id ? "Copied" : "Copy"}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td>
+                      <details className="message-preview">
+                        <summary>{entry.subject}</summary>
+                        <pre>{entry.body}</pre>
+                      </details>
+                    </td>
+                    <td className="right">
+                      <div className="outbox-actions">
+                        {disabledReason ? (
+                          <span className="draft-disabled" title={disabledReason}>
+                            {staleDraft ? "Closed in Xero" : "Add email first"}
+                          </span>
+                        ) : (
+                          <a className="button ghost btn btn-ghost btn-xs outbox-draft-link" href={mailtoDraftHref(entry)}>
+                            <ExternalLink size={14} /> Open draft
+                          </a>
+                        )}
+                        <button
+                          className="button ghost btn btn-ghost btn-xs"
+                          type="button"
+                          onClick={() => copyDraft(entry)}
+                          disabled={staleDraft}
+                          title={staleDraft ? disabledReason : "Copy draft wording"}
+                        >
+                          {copiedId === entry.id ? "Copied" : "Copy"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {sorted.length === 0 && (
                 <tr>
                   <td colSpan="5">
