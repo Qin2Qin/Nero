@@ -25,7 +25,7 @@ Judging emphasis from the programme page:
 Backend OAuth and tenant management:
 
 - `GET /auth/login` starts Xero OAuth.
-- `GET /auth/callback` exchanges the OAuth code, stores token metadata in SQLite, and redirects back to Nero with a plain "Xero connected" prompt.
+- `GET /auth/callback` exchanges the OAuth code, stores token metadata in SQLite, and redirects back to Nero with plain connected or recovery copy.
 - `DELETE /auth/connection` removes locally stored OAuth tokens so a user can disconnect this device before reconnecting.
 - `GET /api/xero/status` reports connection health without printing secrets.
 - `GET /api/xero/tenants` lists authorised organisations.

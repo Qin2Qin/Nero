@@ -105,6 +105,18 @@ async function runSmoke() {
   }
   await connectedReturnPage.close();
 
+  const erroredReturnPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await erroredReturnPage.goto(
+    `${frontendUrl}/?xero=error&message=${encodeURIComponent("Xero connection was cancelled. Try Connect Xero again when ready.")}`,
+    { waitUntil: "networkidle" }
+  );
+  await erroredReturnPage.getByText("Xero connection was cancelled. Try Connect Xero again when ready.").waitFor();
+  const erroredUrl = new URL(erroredReturnPage.url());
+  if (erroredUrl.searchParams.has("xero") || erroredUrl.searchParams.has("message")) {
+    throw new Error(`OAuth error query was not cleared: ${erroredReturnPage.url()}`);
+  }
+  await erroredReturnPage.close();
+
   const reconnectPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   const reconnectTenantRequests = [];
   reconnectPage.on("request", (request) => {

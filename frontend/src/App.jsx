@@ -382,6 +382,9 @@ function syncSummary(result) {
   if (result.status === "connected") {
     return result.detail || "Xero connected. Click Sync Xero to pull the latest records.";
   }
+  if (result.status === "error") {
+    return result.detail || "Xero connection could not be completed. Try Connect Xero again.";
+  }
   if (result.status === "disconnected") {
     return result.detail || "Disconnected Xero locally. Reconnect before syncing again.";
   }
@@ -410,6 +413,7 @@ function syncSummary(result) {
 }
 
 function syncResultClass(result) {
+  if (result?.status === "error") return "sync-result warning";
   if (result?.empty || result?.materialized === null) return "sync-result warning";
   return "sync-result";
 }
@@ -1688,12 +1692,15 @@ export function App() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("xero") !== "connected") return;
-    setSyncResult({
-      status: "connected",
-      detail: "Xero connected. Click Sync Xero to pull the latest records."
-    });
+    const xeroReturn = params.get("xero");
+    if (!["connected", "error"].includes(xeroReturn)) return;
+    const detail =
+      xeroReturn === "connected"
+        ? "Xero connected. Click Sync Xero to pull the latest records."
+        : params.get("message") || "Xero connection could not be completed. Try Connect Xero again.";
+    setSyncResult({ status: xeroReturn, detail });
     params.delete("xero");
+    params.delete("message");
     const query = params.toString();
     const nextUrl = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
     window.history.replaceState({}, "", nextUrl || "/");

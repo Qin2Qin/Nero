@@ -21,21 +21,20 @@ def login() -> RedirectResponse:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-def _xero_error_detail(exc: httpx.HTTPStatusError) -> str:
-    try:
-        body = exc.response.json()
-    except ValueError:
-        body = {}
-    error = body.get("error") or f"HTTP {exc.response.status_code}"
-    description = body.get("error_description")
-    if description:
-        return f"Xero token exchange failed: {error} - {description}"
-    return f"Xero token exchange failed: {error}"
+def _frontend_return_url(status: str, message: str | None = None) -> str:
+    origin = (get_settings().frontend_origins or ("http://localhost:5173",))[0].rstrip("/")
+    params = {"xero": status}
+    if message:
+        params["message"] = message
+    return f"{origin}/?{urlencode(params)}"
 
 
 def _frontend_connected_url() -> str:
-    origin = (get_settings().frontend_origins or ("http://localhost:5173",))[0].rstrip("/")
-    return f"{origin}/?{urlencode({'xero': 'connected'})}"
+    return _frontend_return_url("connected")
+
+
+def _frontend_error_url(message: str) -> str:
+    return _frontend_return_url("error", message)
 
 
 @router.get("/callback")
@@ -45,18 +44,27 @@ def callback(
     error_description: Optional[str] = None,
 ) -> RedirectResponse:
     if error:
-        detail = f"Xero authorization failed: {error}"
-        if error_description:
-            detail = f"{detail} - {error_description}"
-        raise HTTPException(status_code=400, detail=detail)
+        message = "Xero connection was cancelled. Try Connect Xero again when ready."
+        if error != "access_denied":
+            message = "Xero connection could not be completed. Try Connect Xero again."
+        return RedirectResponse(_frontend_error_url(message), status_code=303)
     if not code:
-        raise HTTPException(status_code=400, detail="Xero authorization failed: missing authorization code")
+        return RedirectResponse(
+            _frontend_error_url("Xero did not send a connection code. Try Connect Xero again."),
+            status_code=303,
+        )
     try:
         store_callback_tokens(code)
-    except RuntimeError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except httpx.HTTPStatusError as exc:
-        raise HTTPException(status_code=400, detail=_xero_error_detail(exc)) from exc
+    except RuntimeError:
+        return RedirectResponse(
+            _frontend_error_url("Xero connection could not be completed. Try Connect Xero again."),
+            status_code=303,
+        )
+    except httpx.HTTPStatusError:
+        return RedirectResponse(
+            _frontend_error_url("Xero connection could not be completed. Try Connect Xero again."),
+            status_code=303,
+        )
     return RedirectResponse(_frontend_connected_url(), status_code=303)
 
 
