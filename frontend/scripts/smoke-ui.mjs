@@ -56,6 +56,28 @@ async function expectText(locator, pattern, label) {
   }
 }
 
+async function expectForecastChartRendered(page) {
+  const chart = page.getByRole("img", { name: "Cash forecast", exact: true });
+  await chart.waitFor({ state: "visible", timeout: 8000 });
+  await page.getByText("Loading forecast").waitFor({ state: "detached", timeout: 8000 });
+
+  const box = await chart.boundingBox();
+  if (!box || box.width < 500 || box.height < 250) {
+    throw new Error(`Forecast chart rendered at an invalid size: ${JSON.stringify(box)}`);
+  }
+
+  const linePaths = chart.locator(".recharts-line-curve");
+  const lineCount = await linePaths.count();
+  if (lineCount < 3) throw new Error(`Expected at least 3 rendered forecast lines, saw ${lineCount}`);
+
+  const pathLengths = await linePaths.evaluateAll((paths) =>
+    paths.map((path) => Math.round(typeof path.getTotalLength === "function" ? path.getTotalLength() : 0))
+  );
+  if (pathLengths.some((length) => length <= 0)) {
+    throw new Error(`Forecast chart rendered collapsed line paths: ${pathLengths.join(", ")}`);
+  }
+}
+
 async function runSmoke() {
   spawnManaged(resolve(rootDir, ".venv/bin/python"), ["-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", String(backendPort)], {
     cwd: backendDir,
@@ -519,9 +541,7 @@ async function runSmoke() {
     await page.getByRole("heading", { name: "Actions to review" }).waitFor();
     await page.getByRole("button", { name: "Dashboard" }).click();
     await page.getByRole("heading", { name: "Nero" }).waitFor();
-    await page.locator(".recharts-wrapper").waitFor();
-    const lineCount = await page.locator(".recharts-line-curve").count();
-    if (lineCount < 3) throw new Error(`Expected at least 3 rendered forecast lines, saw ${lineCount}`);
+    await expectForecastChartRendered(page);
     await expectText(page.locator(".cash-floor-readout"), /£42,000/, "cash floor readout");
     await page.getByText(/Connect Xero|Sync Xero|Xero setup needed/).first().waitFor();
     const connectXeroLink = page.getByRole("link", { name: "Connect Xero" });
