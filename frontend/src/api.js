@@ -370,7 +370,7 @@ export async function editProposal(id, draftBody) {
   return proposal;
 }
 
-export async function runAgent() {
+export async function findActions() {
   if (!USE_FIXTURES) return request("/api/agent/run", { method: "POST" });
   localState.action_log.unshift({
     id: `agent-${Date.now()}`,

@@ -38,9 +38,9 @@ import {
   dismissProposal,
   editProposal,
   fetchAll,
+  findActions,
   markPaid,
   money,
-  runAgent,
   scanResearch,
   seedSyntheticPortfolio,
   selectXeroTenant,
@@ -801,7 +801,7 @@ function LiveXeroControls({ status, tenants, source, busy, onSyncXero, onSelectT
 function Dashboard({
   data,
   cashDisplay,
-  onRunAgent,
+  onFindActions,
   onSyncXero,
   onSelectTenant,
   onUpdateCashFloor,
@@ -862,7 +862,7 @@ function Dashboard({
   const pendingSummary =
     pendingImpact > 0 && pendingActions > 0
       ? `Review ${pendingActions} suggested ${plural(pendingActions, "action")} to bring ${formatCurrency(pendingImpact)} forward${pendingDaysPhrase}. Nothing is sent without your OK.`
-      : "Run the agent when new invoices arrive, then review each suggestion before anything is sent.";
+      : "When new invoices arrive, find actions and review each suggestion before anything is sent.";
   const openInvoiceCount = data.invoices.length;
   const agedReceivables = data.metrics?.aged_receivables || agedReceivablesFromInvoices(data.invoices, forecastAsOf);
   const sortedInvoices = useMemo(
@@ -894,8 +894,8 @@ function Dashboard({
             onSyncXero={onSyncXero}
             onSelectTenant={onSelectTenant}
           />
-          <button className="button primary btn btn-primary btn-sm" onClick={onRunAgent} disabled={busy}>
-            <Play size={16} /> Run agent
+          <button className="button primary btn btn-primary btn-sm" onClick={onFindActions} disabled={busy}>
+            <Play size={16} /> Find actions
           </button>
         </div>
       </div>
@@ -1621,7 +1621,7 @@ export function App() {
           data={data}
           cashDisplay={cashDisplay}
           busy={busy}
-          onRunAgent={() => act(runAgent)}
+          onFindActions={() => act(findActions)}
           onSyncXero={() => act(async () => setSyncResult(await syncXero()))}
           onSelectTenant={(tenantId) => act(async () => setSyncResult(await selectXeroTenant(tenantId)))}
           onUpdateCashFloor={(cashFloor) => act(() => updateCashFloor(cashFloor))}
