@@ -236,11 +236,22 @@ async function runSmoke() {
     await page.getByRole("button", { name: "Actions" }).click();
     await page.getByRole("heading", { name: "Actions to review" }).waitFor();
     await page.getByText(/Send reminder|Send firmer reminder|Ask for deposit|Change payment terms/).first().waitFor();
-    const impactAmounts = (await page.locator(".proposal-card .impact").allTextContents()).map((text) =>
-      Number((text.match(/£([\d,]+)/)?.[1] || "0").replace(/,/g, ""))
+    const actionCards = await page.locator(".proposal-card").evaluateAll((cards) =>
+      cards.map((card) => ({
+        priority: Number(card.getAttribute("data-priority") || "0"),
+        impact: Number((card.querySelector(".impact")?.textContent || "").match(/£([\d,]+)/)?.[1]?.replace(/,/g, "") || "0"),
+        text: card.textContent || ""
+      }))
     );
-    if (impactAmounts.length > 1 && impactAmounts.some((amount, index) => index > 0 && amount > impactAmounts[index - 1])) {
-      throw new Error(`Action cards were not sorted by cash impact: ${impactAmounts.join(", ")}`);
+    for (let index = 1; index < actionCards.length; index += 1) {
+      const previous = actionCards[index - 1];
+      const current = actionCards[index];
+      if (current.priority < previous.priority) {
+        throw new Error(`Action cards were not sorted by actionability: ${JSON.stringify(actionCards, null, 2)}`);
+      }
+      if (current.priority === previous.priority && current.impact > previous.impact) {
+        throw new Error(`Action cards were not sorted by cash impact within an actionability group: ${JSON.stringify(actionCards, null, 2)}`);
+      }
     }
     await page.getByText(/Could bring £[\d,]+ forward about \d+ days? sooner\./).first().waitFor();
     await page.getByText("Approve to keep the draft in Outbox. Nothing is sent automatically.").first().waitFor();

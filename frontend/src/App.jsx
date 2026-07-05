@@ -281,6 +281,12 @@ function proposalActionCopy(proposal) {
   };
 }
 
+function proposalActionPriority(proposal) {
+  if (proposal.draft_subject && proposal.contact_email) return 0;
+  if (!proposal.draft_subject) return 1;
+  return 2;
+}
+
 function approvalOutcomeText(proposal, dataSource) {
   if (!proposal.draft_subject) return "Approve to record this decision in Activity. Nothing is sent automatically.";
   if (dataSource?.mode === "xero" && proposal.invoice_id) {
@@ -1292,6 +1298,8 @@ function AgentQueue({ proposals, dataSource, onApprove, onDismiss, onEdit, busy 
       proposals
         .filter((proposal) => proposal.status === "pending")
         .sort((a, b) => {
+          const priorityDiff = proposalActionPriority(a) - proposalActionPriority(b);
+          if (priorityDiff !== 0) return priorityDiff;
           const impactDiff = Number(b.expected_impact_dollars || 0) - Number(a.expected_impact_dollars || 0);
           if (impactDiff !== 0) return impactDiff;
           const daysDiff = Number(b.expected_days_accelerated || 0) - Number(a.expected_days_accelerated || 0);
@@ -1320,7 +1328,7 @@ function AgentQueue({ proposals, dataSource, onApprove, onDismiss, onEdit, busy 
           const draftBody = drafts[proposal.id] ?? proposal.draft_body ?? "";
           const copy = proposalActionCopy(proposal);
           return (
-            <article className="proposal-card" key={proposal.id}>
+            <article className="proposal-card" key={proposal.id} data-priority={proposalActionPriority(proposal)}>
               <div className="proposal-top">
                 <span className="badge badge-neutral">{copy.label}</span>
                 <strong>{proposal.contact_name}</strong>
