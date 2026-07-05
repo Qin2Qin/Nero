@@ -105,6 +105,13 @@ async function ensureLocalState() {
         }
       ]
     },
+    aiStatus: {
+      enabled: false,
+      provider: null,
+      model: "",
+      mode: "disabled",
+      detail: "AI draft polishing is disabled."
+    },
     xeroStatus: {
       connected: false,
       tenant_id: null,
@@ -271,6 +278,7 @@ export async function fetchAll() {
       settings: state.settings,
       dataSource: state.dataSource,
       appStoreReadiness: state.appStoreReadiness,
+      aiStatus: state.aiStatus,
       xeroStatus: state.xeroStatus,
       xeroTenants: state.xeroTenants
     };
@@ -288,6 +296,7 @@ export async function fetchAll() {
     settingsData,
     dataSourceData,
     appStoreReadinessData,
+    aiStatusData,
     xeroStatusData
   ] =
     await Promise.all([
@@ -302,6 +311,7 @@ export async function fetchAll() {
       request("/api/settings"),
       request("/api/data_source"),
       request("/api/app_store/readiness"),
+      optionalRequest("/api/ai/status", { enabled: false, provider: null, model: "", mode: "disabled", detail: "AI draft polishing is disabled." }),
       request("/api/xero/status")
     ]);
   const shouldLoadTenants = xeroStatusData.connected && !xeroStatusData.demo_mode && !xeroStatusData.expired && !xeroStatusData.refresh_error;
@@ -321,6 +331,7 @@ export async function fetchAll() {
     settings: settingsData,
     dataSource: dataSourceData,
     appStoreReadiness: appStoreReadinessData,
+    aiStatus: aiStatusData,
     xeroStatus: xeroStatusData,
     xeroTenants: xeroTenantsData
   };
@@ -392,6 +403,18 @@ export async function editProposal(id, draftBody) {
     });
   }
   return proposal;
+}
+
+export async function polishProposal(id, draftBody) {
+  if (!USE_FIXTURES) {
+    return request(`/api/proposals/${id}/polish`, {
+      method: "POST",
+      body: JSON.stringify({ draft_body: draftBody })
+    });
+  }
+  const state = await ensureLocalState();
+  const proposal = state.proposals.find((item) => item.id === id);
+  return { proposal, ai: { status: "skipped", reason: "AI draft polishing is disabled in fixture mode." } };
 }
 
 export async function findActions() {

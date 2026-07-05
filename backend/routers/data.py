@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 
+from services.ai_copy import ai_copy_status
 from services.app_store_readiness import app_store_readiness
 from services.state import compute_metrics, current_forecast, data_source, get_state
 from services.statements import build_statement, render_statement_html
@@ -86,3 +87,8 @@ def source() -> dict:
 @router.get("/app_store/readiness")
 def app_store() -> dict:
     return app_store_readiness()
+
+
+@router.get("/ai/status")
+def ai_status() -> dict:
+    return ai_copy_status().as_dict()

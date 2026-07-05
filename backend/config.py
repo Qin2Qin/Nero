@@ -76,6 +76,10 @@ class Settings:
     xero_token_expires_in: int
     xero_webhook_key: str
     xero_app_store_subscriptions_configured: bool
+    ai_copy_enabled: bool
+    openrouter_api_key: str
+    openrouter_model: str
+    openrouter_base_url: str
     cash_floor: int
     frontend_origins: tuple[str, ...]
     database_path: Path
@@ -96,6 +100,10 @@ def get_settings() -> Settings:
         xero_token_expires_in=int(os.getenv("XERO_TOKEN_EXPIRES_IN", "1800")),
         xero_webhook_key=os.getenv("XERO_WEBHOOK_KEY", ""),
         xero_app_store_subscriptions_configured=_as_bool(os.getenv("XERO_APP_STORE_SUBSCRIPTIONS_CONFIGURED"), False),
+        ai_copy_enabled=_as_bool(os.getenv("NERO_AI_COPY_ENABLED"), False),
+        openrouter_api_key=os.getenv("OPENROUTER_API_KEY", ""),
+        openrouter_model=os.getenv("OPENROUTER_MODEL", ""),
+        openrouter_base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1/chat/completions"),
         cash_floor=int(os.getenv("CASH_FLOOR", "5000")),
         frontend_origins=origins,
         database_path=Path(os.getenv("NERO_DB_PATH", Path(__file__).with_name("nero.db"))),

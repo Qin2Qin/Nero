@@ -77,6 +77,10 @@ XERO_TOKEN_EXPIRES_AT=
 XERO_TOKEN_EXPIRES_IN=1800
 XERO_WEBHOOK_KEY=
 XERO_APP_STORE_SUBSCRIPTIONS_CONFIGURED=false
+NERO_AI_COPY_ENABLED=false
+OPENROUTER_API_KEY=
+OPENROUTER_MODEL=
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1/chat/completions
 DEMO_MODE=false
 FRONTEND_ORIGINS=http://localhost:5173,http://localhost:3000
 ```
@@ -173,6 +177,14 @@ curl -X POST http://localhost:8000/api/sync
 `scripts/import_xero_tokens.py` reads `.env`/shell values and prints only status,
 tenant, and expiry metadata. It never prints access or refresh tokens. Use
 `--overwrite` only when you intentionally want to replace the locally saved token set.
+
+Optional AI draft polishing:
+
+- Keep `NERO_AI_COPY_ENABLED=false` for the deterministic baseline.
+- To enable owner-triggered draft polishing, set `NERO_AI_COPY_ENABLED=true`,
+  `OPENROUTER_API_KEY`, and an `OPENROUTER_MODEL` ending in `:free`.
+- The feature is review-only: it rewrites draft wording in Actions, then the
+  owner still edits and approves before anything reaches Outbox.
 
 Synthetic portfolio seed:
 

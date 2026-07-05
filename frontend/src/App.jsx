@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Search,
   Send,
+  Sparkles,
   TrendingDown,
   TrendingUp,
   Users,
@@ -31,6 +32,7 @@ import {
   findActions,
   markPaid,
   money,
+  polishProposal,
   scanResearch,
   seedSyntheticPortfolio,
   selectXeroTenant,
@@ -1276,7 +1278,7 @@ function Payers({ contacts, invoices = [] }) {
   );
 }
 
-function AgentQueue({ proposals, dataSource, approvalBlockedReason = "", onApprove, onDismiss, onEdit, busy }) {
+function AgentQueue({ proposals, dataSource, aiStatus, approvalBlockedReason = "", onApprove, onDismiss, onEdit, onPolish, busy }) {
   const [drafts, setDrafts] = useState({});
   const pending = useMemo(
     () =>
@@ -1309,6 +1311,14 @@ function AgentQueue({ proposals, dataSource, approvalBlockedReason = "", onAppro
     const savedDraft = proposal.draft_body ?? "";
     const changedDraft = proposal.draft_subject && draftBody !== savedDraft ? draftBody : undefined;
     onApprove(proposal.id, changedDraft);
+  }
+
+  async function polishCurrentDraft(proposal, draftBody) {
+    const result = await onPolish(proposal.id, draftBody);
+    const polished = result?.proposal?.draft_body;
+    if (polished) {
+      setDrafts((current) => ({ ...current, [proposal.id]: polished }));
+    }
   }
 
   return (
@@ -1382,6 +1392,16 @@ function AgentQueue({ proposals, dataSource, approvalBlockedReason = "", onAppro
                     title={approvalBlockedReason || "Save wording"}
                   >
                     Save wording
+                  </button>
+                )}
+                {proposal.draft_subject && proposal.contact_email && aiStatus?.enabled && (
+                  <button
+                    className="button ghost btn btn-ghost btn-sm"
+                    disabled={busy || Boolean(approvalBlockedReason)}
+                    onClick={() => polishCurrentDraft(proposal, draftBody)}
+                    title={approvalBlockedReason || "Polish wording with review-only AI"}
+                  >
+                    <Sparkles size={16} /> Polish wording
                   </button>
                 )}
                 <button
@@ -1703,10 +1723,12 @@ export function App() {
     setBusy(true);
     setError("");
     try {
-      await fn();
+      const result = await fn();
       await refresh();
+      return result;
     } catch (err) {
       setError(err.message);
+      return null;
     } finally {
       setBusy(false);
     }
@@ -1745,6 +1767,7 @@ export function App() {
         <AgentQueue
           proposals={data.proposals}
           dataSource={data.dataSource}
+          aiStatus={data.aiStatus}
           approvalBlockedReason={xeroActionBlockReason(data.dataSource, data.xeroStatus, data.xeroTenants)}
           busy={busy}
           onApprove={(id, draftBody) =>
@@ -1755,6 +1778,7 @@ export function App() {
           }
           onDismiss={(id) => act(() => dismissProposal(id))}
           onEdit={(id, body) => act(() => editProposal(id, body))}
+          onPolish={(id, body) => act(() => polishProposal(id, body))}
         />
       );
     }

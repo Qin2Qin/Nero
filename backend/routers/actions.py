@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from config import get_settings
+from services.ai_copy import polish_draft_body
 from services.agent_service import run_agent_cycle
 from services.state import (
     append_log,
@@ -27,6 +30,10 @@ router = APIRouter(prefix="/api", tags=["actions"])
 
 class EditProposalRequest(BaseModel):
     draft_body: str
+
+
+class PolishProposalRequest(BaseModel):
+    draft_body: Optional[str] = None
 
 
 class MarkPaidRequest(BaseModel):
@@ -131,6 +138,28 @@ def edit(proposal_id: str, request: EditProposalRequest) -> dict:
         raise HTTPException(status_code=404, detail="proposal not found") from exc
     save_state(state)
     return proposal
+
+
+@router.post("/proposals/{proposal_id}/polish")
+def polish(proposal_id: str, request: PolishProposalRequest) -> dict:
+    state = get_state()
+    ensure_xero_action_change_allowed(state)
+    proposal = next((item for item in state["proposals"] if item["id"] == proposal_id), None)
+    if proposal is None:
+        raise HTTPException(status_code=404, detail="proposal not found")
+    if proposal.get("status") != "pending":
+        return {"proposal": proposal, "ai": {"status": "skipped", "reason": "proposal is not pending"}}
+    if not proposal.get("draft_subject"):
+        raise HTTPException(status_code=400, detail="Only customer email drafts can be polished.")
+    draft_body = request.draft_body if request.draft_body is not None else proposal.get("draft_body", "")
+    try:
+        result = polish_draft_body(proposal, draft_body)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    proposal["draft_body"] = result["draft_body"]
+    append_log(state, "Nero", f"Polished draft wording for {proposal['contact_name']}. Review it before approving.")
+    save_state(state)
+    return {"proposal": proposal, "ai": {key: value for key, value in result.items() if key != "draft_body"}}
 
 
 @router.post("/agent/run")

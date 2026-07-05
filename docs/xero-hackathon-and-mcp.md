@@ -34,7 +34,7 @@ Nero's evidence map for judging:
 - Xero APIs: live OAuth, tenant discovery, contacts, invoices, online invoice links, payments, and approved invoice history notes.
 - MCP Server: official remote MCP availability is tracked below; do not fake MCP usage if the connector is unavailable in this Codex workspace.
 - CLI tooling: repo scripts cover OAuth validation, token import, research monitoring, backend smoke checks, and the bounded Codex development loop.
-- AI toolkit / agent workflow: deterministic local agent logic scores Xero invoices, drafts safe next steps, and requires owner approval before anything leaves the app.
+- AI toolkit / agent workflow: deterministic local agent logic scores Xero invoices, drafts safe next steps, and optional free-model OpenRouter polishing can improve owner-reviewed wording when explicitly configured.
 - Business impact: dashboard shows money currently at risk, likely cash timing, reviewable actions, and the expected cash/days brought forward.
 
 The short presentation flow lives in `docs/demo-script.md`.
@@ -69,11 +69,11 @@ The current MVP keeps customer-facing emails in a sandbox Outbox. That is delibe
 
 ## AI Toolkit And Agent Boundary
 
-Nero's current agent is intentionally deterministic: it reads Xero contacts, invoices, payments, and payer behaviour; ranks the most useful next actions; drafts owner-reviewable reminders or terms recommendations; and blocks risky actions when a customer email or current Xero tenant is missing. This keeps the hackathon demo reliable and explainable for a small business owner.
+Nero's current agent is intentionally deterministic by default: it reads Xero contacts, invoices, payments, and payer behaviour; ranks the most useful next actions; drafts owner-reviewable reminders or terms recommendations; and blocks risky actions when a customer email or current Xero tenant is missing. This keeps the hackathon demo reliable and explainable for a small business owner.
 
 No customer-facing action is sent automatically. The user edits and approves each draft, then Nero keeps the outbound message in Outbox and, for live Xero reminder approvals, writes only an internal invoice history note back to Xero.
 
-OpenRouter or another free app-runtime inference provider may be added after MVP for wording variations or plain-English rationale only. Do not use app-runtime inference credentials for development automation, and do not pitch LLM-written emails unless the runtime feature is actually implemented and approval-gated.
+The app also implements opt-in AI draft polishing through OpenRouter-compatible app-runtime inference. It is disabled unless `NERO_AI_COPY_ENABLED=true`, `OPENROUTER_API_KEY` is set, and `OPENROUTER_MODEL` ends in `:free`; paid-model names are rejected for this hackathon build. The AI action only rewrites a draft already visible to the owner, logs the change, and still requires manual approval before anything reaches Outbox. Do not use app-runtime inference credentials for development automation.
 
 ## OAuth Scopes
 
