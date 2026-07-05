@@ -195,6 +195,19 @@ async function runSmoke() {
   await tenantMismatchPage.getByText("Sync needed").waitFor();
   await tenantMismatchPage.getByRole("button", { name: "Disconnect" }).first().waitFor();
   await tenantMismatchPage.getByText("Xero organisation changed. Sync Xero to update this dashboard before reviewing actions.").waitFor();
+  const staleFindActions = tenantMismatchPage.getByRole("button", { name: "Find actions" });
+  await staleFindActions.waitFor();
+  if (!(await staleFindActions.isDisabled())) {
+    throw new Error("Find actions stayed enabled while the Xero dashboard needed a sync");
+  }
+  await tenantMismatchPage.getByRole("button", { name: "Actions", exact: true }).click();
+  await tenantMismatchPage.getByRole("heading", { name: "Actions to review" }).waitFor();
+  await tenantMismatchPage.getByText("Sync Xero before finding or approving actions for this organisation.").waitFor();
+  const staleApproveButton = tenantMismatchPage.getByRole("button", { name: /Approve/ }).first();
+  await staleApproveButton.waitFor();
+  if (!(await staleApproveButton.isDisabled())) {
+    throw new Error("Approval stayed enabled while the Xero dashboard needed a sync");
+  }
   await tenantMismatchPage.close();
 
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
