@@ -47,12 +47,14 @@ unless `DEMO_MODE` or `NERO_DB_PATH` are explicitly set.
 Run a live-Xero judge demo preflight after the backend is running:
 
 ```bash
-.venv/bin/python scripts/demo_preflight.py --sync
+.venv/bin/python scripts/demo_preflight.py
 ```
 
 The preflight prints only status, counts, and readiness checks. It fails if the
 frontend is not serving Nero, the backend is still in demo mode, Xero is
 disconnected, the data is stale, or no sendable action is ready.
+Use `--sync` only when you intentionally want to refresh Xero first; the default
+check avoids unnecessary Xero API calls immediately before a demo.
 
 Run the browser smoke test:
 
