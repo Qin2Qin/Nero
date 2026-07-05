@@ -1210,6 +1210,10 @@ dd {
   line-height: 1.45;
 }
 
+.statement-link {
+  margin-top: var(--space-4);
+}
+
 .proposal-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));

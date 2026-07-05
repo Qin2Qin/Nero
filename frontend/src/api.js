@@ -9,6 +9,10 @@ const USE_FIXTURES = import.meta.env.VITE_DEMO === "true";
 
 export const XERO_LOGIN_URL = `${API_BASE}/auth/login`;
 
+export function statementUrl(contactId) {
+  return `${API_BASE}/api/statements/${encodeURIComponent(contactId)}`;
+}
+
 const localState = {
   contacts: structuredClone(contacts),
   invoices: structuredClone(invoices),

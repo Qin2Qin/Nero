@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Database,
   ExternalLink,
+  FileText,
   HelpCircle,
   LayoutDashboard,
   Minus,
@@ -43,6 +44,7 @@ import {
   scanResearch,
   seedSyntheticPortfolio,
   selectXeroTenant,
+  statementUrl,
   syncXero,
   updateCashFloor,
   XERO_LOGIN_URL
@@ -1139,6 +1141,11 @@ function Payers({ contacts, invoices = [] }) {
               <div><dt>How much business you've done with them (past year)</dt><dd>{formatCurrency(selected.revenue_12m)}</dd></div>
             </dl>
             <p className="payer-summary">{payerTimingSentence(selected)}</p>
+            {selected.exposure > 0 && (
+              <a className="button ghost btn btn-ghost btn-sm statement-link" href={statementUrl(selected.id)} target="_blank" rel="noreferrer">
+                <FileText size={16} /> Open statement
+              </a>
+            )}
           </>
         )}
       </aside>
