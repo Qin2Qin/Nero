@@ -39,9 +39,9 @@ const localState = {
   },
   appStoreReadiness: {
     status: "draft",
-    ready_count: 4,
-    total_count: 6,
-    source_url: "https://developer.xero.com/documentation/xero-app-store/app-partner-guides/certification-checkpoints/",
+    ready_count: 5,
+    total_count: 8,
+    source_url: "https://developer.xero.com/documentation/best-practices/overview/cert-matrix/",
     items: [
       {
         id: "sign-up-with-xero",
@@ -68,10 +68,22 @@ const localState = {
         detail: "Reads contacts, invoices and payments before queuing approved messages for review."
       },
       {
+        id: "api-efficiency",
+        label: "API efficiency",
+        status: "ready",
+        detail: "Xero sync uses pagination and retries 429 responses using Retry-After."
+      },
+      {
         id: "listing",
         label: "App Store listing",
         status: "ready",
         detail: "Submission notes are drafted in docs/xero-app-store-submission.md."
+      },
+      {
+        id: "subscriptions-webhooks",
+        label: "Subscriptions and webhooks",
+        status: "todo",
+        detail: "Needed for a certified App Store launch, but out of scope for this hackathon MVP."
       },
       {
         id: "support-security",
