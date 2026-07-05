@@ -935,6 +935,11 @@ h2 {
   color: var(--fgColor-danger);
 }
 
+.attention {
+  background: var(--bgColor-attention-muted);
+  color: var(--fgColor-attention);
+}
+
 .success {
   background: var(--bgColor-success-muted);
   color: var(--fgColor-success);
@@ -1303,6 +1308,17 @@ textarea:focus,
   margin: 0;
 }
 
+.contact-warning {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(251, 191, 36, 0.22);
+  border-radius: var(--radius-sm);
+  background: var(--bgColor-attention-muted);
+  color: #fde68a;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 .actions {
   display: flex;
   align-items: center;
@@ -1350,7 +1366,38 @@ pre {
   background: rgba(255, 255, 255, 0.055);
 }
 
+.recipient-cell {
+  max-width: 220px;
+}
+
+.recipient-email {
+  color: var(--fgColor-default);
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+
+.outbox-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
 .outbox-draft-link {
+  white-space: nowrap;
+}
+
+.draft-disabled {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--borderColor-muted);
+  border-radius: var(--radius-sm);
+  color: var(--fgColor-subtle);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 12px;
+  font-weight: 600;
   white-space: nowrap;
 }
 

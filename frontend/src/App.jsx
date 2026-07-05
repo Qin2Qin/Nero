@@ -374,6 +374,22 @@ function mailtoDraftHref(entry) {
   return `mailto:${recipient}?subject=${subject}&body=${body}`;
 }
 
+async function copyToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
+}
+
 function readinessBadge(status) {
   if (status === "ready") return "badge badge-success success";
   if (status === "blocked") return "badge badge-error danger";
@@ -1186,6 +1202,11 @@ function AgentQueue({ proposals, onApprove, onDismiss, onEdit, busy }) {
                   />
                 </details>
               )}
+              {proposal.draft_subject && !proposal.contact_email && (
+                <p className="contact-warning">
+                  No customer email found in Xero. Approving keeps the draft in Outbox so you can copy it or add the email in Xero.
+                </p>
+              )}
               {proposal.recommendation_detail && <p className="recommendation">{proposal.recommendation_detail}</p>}
               <div className="actions">
                 <button className="button primary btn btn-primary btn-sm" disabled={busy} onClick={() => onApprove(proposal.id)}>
@@ -1211,15 +1232,23 @@ function AgentQueue({ proposals, onApprove, onDismiss, onEdit, busy }) {
 
 function Outbox({ outbox }) {
   const [outboxSort, requestOutboxSort] = useSort("timestamp", "desc");
+  const [copiedId, setCopiedId] = useState(null);
   const sorted = useMemo(
     () =>
       sortRows(outbox, outboxSort, {
         timestamp: (entry) => Date.parse(entry.timestamp),
         to: (entry) => entry.to,
+        to_email: (entry) => entry.to_email || "",
         subject: (entry) => entry.subject
       }),
     [outbox, outboxSort]
   );
+
+  async function copyDraft(entry) {
+    await copyToClipboard(`Subject: ${entry.subject || ""}\n\n${entry.body || ""}`);
+    setCopiedId(entry.id);
+    window.setTimeout(() => setCopiedId((current) => (current === entry.id ? null : current)), 1600);
+  }
 
   return (
     <main className="content">
@@ -1242,6 +1271,7 @@ function Outbox({ outbox }) {
                   defaultDirection="desc"
                 />
                 <SortableHeader label="Customer" sortKey="to" sort={outboxSort} onSort={requestOutboxSort} />
+                <SortableHeader label="Email" sortKey="to_email" sort={outboxSort} onSort={requestOutboxSort} />
                 <SortableHeader label="Subject" sortKey="subject" sort={outboxSort} onSort={requestOutboxSort} />
                 <th className="right">Draft</th>
               </tr>
@@ -1251,6 +1281,13 @@ function Outbox({ outbox }) {
                 <tr key={entry.id}>
                   <td>{formatDateTime(entry.timestamp)}</td>
                   <td>{entry.to}</td>
+                  <td className="recipient-cell">
+                    {entry.to_email ? (
+                      <span className="recipient-email">{entry.to_email}</span>
+                    ) : (
+                      <span className="badge attention">No email in Xero</span>
+                    )}
+                  </td>
                   <td>
                     <details className="message-preview">
                       <summary>{entry.subject}</summary>
@@ -1258,15 +1295,26 @@ function Outbox({ outbox }) {
                     </details>
                   </td>
                   <td className="right">
-                    <a className="button ghost btn btn-ghost btn-xs outbox-draft-link" href={mailtoDraftHref(entry)}>
-                      <ExternalLink size={14} /> Open draft
-                    </a>
+                    <div className="outbox-actions">
+                      {entry.to_email ? (
+                        <a className="button ghost btn btn-ghost btn-xs outbox-draft-link" href={mailtoDraftHref(entry)}>
+                          <ExternalLink size={14} /> Open draft
+                        </a>
+                      ) : (
+                        <span className="draft-disabled" title="Add this customer's email address in Xero, then sync Nero.">
+                          Add email first
+                        </span>
+                      )}
+                      <button className="button ghost btn btn-ghost btn-xs" type="button" onClick={() => copyDraft(entry)}>
+                        {copiedId === entry.id ? "Copied" : "Copy"}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
               {sorted.length === 0 && (
                 <tr>
-                  <td colSpan="4">
+                  <td colSpan="5">
                     <div className="empty inline-empty">No approved messages yet</div>
                   </td>
                 </tr>
