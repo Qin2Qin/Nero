@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 import httpx
 from fastapi.testclient import TestClient
@@ -21,6 +22,10 @@ from services.xero_auth import (
     get_token_status,
     save_token_set,
 )
+
+
+def query_params(location: str) -> dict[str, list[str]]:
+    return parse_qs(urlsplit(location).query)
 
 
 def test_save_token_set_persists_status(tmp_path: Path) -> None:
@@ -226,25 +231,30 @@ def test_bootstrap_tokens_from_env_prefers_demo_company_when_resolving_tenant(tm
     assert get_saved_tokens(conn)["tenant_id"] == "demo"
 
 
-def test_auth_callback_reports_denied_authorization() -> None:
+def test_auth_callback_redirects_denied_authorization_to_frontend() -> None:
     client = TestClient(create_app(), raise_server_exceptions=False)
 
-    response = client.get("/auth/callback?error=access_denied&error_description=Denied")
+    response = client.get("/auth/callback?error=access_denied&error_description=Denied", follow_redirects=False)
 
-    assert response.status_code == 400
-    assert response.json()["detail"] == "Xero authorization failed: access_denied - Denied"
+    assert response.status_code == 303
+    params = query_params(response.headers["location"])
+    assert params["xero"] == ["error"]
+    assert params["message"] == ["Xero connection was cancelled. Try Connect Xero again when ready."]
+    assert "Denied" not in response.headers["location"]
 
 
-def test_auth_callback_requires_code() -> None:
+def test_auth_callback_missing_code_redirects_to_frontend() -> None:
     client = TestClient(create_app(), raise_server_exceptions=False)
 
-    response = client.get("/auth/callback")
+    response = client.get("/auth/callback", follow_redirects=False)
 
-    assert response.status_code == 400
-    assert response.json()["detail"] == "Xero authorization failed: missing authorization code"
+    assert response.status_code == 303
+    params = query_params(response.headers["location"])
+    assert params["xero"] == ["error"]
+    assert params["message"] == ["Xero did not send a connection code. Try Connect Xero again."]
 
 
-def test_auth_callback_reports_token_exchange_failure(monkeypatch) -> None:
+def test_auth_callback_token_exchange_failure_redirects_to_frontend_without_provider_detail(monkeypatch) -> None:
     def fake_store_callback_tokens(code: str) -> dict:
         request = httpx.Request("POST", "https://identity.xero.com/connect/token")
         response = httpx.Response(
@@ -259,10 +269,14 @@ def test_auth_callback_reports_token_exchange_failure(monkeypatch) -> None:
     monkeypatch.setattr(auth_router, "store_callback_tokens", fake_store_callback_tokens)
     client = TestClient(create_app(), raise_server_exceptions=False)
 
-    response = client.get("/auth/callback?code=bad-code")
+    response = client.get("/auth/callback?code=bad-code", follow_redirects=False)
 
-    assert response.status_code == 400
-    assert response.json()["detail"] == "Xero token exchange failed: invalid_grant - Authorization code not found"
+    assert response.status_code == 303
+    params = query_params(response.headers["location"])
+    assert params["xero"] == ["error"]
+    assert params["message"] == ["Xero connection could not be completed. Try Connect Xero again."]
+    assert "invalid_grant" not in response.headers["location"]
+    assert "Authorization code not found" not in response.headers["location"]
 
 
 def test_auth_callback_redirects_to_frontend_after_connection(monkeypatch) -> None:
