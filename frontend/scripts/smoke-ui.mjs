@@ -884,10 +884,26 @@ async function runSmoke() {
     if (mobileCardsAfterCollapse !== mobileCardsBeforeExpand) {
       throw new Error(`Mobile invoice list did not collapse back: ${mobileCardsAfterCollapse}`);
     }
+    const mobileViewport = mobilePage.viewportSize();
+    await mobilePage.getByRole("button", { name: "Payers" }).click();
+    await mobilePage.getByRole("heading", { name: "Payment performance" }).waitFor();
+    await mobilePage.locator(".mobile-payer-list").waitFor();
+    if (await mobilePage.locator(".payer-table-wrap").evaluate((node) => node.offsetParent !== null)) {
+      throw new Error("Mobile Payers still showed the desktop table");
+    }
+    if (!(await mobilePage.locator(".mobile-payer-card").first().isVisible())) {
+      throw new Error("Mobile Payers cards were not visible at phone width");
+    }
+    const firstMobilePayerCard = mobilePage.locator(".mobile-payer-card").first();
+    await firstMobilePayerCard.getByText("Owes now").waitFor();
+    await firstMobilePayerCard.getByText("Usually pays").waitFor();
+    const mobilePayerBox = await firstMobilePayerCard.boundingBox();
+    if (!mobilePayerBox || !mobileViewport || mobilePayerBox.x < 0 || mobilePayerBox.x + mobilePayerBox.width > mobileViewport.width) {
+      throw new Error(`Mobile payer card overflowed the viewport: ${JSON.stringify({ mobilePayerBox, mobileViewport })}`);
+    }
     await mobilePage.getByRole("button", { name: "Actions", exact: true }).click();
     await mobilePage.getByRole("heading", { name: "Actions to review" }).waitFor();
     const mobileActionBox = await mobilePage.locator(".proposal-card").first().boundingBox();
-    const mobileViewport = mobilePage.viewportSize();
     if (!mobileActionBox || !mobileViewport || mobileActionBox.x < 0 || mobileActionBox.x + mobileActionBox.width > mobileViewport.width) {
       throw new Error(`Mobile action card overflowed the viewport: ${JSON.stringify({ mobileActionBox, mobileViewport })}`);
     }
