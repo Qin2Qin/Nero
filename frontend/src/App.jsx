@@ -53,6 +53,7 @@ const TABS = [
 
 const SUPPORT_EMAIL = import.meta.env.VITE_SUPPORT_EMAIL || "support@nero.cash";
 const MOBILE_INVOICE_PREVIEW_COUNT = 8;
+const DEV_TOOLS_ENABLED = import.meta.env.VITE_ENABLE_DEV_TOOLS === "true";
 
 function parseDate(value) {
   return new Date(`${value}T00:00:00Z`);
@@ -1686,7 +1687,7 @@ function DevToolsPanel({
   const firstInvoice = data?.invoices?.[0];
   return (
     <ModalShell title="Developer tools" onClose={onClose}>
-      {/* demo-only, not user-facing: open with Ctrl+Shift+D for hackathon resets and admin checks. */}
+      {/* demo-only, not user-facing: requires VITE_ENABLE_DEV_TOOLS=true, then opens with Ctrl+Shift+D. */}
       <p className="modal-lede">Demo-only controls for reset, seeded data, and integration checks.</p>
       <div className="dev-action-row">
         <button className="button ghost btn btn-ghost btn-sm" type="button" onClick={onSeedPortfolio} disabled={busy}>
@@ -1755,6 +1756,7 @@ export function App() {
 
   useEffect(() => {
     function openDevTools(event) {
+      if (!DEV_TOOLS_ENABLED) return;
       if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "d") {
         event.preventDefault();
         setModal("dev");

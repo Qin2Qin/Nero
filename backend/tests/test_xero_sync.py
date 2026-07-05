@@ -45,7 +45,7 @@ class FakeClient:
             return {"Payments": []}
         return {"Payments": [{"PaymentID": "payment-1", "Invoice": {"InvoiceID": "invoice-1"}}]}
 
-    def get_online_invoice(self, invoice_id: str) -> dict:
+    def get_online_invoice(self, invoice_id: str, timeout: float | None = None) -> dict:
         type(self).online_invoice_calls += 1
         return {"OnlineInvoices": [{"OnlineInvoiceUrl": f"https://in.xero.com/{invoice_id}"}]}
 
@@ -63,7 +63,7 @@ class EmptyClient:
     def list_payments(self, page: int = 1) -> dict:
         return {"Payments": []}
 
-    def get_online_invoice(self, invoice_id: str) -> dict:
+    def get_online_invoice(self, invoice_id: str, timeout: float | None = None) -> dict:
         return {"OnlineInvoices": []}
 
 
@@ -95,8 +95,48 @@ class UnusableInvoiceClient:
     def list_payments(self, page: int = 1) -> dict:
         return {"Payments": []}
 
-    def get_online_invoice(self, invoice_id: str) -> dict:
+    def get_online_invoice(self, invoice_id: str, timeout: float | None = None) -> dict:
         return {"OnlineInvoices": []}
+
+
+class ManyOpenInvoicesClient:
+    online_invoice_ids: list[str] = []
+    online_invoice_timeouts: list[float | None] = []
+
+    def __init__(self, credentials):
+        self.credentials = credentials
+
+    def list_contacts(self, page: int = 1) -> dict:
+        if page > 1:
+            return {"Contacts": []}
+        return {"Contacts": [{"ContactID": "contact-1", "Name": "Apex Corp"}]}
+
+    def list_invoices(self, statuses: str | None = None, page: int = 1) -> dict:
+        if page > 1:
+            return {"Invoices": []}
+        return {
+            "Invoices": [
+                {
+                    "InvoiceID": f"invoice-{idx}",
+                    "InvoiceNumber": f"INV-{idx}",
+                    "Status": "AUTHORISED",
+                    "Contact": {"ContactID": "contact-1", "Name": "Apex Corp"},
+                    "DateString": "2026-06-01",
+                    "DueDateString": f"2026-07-{idx + 1:02d}",
+                    "AmountDue": 1000 + idx,
+                    "Total": 1000 + idx,
+                }
+                for idx in range(10)
+            ]
+        }
+
+    def list_payments(self, page: int = 1) -> dict:
+        return {"Payments": []}
+
+    def get_online_invoice(self, invoice_id: str, timeout: float | None = None) -> dict:
+        type(self).online_invoice_ids.append(invoice_id)
+        type(self).online_invoice_timeouts.append(timeout)
+        return {"OnlineInvoices": [{"OnlineInvoiceUrl": f"https://in.xero.com/{invoice_id}"}]}
 
 
 def test_sync_from_xero_stores_raw_payloads(monkeypatch, tmp_path: Path) -> None:
@@ -152,6 +192,25 @@ def test_materialized_sync_enriches_online_invoice_links(monkeypatch, tmp_path: 
     assert result["materialized"]["online_invoice_links"] == 1
     assert saved_states[0]["invoices"][0]["online_invoice_url"] == "https://in.xero.com/invoice-1"
     assert FakeClient.online_invoice_calls == 1
+
+
+def test_materialized_sync_caps_online_invoice_enrichment(monkeypatch, tmp_path: Path) -> None:
+    conn = connect(tmp_path / "nero.db")
+    ManyOpenInvoicesClient.online_invoice_ids = []
+    ManyOpenInvoicesClient.online_invoice_timeouts = []
+    monkeypatch.setattr(xero_sync, "get_valid_access", lambda conn: {"access_token": "access", "tenant_id": "tenant"})
+    monkeypatch.setattr(xero_sync, "XeroClient", ManyOpenInvoicesClient)
+    monkeypatch.setattr(xero_sync, "_tenant_name", lambda access_token, tenant_id: "Demo Company (UK)")
+    saved_states = []
+    monkeypatch.setattr(xero_sync, "save_state", lambda state: saved_states.append(state))
+
+    result = xero_sync.sync_from_xero(conn, materialize_state=True)
+
+    assert ManyOpenInvoicesClient.online_invoice_ids == [f"invoice-{idx}" for idx in range(xero_sync.MAX_SYNC_ONLINE_INVOICE_LINKS)]
+    assert ManyOpenInvoicesClient.online_invoice_timeouts == [
+        xero_sync.ONLINE_INVOICE_TIMEOUT_SECONDS
+    ] * xero_sync.MAX_SYNC_ONLINE_INVOICE_LINKS
+    assert result["materialized"]["online_invoice_links"] == xero_sync.MAX_SYNC_ONLINE_INVOICE_LINKS
 
 
 def test_sync_from_xero_explains_empty_organisation(monkeypatch, tmp_path: Path) -> None:

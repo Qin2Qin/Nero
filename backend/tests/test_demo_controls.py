@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import httpx
 from fastapi.testclient import TestClient
 
 
@@ -10,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
 
 from main import create_app
+import routers.actions as actions_router
 from services.state import get_state, save_state
 
 
@@ -103,3 +105,22 @@ def test_synthetic_seed_is_allowed_for_empty_xero_state(monkeypatch, tmp_path: P
     assert body["contacts"] > 0
     assert body["invoices"] > 0
     assert body["source"]["mode"] == "synthetic"
+
+
+def test_sync_rate_limit_returns_demo_safe_error(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("DEMO_MODE", "false")
+    monkeypatch.setenv("NERO_DB_PATH", str(tmp_path / "nero.db"))
+    monkeypatch.setattr(actions_router, "get_token_status", lambda: {"connected": True})
+    request = httpx.Request("GET", "https://api.xero.com/api.xro/2.0/Contacts")
+    response = httpx.Response(429, request=request, headers={"Retry-After": "60"})
+
+    def rate_limited_sync() -> dict:
+        raise httpx.HTTPStatusError("Too many requests", request=request, response=response)
+
+    monkeypatch.setattr(actions_router, "sync_from_xero", rate_limited_sync)
+    client = TestClient(create_app())
+
+    sync_response = client.post("/api/sync")
+
+    assert sync_response.status_code == 503
+    assert sync_response.json()["detail"].startswith("Xero is rate limiting sync right now.")

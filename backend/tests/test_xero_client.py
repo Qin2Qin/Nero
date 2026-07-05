@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from email.utils import format_datetime
 from pathlib import Path
 
+import httpx
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
@@ -43,6 +44,13 @@ class RateLimitedResponse:
 
     def raise_for_status(self) -> None:
         return None
+
+
+class StrictRateLimitedResponse(RateLimitedResponse):
+    def raise_for_status(self) -> None:
+        request = httpx.Request("GET", "https://api.xero.com/api.xro/2.0/Contacts")
+        response = httpx.Response(self.status_code, request=request, headers=self.headers)
+        raise httpx.HTTPStatusError("rate limited", request=request, response=response)
 
 
 class JsonResponse:
@@ -104,6 +112,17 @@ def test_get_online_invoice_uses_xero_online_invoice_endpoint() -> None:
     assert kwargs["headers"]["Xero-tenant-id"] == "tenant"
 
 
+def test_get_online_invoice_can_use_short_timeout() -> None:
+    client = XeroClient(XeroCredentials(access_token="token", tenant_id="tenant"))
+    recorder = Recorder()
+    client.client = recorder
+
+    client.get_online_invoice("invoice-1", timeout=3.0)
+
+    _, _, kwargs = recorder.calls[0]
+    assert kwargs["timeout"] == 3.0
+
+
 def test_rate_limit_retry_uses_safe_fallback_for_bad_retry_after(monkeypatch) -> None:
     sleeps = []
     monkeypatch.setattr(xero_client.time, "sleep", lambda seconds: sleeps.append(seconds))
@@ -129,3 +148,19 @@ def test_rate_limit_retry_accepts_http_date_retry_after(monkeypatch) -> None:
     assert result == {"ok": True}
     assert 0 <= sleeps[0] <= 60
     assert len(client.client.calls) == 2
+
+
+def test_rate_limit_long_retry_after_fails_without_blocking(monkeypatch) -> None:
+    sleeps = []
+    monkeypatch.setattr(xero_client.time, "sleep", lambda seconds: sleeps.append(seconds))
+    client = XeroClient(XeroCredentials(access_token="token", tenant_id="tenant"))
+    client.client = SequenceRecorder([StrictRateLimitedResponse("60")])
+
+    try:
+        client.list_contacts()
+    except httpx.HTTPStatusError as exc:
+        assert exc.response.status_code == 429
+    else:
+        raise AssertionError("expected rate limit error")
+    assert sleeps == []
+    assert len(client.client.calls) == 1

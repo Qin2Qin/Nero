@@ -144,6 +144,7 @@ Frontend deployment variables:
 VITE_API_BASE=http://localhost:8000
 VITE_DEMO=false
 VITE_SUPPORT_EMAIL=support@nero.cash
+VITE_ENABLE_DEV_TOOLS=false
 ```
 
 The final hackathon submission answers, App Store submission, judge demo script,
@@ -197,6 +198,12 @@ curl http://localhost:8000/api/data_source
 The seed uses public company names with generated invoices and generated payment
 history. It is for judging/demo flow only and is not presented as actual Xero
 financial data.
+
+Internal demo controls:
+
+- Normal builds keep the hidden developer panel disabled.
+- Set `VITE_ENABLE_DEV_TOOLS=true` only for local QA when you need the
+  `Ctrl+Shift+D` reset/integration panel.
 
 ## Research monitor
 

@@ -18,7 +18,7 @@ Data written to Xero:
 Local storage:
 
 - OAuth tokens are stored in the local SQLite database used by the backend.
-- Raw Xero payloads are stored in local SQLite tables for repeatable sync and audit during the demo.
+- Raw Xero payloads are stored in tenant-labelled local SQLite tables for repeatable sync and audit during the demo.
 - Generated synthetic portfolio data is clearly labelled and does not represent real customers or balances.
 - Webhook events are signature-checked with `XERO_WEBHOOK_KEY`; invalid signatures are rejected and event payloads are not exposed in the UI.
 - Optional AI draft polishing is off by default. When enabled, Nero sends only the current draft and minimal proposal context to the configured OpenRouter-compatible app-runtime provider; OAuth tokens, Xero tenant IDs, and raw Xero payloads are never included in the prompt.
@@ -33,5 +33,5 @@ Deletion and disconnect:
 Security boundaries:
 
 - Secrets must stay in `.env` or the deployment secret store and must not be committed.
-- Demo-only controls are gated behind the developer shortcut and are not linked from normal navigation.
+- Demo-only controls are disabled unless `VITE_ENABLE_DEV_TOOLS=true`; even then they are hidden behind `Ctrl+Shift+D` and are not linked from normal navigation.
 - The app uses least-write behaviour for the MVP: it reads Xero records, keeps outbound customer messages in review queues, and writes only non-customer-facing invoice history notes after approval.

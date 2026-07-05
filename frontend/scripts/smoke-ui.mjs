@@ -94,7 +94,8 @@ async function runSmoke() {
     cwd: resolve(rootDir, "frontend"),
     name: "frontend",
     env: {
-      VITE_API_BASE: backendUrl
+      VITE_API_BASE: backendUrl,
+      VITE_ENABLE_DEV_TOOLS: "true"
     }
   });
 
@@ -142,6 +143,24 @@ async function runSmoke() {
     throw new Error("Non-critical readiness/research failure blanked the main dashboard");
   }
   await optionalFailurePage.close();
+
+  const devToolsDisabledPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  const prodFrontendUrl = frontendUrl.replace(String(frontendPort), String(frontendPort + 1));
+  spawnManaged("npm", ["run", "dev", "--", "--host", "127.0.0.1", "--port", String(frontendPort + 1)], {
+    cwd: resolve(rootDir, "frontend"),
+    name: "frontend-prod-like",
+    env: {
+      VITE_API_BASE: backendUrl
+    }
+  });
+  await waitForHttp(prodFrontendUrl, "frontend without dev tools");
+  await devToolsDisabledPage.goto(prodFrontendUrl, { waitUntil: "networkidle" });
+  await devToolsDisabledPage.getByRole("heading", { name: "Nero" }).waitFor();
+  await devToolsDisabledPage.keyboard.press("Control+Shift+D");
+  if (await devToolsDisabledPage.getByRole("heading", { name: "Developer tools" }).count()) {
+    throw new Error("Developer tools opened without VITE_ENABLE_DEV_TOOLS=true");
+  }
+  await devToolsDisabledPage.close();
 
   const connectedReturnPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   await connectedReturnPage.goto(`${frontendUrl}/?xero=connected`, { waitUntil: "networkidle" });

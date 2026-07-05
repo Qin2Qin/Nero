@@ -18,6 +18,8 @@ from services.xero_client import XeroClient, XeroCredentials
 
 
 XERO_DOTNET_DATE = re.compile(r"/Date\((?P<milliseconds>-?\d+)")
+MAX_SYNC_ONLINE_INVOICE_LINKS = 8
+ONLINE_INVOICE_TIMEOUT_SECONDS = 3.0
 
 
 def _paged(fetch_page: Callable[[int], dict], key: str) -> list[dict]:
@@ -322,7 +324,7 @@ def _tenant_name(access_token: str, tenant_id: str) -> str | None:
 
 def _online_invoice_url(client: XeroClient, invoice_id: str) -> str | None:
     try:
-        payload = client.get_online_invoice(invoice_id)
+        payload = client.get_online_invoice(invoice_id, timeout=ONLINE_INVOICE_TIMEOUT_SECONDS)
     except httpx.HTTPError:
         return None
     rows = payload.get("OnlineInvoices") or []
@@ -334,11 +336,15 @@ def _online_invoice_url(client: XeroClient, invoice_id: str) -> str | None:
 
 def _online_invoice_urls(client: XeroClient, invoices: list[dict]) -> dict[str, str]:
     urls: dict[str, str] = {}
-    for invoice in invoices:
+    candidates = [
+        invoice
+        for invoice in invoices
+        if str(invoice.get("Status") or "").upper() == "AUTHORISED" and _amount(invoice.get("AmountDue")) > 0
+    ]
+    candidates.sort(key=lambda invoice: _parse_xero_date(invoice.get("DueDateString") or invoice.get("DueDate")) or date.max)
+    for invoice in candidates[:MAX_SYNC_ONLINE_INVOICE_LINKS]:
         invoice_id = str(invoice.get("InvoiceID") or "")
         if not invoice_id:
-            continue
-        if str(invoice.get("Status") or "").upper() != "AUTHORISED":
             continue
         url = _online_invoice_url(client, invoice_id)
         if url:

@@ -13,6 +13,7 @@ import httpx
 BASE_URL = "https://api.xero.com/api.xro/2.0"
 DEFAULT_RETRY_AFTER_SECONDS = 2
 MAX_RETRY_AFTER_SECONDS = 60
+MAX_INTERACTIVE_RETRY_AFTER_SECONDS = 8
 
 
 @dataclass(frozen=True)
@@ -41,7 +42,10 @@ class XeroClient:
             if response.status_code != 429:
                 response.raise_for_status()
                 return response.json() if response.content else {}
-            time.sleep(_retry_after_seconds(response.headers.get("Retry-After")))
+            retry_after = _retry_after_seconds(response.headers.get("Retry-After"))
+            if retry_after > MAX_INTERACTIVE_RETRY_AFTER_SECONDS:
+                break
+            time.sleep(retry_after)
         response.raise_for_status()
         return {}
 
@@ -65,9 +69,12 @@ class XeroClient:
             json={"HistoryRecords": [{"Details": note[:4000]}]},
         )
 
-    def get_online_invoice(self, invoice_id: str) -> dict:
+    def get_online_invoice(self, invoice_id: str, timeout: float | None = None) -> dict:
         safe_invoice_id = quote(invoice_id, safe="")
-        return self.request("GET", f"/Invoices/{safe_invoice_id}/OnlineInvoice")
+        kwargs: dict[str, Any] = {}
+        if timeout is not None:
+            kwargs["timeout"] = timeout
+        return self.request("GET", f"/Invoices/{safe_invoice_id}/OnlineInvoice", **kwargs)
 
 
 def _retry_after_seconds(value: str | None) -> int:

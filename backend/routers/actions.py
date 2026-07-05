@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -190,6 +191,15 @@ def sync() -> dict:
         return sync_from_xero()
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 429:
+            raise HTTPException(
+                status_code=503,
+                detail="Xero is rate limiting sync right now. Existing synced data is still available; try again in a few minutes.",
+            ) from exc
+        raise HTTPException(status_code=502, detail="Xero rejected the sync request. Reconnect Xero and try again.") from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail="Xero sync did not complete. Check the connection and try again.") from exc
 
 
 @router.post("/synthetic/seed")
