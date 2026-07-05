@@ -421,6 +421,22 @@ export async function syncXero() {
   };
 }
 
+export async function disconnectXero() {
+  if (!USE_FIXTURES) return request("/auth/connection", { method: "DELETE" });
+  localState.xeroStatus = {
+    ...localState.xeroStatus,
+    connected: false,
+    tenant_id: null,
+    expires_at: null,
+    needs_tenant: false
+  };
+  return {
+    status: "disconnected",
+    detail: "Local Xero OAuth tokens were removed. Reconnect Xero before syncing again.",
+    xero: localState.xeroStatus
+  };
+}
+
 export async function selectXeroTenant(tenantId) {
   if (!USE_FIXTURES) {
     return request("/api/xero/tenant", {

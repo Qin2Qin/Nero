@@ -20,6 +20,7 @@ Primary workflow:
 4. Approve or dismiss suggested reminders and payment-term changes.
 5. Use the outbox for reviewable follow-up messages.
 6. Approved invoice reminders add an internal Xero invoice history note for auditability.
+7. Disconnect locally when access should be removed from this device.
 
 Xero API usage:
 
@@ -29,6 +30,7 @@ Xero API usage:
 - `GET /Payments` via the Accounting API
 - `PUT /Invoices/{InvoiceID}/History` via the Accounting API for internal approval notes
 - OAuth connection and tenant discovery through Xero identity/connections endpoints
+- `DELETE /auth/connection` clears locally stored OAuth tokens for device-level disconnect
 - `POST /webhooks/xero` receives signed Xero webhook payloads and triggers a background sync after valid invoice/contact/subscription events
 
 OAuth scopes:

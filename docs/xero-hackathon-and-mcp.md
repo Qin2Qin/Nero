@@ -26,6 +26,7 @@ Backend OAuth and tenant management:
 
 - `GET /auth/login` starts Xero OAuth.
 - `GET /auth/callback` exchanges the OAuth code and stores token metadata in SQLite.
+- `DELETE /auth/connection` removes locally stored OAuth tokens so a user can disconnect this device before reconnecting.
 - `GET /api/xero/status` reports connection health without printing secrets.
 - `GET /api/xero/tenants` lists authorised organisations.
 - `POST /api/xero/tenant` selects the active organisation.

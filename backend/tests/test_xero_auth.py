@@ -13,7 +13,14 @@ sys.path.insert(0, str(ROOT / "backend"))
 from db import connect
 from main import create_app
 import services.xero_auth as xero_auth
-from services.xero_auth import bootstrap_tokens_from_env, get_connection_summary, get_saved_tokens, get_token_status, save_token_set
+from services.xero_auth import (
+    bootstrap_tokens_from_env,
+    disconnect_saved_connection,
+    get_connection_summary,
+    get_saved_tokens,
+    get_token_status,
+    save_token_set,
+)
 
 
 def test_save_token_set_persists_status(tmp_path: Path) -> None:
@@ -131,6 +138,25 @@ def test_connection_summary_reports_refresh_failure(monkeypatch, tmp_path: Path)
     assert summary["refresh_error"] == "Xero token refresh failed. Reconnect Xero to continue syncing."
 
 
+def test_disconnect_saved_connection_removes_local_tokens(tmp_path: Path) -> None:
+    conn = connect(tmp_path / "nero.db")
+    save_token_set(
+        {
+            "access_token": "saved-access",
+            "refresh_token": "saved-refresh",
+            "expires_at": "2099-01-01T00:00:00+00:00",
+        },
+        tenant_id="tenant-123",
+        conn=conn,
+    )
+
+    summary = disconnect_saved_connection(conn)
+
+    assert summary["connected"] is False
+    assert summary["tenant_id"] is None
+    assert get_saved_tokens(conn) is None
+
+
 def test_bootstrap_tokens_from_env_imports_direct_tokens(tmp_path: Path, monkeypatch) -> None:
     conn = connect(tmp_path / "nero.db")
     monkeypatch.setenv("XERO_ACCESS_TOKEN", "env-access")
@@ -237,6 +263,31 @@ def test_auth_callback_reports_token_exchange_failure(monkeypatch) -> None:
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Xero token exchange failed: invalid_grant - Authorization code not found"
+
+
+def test_auth_disconnect_endpoint_clears_tokens(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("NERO_DB_PATH", str(tmp_path / "nero.db"))
+    conn = connect()
+    save_token_set(
+        {
+            "access_token": "saved-access",
+            "refresh_token": "saved-refresh",
+            "expires_at": "2099-01-01T00:00:00+00:00",
+        },
+        tenant_id="tenant-123",
+        conn=conn,
+    )
+    client = TestClient(create_app())
+
+    response = client.delete("/auth/connection")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "disconnected"
+    assert body["xero"]["connected"] is False
+    assert "access_token" not in body["xero"]
+    assert "refresh_token" not in body["xero"]
+    assert get_saved_tokens(conn) is None
 
 
 def test_store_callback_tokens_prefers_demo_company(monkeypatch, tmp_path: Path) -> None:

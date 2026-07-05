@@ -24,8 +24,9 @@ Local storage:
 
 Deletion and disconnect:
 
-- Disconnect the app in Xero to revoke access.
-- Remove the local SQLite database to clear locally stored tokens and synced records.
+- Use **Disconnect** in Nero to remove locally stored Xero OAuth tokens.
+- Disconnect the app in Xero to revoke access at the Xero account level.
+- Remove the local SQLite database to clear locally synced records as well as tokens.
 - Contact support@nero.cash for help with deletion or export requests.
 
 Security boundaries:

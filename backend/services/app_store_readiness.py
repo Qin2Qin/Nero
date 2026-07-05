@@ -35,7 +35,11 @@ def app_store_readiness() -> dict:
             "id": "connection",
             "label": "Connection management",
             "status": "ready" if connected else "demo" if demo_mode else "blocked",
-            "detail": "Live tenant connected." if connected else "Demo connection is active." if demo_mode else "Connect a Xero tenant.",
+            "detail": "Live tenant connected; local disconnect is available."
+            if connected
+            else "Demo connection is active."
+            if demo_mode
+            else "Connect a Xero tenant.",
         },
         {
             "id": "scopes",

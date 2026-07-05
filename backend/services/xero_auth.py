@@ -158,6 +158,18 @@ def get_saved_tokens(conn: sqlite3.Connection | None = None) -> dict | None:
             conn.close()
 
 
+def disconnect_saved_connection(conn: sqlite3.Connection | None = None) -> dict:
+    owns_conn = conn is None
+    conn = conn or connect()
+    try:
+        conn.execute("DELETE FROM oauth_tokens WHERE id = 1")
+        conn.commit()
+        return get_connection_summary(conn)
+    finally:
+        if owns_conn:
+            conn.close()
+
+
 def exchange_code(code: str) -> dict:
     settings = get_settings()
     if not settings.xero_client_id or not settings.xero_client_secret:
