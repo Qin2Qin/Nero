@@ -79,9 +79,11 @@ def _email(
 def run_agent_cycle(state: dict[str, Any], max_pending: int = 8, today: date | None = None) -> list[dict]:
     contacts = {contact["id"]: contact for contact in state["contacts"]}
     invoices = {invoice["id"]: invoice for invoice in state["invoices"]}
-    pending = [proposal for proposal in state["proposals"] if proposal["status"] == "pending"]
-    existing_invoice_ids = {proposal["invoice_id"] for proposal in pending if proposal.get("invoice_id")}
-    existing_keys = {(proposal["type"], proposal["contact_id"], proposal.get("invoice_id")) for proposal in pending}
+    existing_invoice_ids = {proposal["invoice_id"] for proposal in state["proposals"] if proposal.get("invoice_id")}
+    existing_keys = {
+        (proposal["type"], proposal["contact_id"], proposal.get("invoice_id"))
+        for proposal in state["proposals"]
+    }
     created: list[dict] = []
     today = today or demo_today()
     business = state.get("business") or state.get("data_source", {}).get("business") or {}

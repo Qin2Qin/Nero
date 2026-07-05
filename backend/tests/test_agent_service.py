@@ -144,3 +144,81 @@ def test_agent_logs_when_no_new_actions_are_needed() -> None:
     assert created == []
     assert state["action_log"][0]["actor"] == "Nero"
     assert state["action_log"][0]["event"] == "No new actions needed right now."
+
+
+def test_agent_does_not_recreate_previously_decided_invoice_action() -> None:
+    contact = {
+        "id": "customer-5",
+        "name": "Repeat Customer",
+        "grade": "C",
+        "avg_days_late": 14,
+        "invoice_count": 4,
+        "low_confidence": False,
+        "revenue_12m": 4000,
+        "trend_slope": 0,
+    }
+    invoice = {
+        "id": "invoice-5",
+        "contact_id": "customer-5",
+        "contact_name": "Repeat Customer",
+        "invoice_number": "INV-5",
+        "amount_due": 900,
+        "due_date": "2026-06-01",
+        "predicted_paid_date": "2026-07-15",
+    }
+    state = base_state(contact, invoice)
+    state["proposals"].append(
+        {
+            "id": "old-escalation",
+            "type": "escalation",
+            "contact_id": "customer-5",
+            "contact_name": "Repeat Customer",
+            "invoice_id": "invoice-5",
+            "status": "approved",
+        }
+    )
+
+    created = run_agent_cycle(state, today=date.fromisoformat("2026-07-05"))
+
+    assert created == []
+    assert len(state["proposals"]) == 1
+    assert state["action_log"][0]["event"] == "No new actions needed right now."
+
+
+def test_agent_does_not_recreate_dismissed_customer_recommendation() -> None:
+    contact = {
+        "id": "customer-6",
+        "name": "High Revenue Slowpayer",
+        "grade": "E",
+        "avg_days_late": 18,
+        "invoice_count": 6,
+        "low_confidence": False,
+        "revenue_12m": 60000,
+        "trend_slope": 0,
+    }
+    invoice = {
+        "id": "invoice-6",
+        "contact_id": "customer-6",
+        "contact_name": "High Revenue Slowpayer",
+        "invoice_number": "INV-6",
+        "amount_due": 100,
+        "due_date": "2026-09-01",
+        "predicted_paid_date": "2026-09-19",
+    }
+    state = base_state(contact, invoice)
+    state["proposals"].append(
+        {
+            "id": "old-deposit",
+            "type": "deposit_recommendation",
+            "contact_id": "customer-6",
+            "contact_name": "High Revenue Slowpayer",
+            "invoice_id": None,
+            "status": "dismissed",
+        }
+    )
+
+    created = run_agent_cycle(state, today=date.fromisoformat("2026-07-05"))
+
+    assert created == []
+    assert len(state["proposals"]) == 1
+    assert state["action_log"][0]["event"] == "No new actions needed right now."
