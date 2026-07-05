@@ -48,7 +48,8 @@ def test_agent_uses_cautious_reasoning_for_no_paid_history() -> None:
     assert created[0]["type"] == "escalation"
     assert "limited paid-invoice history" in created[0]["reasoning_text"]
     assert "0 paid invoices" not in created[0]["reasoning_text"]
-    assert "Could you confirm the planned payment date" in created[0]["draft_body"]
+    assert "Could you confirm the planned payment date when ready?" in created[0]["draft_body"]
+    assert "{payment_link}" not in created[0]["draft_body"]
     assert "I can resend the current statement if helpful." in created[0]["draft_body"]
     assert "attached" not in created[0]["draft_body"].lower()
     assert state["action_log"][0]["actor"] == "Nero"
@@ -81,6 +82,37 @@ def test_agent_keeps_specific_history_when_enough_paid_invoices_exist() -> None:
 
     assert created[0]["type"] == "reminder"
     assert "usually pays on time across 11 paid invoices" in created[0]["reasoning_text"]
+
+
+def test_agent_includes_xero_online_invoice_link_when_available() -> None:
+    contact = {
+        "id": "customer-4",
+        "name": "Bayside Club",
+        "grade": "B",
+        "avg_days_late": 4,
+        "invoice_count": 8,
+        "low_confidence": False,
+        "revenue_12m": 3200,
+        "trend_slope": 0,
+    }
+    invoice = {
+        "id": "invoice-4",
+        "contact_id": "customer-4",
+        "contact_name": "Bayside Club",
+        "invoice_number": "INV-0043",
+        "amount_due": 3200,
+        "due_date": "2026-07-05",
+        "predicted_paid_date": "2026-07-13",
+        "online_invoice_url": "https://in.xero.com/example-invoice",
+    }
+
+    state = base_state(contact, invoice)
+    created = run_agent_cycle(state, today=date.fromisoformat("2026-07-05"))
+
+    body = created[0]["draft_body"]
+    assert "secure Xero invoice link" in body
+    assert "https://in.xero.com/example-invoice" in body
+    assert "{payment_link}" not in body
 
 
 def test_agent_logs_when_no_new_actions_are_needed() -> None:

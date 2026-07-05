@@ -200,7 +200,7 @@ async function runSmoke() {
     await page.getByText(/Could bring £[\d,]+ forward about \d+ days? sooner\./).first().waitFor();
     await page.getByText("Approve to keep the draft in Outbox. Nothing is sent automatically.").first().waitFor();
     const actionsText = await page.locator("body").innerText();
-    if (/across 0 paid invoices|deposit_recommendation|terms_recommendation|I have\s+attached/.test(actionsText)) {
+    if (/across 0 paid invoices|deposit_recommendation|terms_recommendation|I have\s+attached|\{payment_link\}/.test(actionsText)) {
       throw new Error(`Internal action copy leaked into UI:\n${actionsText}`);
     }
     await page.getByRole("button", { name: /Approve/ }).first().click();
@@ -214,6 +214,9 @@ async function runSmoke() {
     const outboxDraftHref = await outboxDraftLink.getAttribute("href");
     if (!outboxDraftHref?.startsWith("mailto:") || outboxDraftHref.startsWith("mailto:?") || !outboxDraftHref.includes("?subject=")) {
       throw new Error(`Outbox draft link did not open an addressed mail draft: ${outboxDraftHref}`);
+    }
+    if (outboxDraftHref.includes("%7Bpayment_link%7D")) {
+      throw new Error(`Outbox draft leaked a payment-link placeholder: ${outboxDraftHref}`);
     }
 
     await page.getByRole("button", { name: "Guide" }).click();

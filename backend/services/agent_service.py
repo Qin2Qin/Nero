@@ -59,10 +59,16 @@ def _email(
 ) -> tuple[str, str]:
     subject = f"{'Payment date needed' if tone in {'firm', 'final'} else 'Reminder'}: {invoice['invoice_number']}"
     due_phrase = f"{overdue_days} days overdue" if overdue_days > 0 else "due soon"
+    online_invoice_url = invoice.get("online_invoice_url")
+    payment_prompt = (
+        f"Could you confirm the planned payment date, or use this secure Xero invoice link when ready?\n{online_invoice_url}"
+        if online_invoice_url
+        else "Could you confirm the planned payment date when ready?"
+    )
     body = (
         f"Hi {contact_name},\n\n"
         f"{invoice['invoice_number']} for GBP {invoice['amount_due']:,} is {due_phrase}. "
-        "Could you confirm the planned payment date, or use {payment_link} when ready?"
+        f"{payment_prompt}"
     )
     if tone in {"firm", "final"}:
         body += " I can resend the current statement if helpful."
