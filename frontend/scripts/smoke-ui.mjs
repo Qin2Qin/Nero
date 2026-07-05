@@ -174,6 +174,16 @@ async function runSmoke() {
   if (!(await reconnectApproveButton.isDisabled())) {
     throw new Error("Approval stayed enabled while Xero needed reconnect");
   }
+  const reconnectSaveWording = reconnectPage.getByRole("button", { name: "Save wording" }).first();
+  await reconnectSaveWording.waitFor();
+  if (!(await reconnectSaveWording.isDisabled())) {
+    throw new Error("Save wording stayed enabled while Xero needed reconnect");
+  }
+  const reconnectDismiss = reconnectPage.locator(".danger-icon").first();
+  await reconnectDismiss.waitFor();
+  if (!(await reconnectDismiss.isDisabled())) {
+    throw new Error("Dismiss stayed enabled while Xero needed reconnect");
+  }
   await reconnectPage.close();
 
   const tenantMismatchPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
@@ -233,6 +243,16 @@ async function runSmoke() {
   await staleApproveButton.waitFor();
   if (!(await staleApproveButton.isDisabled())) {
     throw new Error("Approval stayed enabled while the Xero dashboard needed a sync");
+  }
+  const staleSaveWording = tenantMismatchPage.getByRole("button", { name: "Save wording" }).first();
+  await staleSaveWording.waitFor();
+  if (!(await staleSaveWording.isDisabled())) {
+    throw new Error("Save wording stayed enabled while the Xero dashboard needed a sync");
+  }
+  const staleDismiss = tenantMismatchPage.locator(".danger-icon").first();
+  await staleDismiss.waitFor();
+  if (!(await staleDismiss.isDisabled())) {
+    throw new Error("Dismiss stayed enabled while the Xero dashboard needed a sync");
   }
   await tenantMismatchPage.close();
 

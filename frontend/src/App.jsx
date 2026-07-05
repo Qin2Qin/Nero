@@ -1440,11 +1440,21 @@ function AgentQueue({ proposals, dataSource, approvalBlockedReason = "", onAppro
                   <Check size={16} /> {copy.approveLabel}
                 </button>
                 {proposal.draft_subject && (
-                  <button className="button ghost btn btn-ghost btn-sm" disabled={busy} onClick={() => onEdit(proposal.id, draftBody)}>
+                  <button
+                    className="button ghost btn btn-ghost btn-sm"
+                    disabled={busy || Boolean(approvalBlockedReason)}
+                    onClick={() => onEdit(proposal.id, draftBody)}
+                    title={approvalBlockedReason || "Save wording"}
+                  >
                     Save wording
                   </button>
                 )}
-                <button className="icon-button danger-icon btn btn-square btn-ghost btn-sm" disabled={busy} onClick={() => onDismiss(proposal.id)} title="Dismiss">
+                <button
+                  className="icon-button danger-icon btn btn-square btn-ghost btn-sm"
+                  disabled={busy || Boolean(approvalBlockedReason)}
+                  onClick={() => onDismiss(proposal.id)}
+                  title={approvalBlockedReason || "Dismiss"}
+                >
                   <X size={16} />
                 </button>
               </div>

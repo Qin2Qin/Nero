@@ -45,8 +45,10 @@ DEMO_ONLY_LIVE_DETAIL = "Demo-only controls are disabled while this dashboard is
 SYNTHETIC_SEED_LIVE_DETAIL = "Synthetic seeding is disabled while this dashboard already contains live Xero data."
 STALE_XERO_APPROVAL_DETAIL = "Sync Xero before approving actions for this organisation."
 STALE_XERO_AGENT_DETAIL = "Sync Xero before finding actions for this organisation."
+STALE_XERO_ACTION_CHANGE_DETAIL = "Sync Xero before changing actions for this organisation."
 RECONNECT_XERO_APPROVAL_DETAIL = "Reconnect Xero before approving actions for this organisation."
 RECONNECT_XERO_AGENT_DETAIL = "Reconnect Xero before finding actions for this organisation."
+RECONNECT_XERO_ACTION_CHANGE_DETAIL = "Reconnect Xero before changing actions for this organisation."
 
 
 def ensure_demo_control_allowed(state: dict) -> None:
@@ -77,6 +79,10 @@ def ensure_xero_approval_tenant_current(state: dict) -> None:
     ensure_xero_action_allowed(state, STALE_XERO_APPROVAL_DETAIL, RECONNECT_XERO_APPROVAL_DETAIL)
 
 
+def ensure_xero_action_change_allowed(state: dict) -> None:
+    ensure_xero_action_allowed(state, STALE_XERO_ACTION_CHANGE_DETAIL, RECONNECT_XERO_ACTION_CHANGE_DETAIL)
+
+
 @router.post("/proposals/{proposal_id}/approve")
 def approve(proposal_id: str) -> dict:
     state = get_state()
@@ -101,6 +107,7 @@ def approve(proposal_id: str) -> dict:
 @router.post("/proposals/{proposal_id}/dismiss")
 def dismiss(proposal_id: str) -> dict:
     state = get_state()
+    ensure_xero_action_change_allowed(state)
     try:
         proposal = dismiss_proposal(state, proposal_id)
     except KeyError as exc:
@@ -112,6 +119,7 @@ def dismiss(proposal_id: str) -> dict:
 @router.post("/proposals/{proposal_id}/edit")
 def edit(proposal_id: str, request: EditProposalRequest) -> dict:
     state = get_state()
+    ensure_xero_action_change_allowed(state)
     try:
         proposal = edit_proposal(state, proposal_id, request.draft_body)
     except KeyError as exc:
