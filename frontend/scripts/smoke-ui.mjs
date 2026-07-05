@@ -124,6 +124,11 @@ async function runSmoke() {
 
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   const browserErrors = [];
+  const initialReadPreflights = [];
+  let trackInitialReads = true;
+  page.on("request", (request) => {
+    if (trackInitialReads && request.method() === "OPTIONS") initialReadPreflights.push(request.url());
+  });
   page.on("pageerror", (error) => {
     browserErrors.push(error.message);
   });
@@ -137,6 +142,10 @@ async function runSmoke() {
   try {
     await page.goto(frontendUrl, { waitUntil: "networkidle" });
     await page.getByRole("heading", { name: "Nero" }).waitFor();
+    trackInitialReads = false;
+    if (initialReadPreflights.length) {
+      throw new Error(`Initial dashboard reads triggered avoidable CORS preflights:\n${initialReadPreflights.join("\n")}`);
+    }
     await page.getByText("Northstar Fabrication Works").first().waitFor();
     await page.getByText(/^Updated /).first().waitFor();
     await page.getByText("Due now or soon").waitFor();

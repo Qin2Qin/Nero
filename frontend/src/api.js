@@ -159,9 +159,13 @@ function buildAgedReceivables(invoices, asOf = localState.forecast.as_of || nowI
 }
 
 async function request(path, options = {}) {
+  const headers = new Headers(options.headers || {});
+  if (options.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
   const response = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...options
+    ...options,
+    headers
   });
   if (!response.ok) {
     let message = `${response.status} ${response.statusText}`;
