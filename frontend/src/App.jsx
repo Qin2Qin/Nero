@@ -738,11 +738,11 @@ function Dashboard({
 
       <section className="metrics">
         <article>
-          <span>Due next 30 days</span>
+          <span>Due now or soon</span>
           <strong>{formatHeroCurrency(dueNext30)}</strong>
         </article>
         <article className="metric-primary">
-          <span>Actually arriving</span>
+          <span>Likely by then</span>
           <strong>{formatHeroCurrency(predictedNext30)}</strong>
         </article>
         <article className="metric-teal">
