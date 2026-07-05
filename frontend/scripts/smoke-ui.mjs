@@ -224,6 +224,15 @@ async function runSmoke() {
     await page.getByRole("heading", { name: "Activity" }).waitFor();
     await page.getByText(/Approved|Loaded Northstar/).first().waitFor();
 
+    const mobilePage = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true });
+    await mobilePage.goto(frontendUrl, { waitUntil: "networkidle" });
+    await mobilePage.getByRole("heading", { name: "Nero" }).waitFor();
+    await mobilePage.locator(".mobile-invoice-list").waitFor();
+    if (!(await mobilePage.locator(".mobile-invoice-card").first().isVisible())) {
+      throw new Error("Mobile invoice cards were not visible at phone width");
+    }
+    await mobilePage.close();
+
     await page.keyboard.press("Control+Shift+D");
     await page.getByRole("heading", { name: "Developer tools" }).waitFor();
     await page.getByRole("button", { name: /Seed portfolio/ }).first().waitFor();
