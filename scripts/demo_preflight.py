@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import re
 import struct
 import sys
 from datetime import datetime, timezone
@@ -18,6 +19,19 @@ DEFAULT_FRONTEND_URL = "http://127.0.0.1:5173"
 ROOT = Path(__file__).resolve().parents[1]
 SUBMISSION_IMAGE = ROOT / "frontend" / "public" / "visuals" / "nero-live-dashboard-submission.png"
 SUBMISSION_IMAGE_SIZE = (1120, 720)
+ACTION_COPY_FIELDS = ("reasoning_text", "draft_subject", "draft_body", "recommendation_detail")
+ACTION_COPY_BANNED_PATTERNS = {
+    "payment-link placeholder": re.compile(r"\{payment_link\}", re.IGNORECASE),
+    "fixture sender": re.compile(r"Harbour & Co", re.IGNORECASE),
+    "singular-days grammar": re.compile(r"\b1 days\b", re.IGNORECASE),
+    "raw GBP code": re.compile(r"\bGBP\s+", re.IGNORECASE),
+    "technical variance": re.compile(r"\bvariance\b", re.IGNORECASE),
+    "undefined placeholder": re.compile(r"\bundefined\b", re.IGNORECASE),
+    "internal proposal count": re.compile(r"proposal\(s\)", re.IGNORECASE),
+    "internal profile count": re.compile(r"profile\(s\)", re.IGNORECASE),
+    "technical materialised copy": re.compile(r"\bmaterialised\b", re.IGNORECASE),
+}
+RAW_XERO_ID_LABEL = re.compile(r"(?<!invoice )\b[0-9a-f]{8}\b", re.IGNORECASE)
 
 
 def request_json(base_url: str, path: str, method: str = "GET", timeout: float = 10.0) -> dict[str, Any] | list[Any]:
@@ -88,6 +102,24 @@ def parse_datetime(value: str | None) -> datetime | None:
 
 def pounds(value: Any) -> str:
     return f"£{round(float(value or 0)):,}"
+
+
+def action_copy_issues(proposals: list[Any]) -> list[str]:
+    issues: list[str] = []
+    for proposal in proposals:
+        if not isinstance(proposal, dict):
+            continue
+        contact = str(proposal.get("contact_name") or proposal.get("id") or "unknown action")
+        text = "\n".join(str(proposal.get(field) or "") for field in ACTION_COPY_FIELDS)
+        if not text.strip():
+            continue
+        scrubbed = re.sub(r"https?://\S+", "", text)
+        for label, pattern in ACTION_COPY_BANNED_PATTERNS.items():
+            if pattern.search(scrubbed):
+                issues.append(f"{contact}: {label}")
+        if RAW_XERO_ID_LABEL.search(scrubbed):
+            issues.append(f"{contact}: raw Xero ID label")
+    return issues
 
 
 def fail(failures: list[str], lines: list[str], label: str, detail: str) -> None:
@@ -208,6 +240,12 @@ def evaluate_preflight(
         )
     else:
         fail(failures, lines, "actions", "no pending draft has a customer email")
+
+    copy_issues = action_copy_issues(proposals)
+    if copy_issues:
+        fail(failures, lines, "action copy", "; ".join(copy_issues[:8]))
+    else:
+        pass_line(lines, "action copy", "drafts are owner-readable and free of known demo placeholders")
 
     readiness = payloads.get("/api/app_store/readiness") or {}
     ready_count = int(readiness.get("ready_count") or 0)

@@ -87,6 +87,7 @@ def test_demo_preflight_passes_for_live_xero_ready_state() -> None:
     assert "PASS submission image: frontend/public/visuals/nero-live-dashboard-submission.png is a 1120x720 PNG" in lines
     assert "PASS xero: connected, token current, tenant tenant-1" in lines
     assert any("1 draft has customer email" in line for line in lines)
+    assert "PASS action copy: drafts are owner-readable and free of known demo placeholders" in lines
     assert "INFO app store incomplete: Webhook receiver=todo, App Store subscriptions=todo" in lines
     assert lines[-1] == "result=passed"
 
@@ -120,6 +121,39 @@ def test_demo_preflight_fails_for_missing_submission_image() -> None:
 
     assert exit_code == 1
     assert any(line.startswith("FAIL submission image:") for line in lines)
+    assert lines[-1] == "result=failed"
+
+
+def test_demo_preflight_fails_for_draft_copy_artifacts() -> None:
+    module = load_module()
+    payloads = healthy_payloads()
+    payloads["/api/proposals"] = [
+        {
+            "status": "pending",
+            "draft_subject": "Reminder: f9eb4838",
+            "draft_body": (
+                "Hi Customer,\n\n"
+                "INV-1 for GBP 250 is 1 days overdue. {payment_link}\n\n"
+                "Thanks,\nAlex, Harbour & Co"
+            ),
+            "reasoning_text": "Variance: 5.25d",
+            "contact_email": "owner@example.com",
+            "contact_name": "Fixture Customer",
+            "expected_impact_dollars": 250,
+        }
+    ]
+
+    exit_code, lines = module.evaluate_preflight(
+        payloads,
+        now=datetime(2026, 7, 5, 6, 30, tzinfo=timezone.utc),
+    )
+
+    assert exit_code == 1
+    assert any(line.startswith("FAIL action copy:") for line in lines)
+    assert any("payment-link placeholder" in line for line in lines)
+    assert any("fixture sender" in line for line in lines)
+    assert any("raw GBP code" in line for line in lines)
+    assert any("raw Xero ID label" in line for line in lines)
     assert lines[-1] == "result=failed"
 
 
