@@ -29,7 +29,7 @@ Xero API usage:
 
 OAuth scopes:
 
-`openid profile email offline_access accounting.contacts accounting.settings accounting.transactions accounting.payments accounting.reports.read`
+`openid profile email accounting.invoices accounting.contacts accounting.payments accounting.settings offline_access`
 
 Advisor recommendation copy:
 

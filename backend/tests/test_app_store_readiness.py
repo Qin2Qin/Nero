@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
 
 from main import create_app
+from services.xero_auth import SCOPES
 
 
 def test_app_store_readiness_exposes_xero_certification_checklist() -> None:
@@ -33,3 +34,11 @@ def test_app_store_readiness_exposes_xero_certification_checklist() -> None:
     assert "xero-app-store-submission.md" in listing["detail"]
     assert support_security["status"] == "ready"
     assert "privacy" in support_security["detail"].lower()
+
+
+def test_app_store_submission_scopes_match_runtime_oauth_scopes() -> None:
+    submission_notes = (ROOT / "docs" / "xero-app-store-submission.md").read_text()
+
+    assert f"`{SCOPES}`" in submission_notes
+    assert "accounting.transactions" not in submission_notes
+    assert "accounting.reports.read" not in submission_notes
