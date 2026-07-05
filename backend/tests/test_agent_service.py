@@ -146,6 +146,45 @@ def test_agent_logs_when_no_new_actions_are_needed() -> None:
     assert state["action_log"][0]["event"] == "No new actions needed right now."
 
 
+def test_agent_logs_existing_pending_actions_when_no_new_actions_are_created() -> None:
+    contact = {
+        "id": "customer-pending",
+        "name": "Pending Customer",
+        "grade": "C",
+        "avg_days_late": 9,
+        "invoice_count": 4,
+        "low_confidence": False,
+        "revenue_12m": 3000,
+        "trend_slope": 0,
+    }
+    invoice = {
+        "id": "invoice-pending",
+        "contact_id": "customer-pending",
+        "contact_name": "Pending Customer",
+        "invoice_number": "INV-PENDING",
+        "amount_due": 750,
+        "due_date": "2026-06-01",
+        "predicted_paid_date": "2026-06-10",
+    }
+    state = base_state(contact, invoice)
+    state["proposals"].append(
+        {
+            "id": "existing-reminder",
+            "type": "reminder",
+            "contact_id": "customer-pending",
+            "contact_name": "Pending Customer",
+            "invoice_id": "invoice-pending",
+            "status": "pending",
+        }
+    )
+
+    created = run_agent_cycle(state, today=date.fromisoformat("2026-07-05"))
+
+    assert created == []
+    assert len(state["proposals"]) == 1
+    assert state["action_log"][0]["event"] == "1 suggested action still waiting for your review."
+
+
 def test_agent_does_not_recreate_previously_decided_invoice_action() -> None:
     contact = {
         "id": "customer-5",
