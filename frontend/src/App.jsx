@@ -350,9 +350,14 @@ function businessNameFor(source) {
 }
 
 function xeroBadge(status) {
+  if (xeroNeedsReconnect(status)) return { className: "badge badge-error danger", label: "Reconnect Xero" };
   if (status?.connected) return { className: "badge badge-success success", label: "Connected" };
   if (status?.demo_mode) return { className: "badge badge-neutral neutral", label: "Demo mode" };
   return { className: "badge badge-error danger", label: "Not connected" };
+}
+
+function xeroNeedsReconnect(status) {
+  return Boolean(status?.refresh_error || (status?.connected && status?.expired));
 }
 
 function syncSummary(result) {
@@ -644,12 +649,15 @@ function LateInvoicesByAge({ agedReceivables }) {
 
 function XeroConnection({ status, source, tenants, syncResult, onSyncXero, onSeedPortfolio, onSelectTenant, busy }) {
   const badge = xeroBadge(status);
-  const canSync = status?.demo_mode || status?.connected;
+  const needsReconnect = xeroNeedsReconnect(status);
+  const canSync = status?.demo_mode || (status?.connected && !needsReconnect);
   const tenantOptions = tenants?.tenants || [];
   const activeTenant = tenantOptions.find((tenant) => tenant.is_active);
   const credentialState = status?.client_credentials_configured ? "Ready" : "Missing";
   const tokenState = status?.connected
-    ? "Stored"
+    ? needsReconnect
+      ? "Reconnect needed"
+      : "Stored"
     : status?.env_tokens_configured || status?.env_refresh_token_configured
       ? "Available in env"
       : "Missing";
@@ -688,6 +696,11 @@ function XeroConnection({ status, source, tenants, syncResult, onSyncXero, onSee
         <button className="button primary btn btn-primary btn-sm" onClick={onSyncXero} disabled={busy || !canSync}>
           <RefreshCw size={16} /> {status?.demo_mode ? "Check demo sync" : "Sync Xero"}
         </button>
+        {needsReconnect && status?.client_credentials_configured && (
+          <a className="button ghost btn btn-ghost btn-sm" href={XERO_LOGIN_URL}>
+            <ExternalLink size={16} /> Reconnect Xero
+          </a>
+        )}
         <button className="button ghost btn btn-ghost btn-sm" onClick={onSeedPortfolio} disabled={busy}>
           <Database size={16} /> Seed portfolio
         </button>
@@ -698,6 +711,7 @@ function XeroConnection({ status, source, tenants, syncResult, onSyncXero, onSee
         )}
       </div>
       {syncResult && <p className={syncResultClass(syncResult)}>{syncSummary(syncResult)}</p>}
+      {needsReconnect && <p className="muted compact-note">{status?.refresh_error || "Reconnect Xero to continue syncing."}</p>}
       {source?.detail && <p className="muted compact-note">{source.detail}</p>}
       {!status?.demo_mode && !status?.connected && !status?.client_credentials_configured && (
         <p className="muted compact-note">Live credentials missing.</p>
@@ -731,7 +745,7 @@ function ResearchSignals({ sources, onScanResearch, busy }) {
 }
 
 function DataSourceBanner({ source, xeroStatus }) {
-  const liveConnected = xeroStatus?.connected && !xeroStatus?.demo_mode;
+  const liveConnected = xeroStatus?.connected && !xeroStatus?.demo_mode && !xeroNeedsReconnect(xeroStatus);
   const business = source?.business;
   const updatedAt = source?.generated_at ? formatDateTime(source.generated_at) : "";
   const detail = business
@@ -764,6 +778,14 @@ function LiveXeroControls({ status, tenants, source, busy, onSyncXero, onSelectT
     return (
       <a className="button ghost btn btn-ghost btn-sm" href={XERO_LOGIN_URL}>
         <ExternalLink size={16} /> Connect Xero
+      </a>
+    );
+  }
+
+  if (xeroNeedsReconnect(status)) {
+    return (
+      <a className="button ghost btn btn-ghost btn-sm" href={XERO_LOGIN_URL} title={status.refresh_error || "Reconnect Xero to continue syncing."}>
+        <ExternalLink size={16} /> Reconnect Xero
       </a>
     );
   }
