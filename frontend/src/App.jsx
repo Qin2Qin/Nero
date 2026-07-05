@@ -51,7 +51,7 @@ import {
 const TABS = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "payers", label: "Payers", icon: Users },
-  { id: "queue", label: "Agent Queue", icon: Bot },
+  { id: "queue", label: "Actions", icon: Bot },
   { id: "outbox", label: "Outbox", icon: Send }
 ];
 
@@ -710,7 +710,7 @@ function Dashboard({
           <strong>{openInvoiceCount} invoices under watch</strong>
         </div>
         <div>
-          <span>Agent queue</span>
+          <span>To review</span>
           <strong>{pendingActions} suggested actions</strong>
         </div>
         <div>
@@ -741,7 +741,7 @@ function Dashboard({
           <p>{pendingSummary}</p>
         </div>
         <button className="button ghost btn btn-ghost btn-sm" type="button" onClick={onReviewActions}>
-          <Bot size={16} /> Open queue
+          <Bot size={16} /> Review actions
         </button>
       </section>
 
@@ -975,7 +975,7 @@ function AgentQueue({ proposals, onApprove, onDismiss, onEdit, busy }) {
   return (
     <main className="content">
       <div className="panel-head page-head">
-        <h1>Agent Queue</h1>
+        <h1>Actions to review</h1>
       </div>
       <div className="proposal-grid">
         {pending.map((proposal) => {
@@ -1016,7 +1016,7 @@ function AgentQueue({ proposals, onApprove, onDismiss, onEdit, busy }) {
             </article>
           );
         })}
-        {pending.length === 0 && <div className="empty">No pending proposals</div>}
+        {pending.length === 0 && <div className="empty">No suggested actions waiting</div>}
       </div>
     </main>
   );
@@ -1172,7 +1172,7 @@ function GuideModal({ onClose }) {
   const steps = [
     "See who owes you money and when they're likely to actually pay.",
     "Check the Payers tab to see which customers tend to pay late.",
-    "Look in Agent Queue for suggested actions like reminders or smarter payment terms.",
+    "Open Actions to review suggested reminders or smarter payment terms.",
     "Review and approve; nothing is sent without your OK.",
     "Watch your forecast improve as payments come in."
   ];
