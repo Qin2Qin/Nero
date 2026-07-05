@@ -205,6 +205,11 @@ def run_agent_cycle(state: dict[str, Any], max_pending: int = 8, today: date | N
         suffix = "s" if count != 1 else ""
         event = f"{count} suggested action{suffix} ready for your review."
     else:
-        event = "No new actions needed right now."
+        pending_count = len([proposal for proposal in state["proposals"] if proposal["status"] == "pending"])
+        if pending_count:
+            suffix = "s" if pending_count != 1 else ""
+            event = f"{pending_count} suggested action{suffix} still waiting for your review."
+        else:
+            event = "No new actions needed right now."
     append_log(state, "Nero", event)
     return created
