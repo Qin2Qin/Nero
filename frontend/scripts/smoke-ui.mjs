@@ -172,7 +172,13 @@ async function runSmoke() {
 
     await page.getByRole("button", { name: "Actions" }).click();
     await page.getByRole("heading", { name: "Actions to review" }).waitFor();
-    await page.getByRole("button", { name: "Approve" }).first().click();
+    await page.getByText(/Send reminder|Send firmer reminder|Ask for deposit|Change payment terms/).first().waitFor();
+    await page.getByText(/Could bring £[\d,]+ forward about \d+ days? sooner\./).first().waitFor();
+    const actionsText = await page.locator("body").innerText();
+    if (/across 0 paid invoices|deposit_recommendation|terms_recommendation/.test(actionsText)) {
+      throw new Error(`Internal action copy leaked into UI:\n${actionsText}`);
+    }
+    await page.getByRole("button", { name: /Approve/ }).first().click();
     await page.getByRole("button", { name: "Outbox" }).click();
     await page.getByRole("heading", { name: "Outbox" }).waitFor();
     await page.getByText(/Foundry Lane Events|Juniper Borough Services|Alder House Retail|Canal House Workspace/).first().waitFor();

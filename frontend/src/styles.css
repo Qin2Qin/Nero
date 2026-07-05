@@ -1145,12 +1145,29 @@ dd {
   gap: var(--space-3);
 }
 
+.proposal-top strong {
+  color: var(--fgColor-default);
+}
+
+.proposal-top .badge {
+  text-transform: none;
+}
+
 blockquote {
   margin: 0;
   padding: var(--space-3);
   background: var(--bgColor-inset);
   border-left: 3px solid var(--fgColor-accent);
   color: var(--fgColor-default);
+}
+
+.proposal-reason {
+  margin: 0;
+  padding: var(--space-3);
+  border-left: 3px solid var(--fgColor-accent);
+  background: var(--bgColor-inset);
+  color: var(--fgColor-default);
+  line-height: 1.45;
 }
 
 .impact {
@@ -1163,6 +1180,7 @@ blockquote {
 .message-preview summary {
   cursor: pointer;
   font-weight: 600;
+  color: var(--fgColor-default);
 }
 
 textarea {
