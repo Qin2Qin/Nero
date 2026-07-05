@@ -471,7 +471,6 @@ function mailtoDraftHref(entry) {
 
 function outboxSendDisabledReason(entry) {
   if (entry.send_disabled_reason) return entry.send_disabled_reason;
-  if (!entry.to_email) return "Add this customer's email address in Xero, then sync Nero.";
   return "";
 }
 
@@ -1378,7 +1377,7 @@ function Payers({ contacts, invoices = [] }) {
   );
 }
 
-function AgentQueue({ proposals, dataSource, aiStatus, approvalBlockedReason = "", onApprove, onDismiss, onEdit, onPolish, busy }) {
+function AgentQueue({ proposals, dataSource, aiStatus, approvalBlockedReason = "", onApprove, onDismiss, onEdit, onPolish, onFindActions, busy }) {
   const [drafts, setDrafts] = useState({});
   const pending = useMemo(
     () =>
@@ -1470,7 +1469,7 @@ function AgentQueue({ proposals, dataSource, aiStatus, approvalBlockedReason = "
               )}
               {proposal.draft_subject && !proposal.contact_email && (
                 <p className="contact-warning">
-                  No customer email found in Xero. Approving keeps the draft in Outbox so you can copy it or add the email in Xero.
+                  No customer email found in Xero. Approving keeps the draft in Outbox so you can open it and add the recipient manually.
                 </p>
               )}
               <p className="approval-note">{approvalOutcomeText(proposal, dataSource)}</p>
@@ -1478,6 +1477,7 @@ function AgentQueue({ proposals, dataSource, aiStatus, approvalBlockedReason = "
               <div className="actions">
                 <button
                   className="button primary btn btn-primary btn-sm"
+                  type="button"
                   disabled={busy || Boolean(approvalBlockedReason)}
                   onClick={() => approveCurrentDraft(proposal, draftBody)}
                   title={approvalBlockedReason || copy.approveLabel}
@@ -1487,6 +1487,7 @@ function AgentQueue({ proposals, dataSource, aiStatus, approvalBlockedReason = "
                 {proposal.draft_subject && (
                   <button
                     className="button ghost btn btn-ghost btn-sm"
+                    type="button"
                     disabled={busy || Boolean(approvalBlockedReason)}
                     onClick={() => onEdit(proposal.id, draftBody)}
                     title={approvalBlockedReason || "Save wording"}
@@ -1497,6 +1498,7 @@ function AgentQueue({ proposals, dataSource, aiStatus, approvalBlockedReason = "
                 {proposal.draft_subject && proposal.contact_email && aiStatus?.enabled && (
                   <button
                     className="button ghost btn btn-ghost btn-sm"
+                    type="button"
                     disabled={busy || Boolean(approvalBlockedReason)}
                     onClick={() => polishCurrentDraft(proposal, draftBody)}
                     title={approvalBlockedReason || "Polish wording with review-only AI"}
@@ -1506,6 +1508,7 @@ function AgentQueue({ proposals, dataSource, aiStatus, approvalBlockedReason = "
                 )}
                 <button
                   className="button ghost danger-icon danger-button btn btn-ghost btn-sm"
+                  type="button"
                   disabled={busy || Boolean(approvalBlockedReason)}
                   onClick={() => onDismiss(proposal.id)}
                   title={approvalBlockedReason || "Dismiss"}
@@ -1516,7 +1519,20 @@ function AgentQueue({ proposals, dataSource, aiStatus, approvalBlockedReason = "
             </article>
           );
         })}
-        {pending.length === 0 && <div className="empty">No suggested actions waiting</div>}
+        {pending.length === 0 && (
+          <div className="empty queue-empty">
+            <p>No suggested actions waiting</p>
+            <button
+              className="button ghost btn btn-ghost btn-sm"
+              type="button"
+              onClick={onFindActions}
+              disabled={busy || Boolean(approvalBlockedReason)}
+              title={approvalBlockedReason || "Find suggested actions"}
+            >
+              <RefreshCw size={16} /> Find actions
+            </button>
+          </div>
+        )}
       </div>
     </main>
   );
@@ -1602,11 +1618,15 @@ function Outbox({ outbox }) {
                         </button>
                         {disabledReason ? (
                           <span className="draft-disabled" title={disabledReason}>
-                            {staleDraft ? "Closed in Xero" : "Add email first"}
+                            Closed in Xero
                           </span>
                         ) : (
-                          <a className="button ghost btn btn-ghost btn-xs outbox-draft-link" href={mailtoDraftHref(entry)}>
-                            <ExternalLink size={14} /> Open mail app
+                          <a
+                            className="button ghost btn btn-ghost btn-xs outbox-draft-link"
+                            href={mailtoDraftHref(entry)}
+                            title={entry.to_email ? "Open email draft" : "Open email draft and add the recipient manually"}
+                          >
+                            <ExternalLink size={14} /> Open email
                           </a>
                         )}
                       </div>
@@ -1861,6 +1881,124 @@ export function App() {
     }
   }
 
+  function localOutboxEntry(proposal, draftBody, approvedResult) {
+    if (!proposal?.draft_subject) return null;
+    return (
+      approvedResult?.outbox_entry || {
+        id: `local-outbox-${proposal.id}-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        to: proposal.contact_name,
+        to_email: proposal.contact_email || "",
+        subject: proposal.draft_subject,
+        body: draftBody ?? proposal.draft_body ?? "",
+        invoice_id: proposal.invoice_id,
+        proposal_id: proposal.id
+      }
+    );
+  }
+
+  function proposalMetricRollup(proposals, status) {
+    const items = proposals.filter((proposal) => proposal.status === status);
+    const impact = items.reduce((sum, proposal) => sum + Number(proposal.expected_impact_dollars || 0), 0);
+    const weightedDays = items.reduce(
+      (sum, proposal) => sum + Number(proposal.expected_impact_dollars || 0) * Number(proposal.expected_days_accelerated || 0),
+      0
+    );
+    return {
+      actions_count: items.length,
+      impact_dollars: impact,
+      avg_days_accelerated: impact ? Math.round((weightedDays / impact) * 10) / 10 : 0
+    };
+  }
+
+  function mergeActionMetrics(metrics, proposals) {
+    const approved = proposalMetricRollup(proposals, "approved");
+    const pending = proposalMetricRollup(proposals, "pending");
+    return {
+      ...(metrics || {}),
+      cash_accelerated_dollars: approved.impact_dollars,
+      avg_days_accelerated: approved.avg_days_accelerated,
+      approved_actions_count: approved.actions_count,
+      pending_impact_dollars: pending.impact_dollars,
+      pending_avg_days_accelerated: pending.avg_days_accelerated,
+      pending_actions_count: pending.actions_count
+    };
+  }
+
+  async function approveAction(id, draftBody) {
+    const original = data?.proposals?.find((proposal) => proposal.id === id);
+    const editedDraft = typeof draftBody === "string";
+    setBusy(true);
+    setError("");
+    try {
+      if (editedDraft) await editProposal(id, draftBody);
+      const result = await approveProposal(id);
+      const returnedProposal = result?.proposal || {};
+      const previewProposal = {
+        ...(original || {}),
+        ...returnedProposal,
+        draft_body: editedDraft ? draftBody : returnedProposal.draft_body ?? original?.draft_body,
+        status: "approved"
+      };
+      const shouldOpenOutbox = Boolean(result?.outbox_entry || previewProposal.draft_subject);
+      setData((current) => {
+        if (!current) return current;
+        const currentProposal = current.proposals.find((proposal) => proposal.id === id);
+        if (!currentProposal) return current;
+        const updatedProposal = {
+          ...currentProposal,
+          ...returnedProposal,
+          draft_body: editedDraft ? draftBody : returnedProposal.draft_body ?? currentProposal.draft_body,
+          status: "approved"
+        };
+        const proposals = current.proposals.map((proposal) => (proposal.id === id ? updatedProposal : proposal));
+        const outboxEntry = localOutboxEntry(updatedProposal, updatedProposal.draft_body, result);
+        const outbox = outboxEntry
+          ? [outboxEntry, ...(current.outbox || []).filter((entry) => entry.proposal_id !== id)]
+          : current.outbox || [];
+        return {
+          ...current,
+          proposals,
+          outbox,
+          actionLog: result?.log_entry ? [result.log_entry, ...(current.actionLog || [])] : current.actionLog,
+          metrics: mergeActionMetrics(current.metrics, proposals)
+        };
+      });
+      if (shouldOpenOutbox) setActiveTab("outbox");
+      return result;
+    } catch (err) {
+      setError(err.message);
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function dismissAction(id) {
+    setBusy(true);
+    setError("");
+    try {
+      const result = await dismissProposal(id);
+      setData((current) => {
+        if (!current) return current;
+        const proposals = current.proposals.map((proposal) =>
+          proposal.id === id ? { ...proposal, ...(result || {}), status: "dismissed" } : proposal
+        );
+        return {
+          ...current,
+          proposals,
+          metrics: mergeActionMetrics(current.metrics, proposals)
+        };
+      });
+      return result;
+    } catch (err) {
+      setError(err.message);
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function confirmDisconnectXero() {
     const confirmed = window.confirm(
       "Disconnect Xero on this computer? Nero will keep the current dashboard snapshot, but it will not sync again until you reconnect."
@@ -1909,15 +2047,11 @@ export function App() {
           aiStatus={data.aiStatus}
           approvalBlockedReason={xeroActionBlockReason(data.dataSource, data.xeroStatus, data.xeroTenants)}
           busy={busy}
-          onApprove={(id, draftBody) =>
-            act(async () => {
-              if (typeof draftBody === "string") await editProposal(id, draftBody);
-              await approveProposal(id);
-            })
-          }
-          onDismiss={(id) => act(() => dismissProposal(id))}
+          onApprove={approveAction}
+          onDismiss={dismissAction}
           onEdit={(id, body) => act(() => editProposal(id, body))}
           onPolish={(id, body) => act(() => polishProposal(id, body))}
+          onFindActions={() => act(findActions)}
         />
       );
     }

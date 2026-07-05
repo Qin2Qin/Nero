@@ -526,7 +526,7 @@ async function runSmoke() {
   await staleOutboxPage.getByRole("button", { name: "Outbox" }).click();
   await staleOutboxPage.getByRole("heading", { name: "Outbox" }).waitFor();
   await staleOutboxPage.getByText("Closed in Xero").waitFor();
-  if (await staleOutboxPage.getByRole("link", { name: "Open mail app" }).count()) {
+  if (await staleOutboxPage.getByRole("link", { name: "Open email" }).count()) {
     throw new Error("Closed Xero invoice still exposed a sendable outbox draft");
   }
   const staleCopyButton = staleOutboxPage.getByRole("button", { name: "Copy" }).first();
@@ -596,9 +596,11 @@ async function runSmoke() {
   await noEmailOutboxPage.getByRole("button", { name: "Outbox" }).click();
   await noEmailOutboxPage.getByRole("heading", { name: "Outbox" }).waitFor();
   await noEmailOutboxPage.getByText("No email in Xero").waitFor();
-  await noEmailOutboxPage.getByText("Add email first").waitFor();
-  if (await noEmailOutboxPage.getByRole("link", { name: "Open mail app" }).count()) {
-    throw new Error("Missing-email outbox entry exposed a blank-address mail draft");
+  const noEmailDraftLink = noEmailOutboxPage.getByRole("link", { name: "Open email" }).first();
+  await noEmailDraftLink.waitFor();
+  const noEmailDraftHref = await noEmailDraftLink.getAttribute("href");
+  if (!noEmailDraftHref?.startsWith("mailto:?subject=")) {
+    throw new Error(`Missing-email outbox draft did not open a manual-recipient mail draft: ${noEmailDraftHref}`);
   }
   const noEmailCopyButton = noEmailOutboxPage.getByRole("button", { name: "Copy" }).first();
   await noEmailCopyButton.waitFor();
@@ -828,14 +830,13 @@ async function runSmoke() {
     const draftTextarea = firstDraftCard.locator("textarea");
     await draftTextarea.fill(`${await draftTextarea.inputValue()}\n\n${editMarker}`);
     await firstDraftCard.getByRole("button", { name: "Approve draft" }).click();
-    await page.getByRole("button", { name: "Outbox" }).click();
     await page.getByRole("heading", { name: "Outbox" }).waitFor();
     await page.getByText(/Foundry Lane Events|Juniper Borough Services|Alder House Retail|Canal House Workspace/).first().waitFor();
     await page.locator(".message-preview").first().locator("summary").click();
     await page.getByText(editMarker).waitFor();
     await expectText(page.locator(".recipient-email").first(), /^accounts@.+\.example\.com$/i, "outbox recipient email");
     await page.getByRole("button", { name: "Copy" }).first().waitFor();
-    const outboxDraftLink = page.getByRole("link", { name: "Open mail app" }).first();
+    const outboxDraftLink = page.getByRole("link", { name: "Open email" }).first();
     await outboxDraftLink.waitFor();
     const outboxDraftHref = await outboxDraftLink.getAttribute("href");
     if (!outboxDraftHref?.startsWith("mailto:") || outboxDraftHref.startsWith("mailto:?") || !outboxDraftHref.includes("?subject=")) {
