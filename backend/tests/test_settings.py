@@ -28,6 +28,22 @@ def test_update_settings_logs_minimum_cash_copy(monkeypatch) -> None:
     assert "Cash floor" not in activity[0]["event"]
 
 
+def test_settings_can_apply_suggested_minimum_from_bills(monkeypatch) -> None:
+    monkeypatch.setenv("DEMO_MODE", "true")
+    if hasattr(state_service.get_state, "_demo_state"):
+        delattr(state_service.get_state, "_demo_state")
+    client = TestClient(create_app())
+
+    settings = client.get("/api/settings").json()
+    assert settings["suggested_cash_floor"] == 11800
+
+    response = client.patch("/api/settings", json={"cash_floor_mode": "suggested"})
+
+    assert response.status_code == 200
+    assert response.json()["cash_floor"] == 11800
+    assert response.json()["cash_floor_mode"] == "suggested"
+
+
 def test_favicon_is_served_for_statement_pages() -> None:
     client = TestClient(create_app())
 

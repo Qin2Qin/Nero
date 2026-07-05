@@ -529,12 +529,15 @@ function AppStoreReadiness({ readiness }) {
   );
 }
 
-function CashFloorControl({ value, forecast, onUpdateCashFloor, busy }) {
+function CashFloorControl({ value, forecast, suggestedCashFloor, billsSummary, onUpdateCashFloor, busy }) {
   const [draft, setDraft] = useState(value || 0);
   const warningCount = forecast?.buckets?.filter((bucket) => bucket.cumulative_predicted < draft).length || 0;
   const isChanged = Number(draft) !== Number(value || 0);
+  const suggested = Number(suggestedCashFloor || 0);
+  const hasSuggestion = suggested > 0 && suggested !== Number(value || 0);
+  const dueNext30 = Number(billsSummary?.due_next_30_amount || 0);
   const maxForecast = Math.max(...(forecast?.buckets || []).map((bucket) => bucket.cumulative_predicted || 0), 15000);
-  const maxFloor = Math.max(15000, Math.ceil(maxForecast / 5000) * 5000);
+  const maxFloor = Math.max(15000, Math.ceil(Math.max(maxForecast, suggested) / 5000) * 5000);
   const presets = [...new Set([5000, Math.round(maxFloor * 0.45 / 5000) * 5000, Math.round(maxFloor * 0.7 / 5000) * 5000])]
     .filter((preset) => preset > 0 && preset <= maxFloor)
     .slice(0, 3);
@@ -559,6 +562,16 @@ function CashFloorControl({ value, forecast, onUpdateCashFloor, busy }) {
         <strong>{formatCurrency(draft)}</strong>
         <span>Keep at least this much available</span>
       </div>
+      {suggested > 0 && (
+        <div className="cash-floor-suggestion">
+          <span>Nero suggests {formatCurrency(suggested)} from upcoming bills{dueNext30 ? `, including ${formatCurrency(dueNext30)} due in the next 30 days` : ""}.</span>
+          {hasSuggestion && (
+            <button className="button ghost btn btn-ghost btn-xs" type="button" onClick={() => onUpdateCashFloor(suggested, "suggested")} disabled={busy}>
+              Use suggestion
+            </button>
+          )}
+        </div>
+      )}
       <input
         className="range range-primary range-sm range-input"
         type="range"
@@ -581,7 +594,7 @@ function CashFloorControl({ value, forecast, onUpdateCashFloor, busy }) {
           </button>
         ))}
       </div>
-      <button className="button primary btn btn-primary btn-sm block" onClick={() => onUpdateCashFloor(draft)} disabled={busy || !isChanged}>
+      <button className="button primary btn btn-primary btn-sm block" onClick={() => onUpdateCashFloor(draft, "manual")} disabled={busy || !isChanged}>
         Apply minimum
       </button>
     </section>
@@ -1152,6 +1165,8 @@ function Dashboard({
           <CashFloorControl
             value={data.settings?.cash_floor ?? data.forecast.cash_floor}
             forecast={data.forecast}
+            suggestedCashFloor={data.settings?.suggested_cash_floor}
+            billsSummary={data.bills?.summary}
             onUpdateCashFloor={onUpdateCashFloor}
             busy={busy}
           />
@@ -1702,6 +1717,7 @@ function GuideModal({ onClose }) {
   const steps = [
     "See who owes you money and when they're likely to actually pay.",
     "Check the Payers tab to see which customers tend to pay late.",
+    "Use Nero's minimum-cash suggestion to keep enough money aside for upcoming bills.",
     "Open Actions to review suggested reminders or smarter payment terms.",
     "Review and approve; nothing is sent without your OK.",
     "Watch your forecast improve as payments come in."
@@ -1877,7 +1893,7 @@ export function App() {
           onSyncXero={() => act(async () => setSyncResult(await syncXero()))}
           onSelectTenant={(tenantId) => act(async () => setSyncResult(await selectXeroTenant(tenantId)))}
           onDisconnectXero={confirmDisconnectXero}
-          onUpdateCashFloor={(cashFloor) => act(() => updateCashFloor(cashFloor))}
+          onUpdateCashFloor={(cashFloor, mode) => act(() => updateCashFloor(cashFloor, mode))}
           onReviewActions={() => setActiveTab("queue")}
           onViewActivity={() => setActiveTab("activity")}
           syncResult={syncResult}

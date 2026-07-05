@@ -37,6 +37,7 @@ const DEFAULT_XERO_STATUS = {
   redirect_uri: ""
 };
 const DEFAULT_XERO_TENANTS = { active_tenant_id: null, tenants: [] };
+const DEFAULT_BILLS = { bills: [], summary: { total_count: 0, upcoming_count: 0, due_next_30_amount: 0, next_bill: null, categories: [] } };
 
 async function ensureLocalState() {
   if (localState) return localState;
@@ -142,7 +143,8 @@ async function ensureLocalState() {
       demo_mode: true,
       redirect_uri: "http://localhost:8000/auth/callback"
     },
-    xeroTenants: { ...DEFAULT_XERO_TENANTS }
+    xeroTenants: { ...DEFAULT_XERO_TENANTS },
+    bills: { ...DEFAULT_BILLS }
   };
   return localState;
 }
@@ -299,7 +301,8 @@ export async function fetchAll() {
       appStoreReadiness: state.appStoreReadiness,
       aiStatus: state.aiStatus,
       xeroStatus: state.xeroStatus,
-      xeroTenants: state.xeroTenants
+      xeroTenants: state.xeroTenants,
+      bills: state.bills
     };
   }
 
@@ -316,7 +319,8 @@ export async function fetchAll() {
     dataSourceData,
     appStoreReadinessData,
     aiStatusData,
-    xeroStatusData
+    xeroStatusData,
+    billsData
   ] =
     await Promise.all([
       request("/api/contacts"),
@@ -331,7 +335,8 @@ export async function fetchAll() {
       request("/api/data_source"),
       optionalRequest("/api/app_store/readiness", DEFAULT_APP_STORE_READINESS),
       optionalRequest("/api/ai/status", DEFAULT_AI_STATUS),
-      optionalRequest("/api/xero/status", DEFAULT_XERO_STATUS)
+      optionalRequest("/api/xero/status", DEFAULT_XERO_STATUS),
+      optionalRequest("/api/bills", DEFAULT_BILLS)
     ]);
   const shouldLoadTenants = xeroStatusData.connected && !xeroStatusData.demo_mode && !xeroStatusData.expired && !xeroStatusData.refresh_error;
   const xeroTenantsData = shouldLoadTenants
@@ -352,7 +357,8 @@ export async function fetchAll() {
     appStoreReadiness: appStoreReadinessData,
     aiStatus: aiStatusData,
     xeroStatus: xeroStatusData,
-    xeroTenants: xeroTenantsData
+    xeroTenants: xeroTenantsData,
+    bills: billsData
   };
 }
 
@@ -540,8 +546,9 @@ export async function selectXeroTenant(tenantId) {
   return { status: "selected", tenant: { tenant_id: tenantId } };
 }
 
-export async function updateCashFloor(cashFloor) {
-  const payload = { cash_floor: Math.max(0, Number(cashFloor || 0)) };
+export async function updateCashFloor(cashFloor, mode = "manual") {
+  const payload = { cash_floor_mode: mode };
+  if (mode === "manual") payload.cash_floor = Math.max(0, Number(cashFloor || 0));
   if (!USE_FIXTURES) {
     return request("/api/settings", {
       method: "PATCH",
@@ -549,12 +556,14 @@ export async function updateCashFloor(cashFloor) {
     });
   }
   const state = await ensureLocalState();
-  state.settings.cash_floor = payload.cash_floor;
+  const nextFloor = mode === "suggested" ? Number(state.settings.suggested_cash_floor || state.settings.cash_floor || 0) : payload.cash_floor;
+  state.settings.cash_floor = nextFloor;
+  state.settings.cash_floor_mode = mode;
   state.action_log.unshift({
     id: `cash-floor-${Date.now()}`,
     timestamp: nowIso(),
     actor: "You",
-    event: `Minimum cash changed to £${money(payload.cash_floor)}.`
+    event: `Minimum cash changed to £${money(nextFloor)}.`
   });
   return state.settings;
 }

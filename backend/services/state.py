@@ -3,11 +3,12 @@ from __future__ import annotations
 from copy import deepcopy
 from datetime import date, datetime, timedelta, timezone
 import re
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
 from config import get_settings
 from db import connect, get_json, set_json
+from services.bills import compute_suggested_cash_floor
 from services.fixtures import fresh_demo_state
 from services.forecast import build_forecast
 
@@ -202,6 +203,25 @@ def reset_state() -> dict[str, Any]:
 def current_forecast(state: dict[str, Any]) -> dict:
     cash_floor = int(state.get("settings", {}).get("cash_floor", get_settings().cash_floor))
     return build_forecast(state["invoices"], today=state_today(state), cash_floor=cash_floor)
+
+
+def suggested_cash_floor(state: dict[str, Any]) -> int:
+    bills = state.get("bills", [])
+    if not bills:
+        return int(state.get("settings", {}).get("cash_floor", get_settings().cash_floor))
+    return compute_suggested_cash_floor(bills, state_today(state))
+
+
+def update_cash_floor(state: dict[str, Any], *, cash_floor: int | None, mode: Literal["manual", "suggested"] = "manual") -> dict[str, Any]:
+    if mode == "suggested":
+        value = suggested_cash_floor(state)
+    elif cash_floor is not None:
+        value = int(cash_floor)
+    else:
+        raise ValueError("cash_floor is required in manual mode")
+    state["settings"] = {"cash_floor": value, "cash_floor_mode": mode}
+    append_log(state, "You", f"Minimum cash changed to £{value:,}.")
+    return state["settings"]
 
 
 def data_source(state: dict[str, Any]) -> dict[str, Any]:

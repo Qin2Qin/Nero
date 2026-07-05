@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from config import get_settings
+from services.bills import generate_operating_bills
 from services.agent_service import run_agent_cycle
 from services.forecast import build_forecast
 from services.payer_engine import recompute_all
@@ -371,7 +372,8 @@ def build_synthetic_portfolio(cash_floor: int | None = None) -> dict[str, Any]:
             }
         ],
         "outbox": [],
-        "settings": {"cash_floor": selected_cash_floor},
+        "bills": generate_operating_bills(TODAY, payroll=18000, rent=6200),
+        "settings": {"cash_floor": selected_cash_floor, "cash_floor_mode": "manual"},
         "data_source": {
             "mode": "synthetic",
             "label": f"Synthetic: {BUSINESS.name}",

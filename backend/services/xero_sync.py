@@ -165,6 +165,21 @@ def _cash_floor_for_sync(cash_floor: int | None, previous_state: dict | None, sa
     return get_settings().cash_floor
 
 
+def _settings_for_sync(cash_floor: int | None, previous_state: dict | None, same_tenant: bool) -> dict:
+    selected_floor = _cash_floor_for_sync(cash_floor, previous_state, same_tenant)
+    previous_settings = (previous_state or {}).get("settings", {}) if same_tenant else {}
+    return {
+        "cash_floor": selected_floor,
+        "cash_floor_mode": previous_settings.get("cash_floor_mode", "manual"),
+    }
+
+
+def _bills_for_sync(previous_state: dict | None, same_tenant: bool) -> list[dict]:
+    if same_tenant:
+        return list((previous_state or {}).get("bills", []))
+    return []
+
+
 def build_state_from_xero(
     *,
     contacts: list[dict],
@@ -269,7 +284,8 @@ def build_state_from_xero(
 
     profiles.sort(key=lambda item: item["revenue_12m"], reverse=True)
     same_tenant = _same_xero_tenant(previous_state, tenant_id)
-    cash_floor = _cash_floor_for_sync(cash_floor, previous_state, same_tenant)
+    settings = _settings_for_sync(cash_floor, previous_state, same_tenant)
+    cash_floor = int(settings["cash_floor"])
     source_label = f"Xero: {tenant_name}" if tenant_name else "Xero tenant"
     source_detail = (
         "Synced from Xero's demo company with fictional Xero data."
@@ -305,7 +321,8 @@ def build_state_from_xero(
         ]
         + carried_activity,
         "outbox": carried_outbox,
-        "settings": {"cash_floor": cash_floor},
+        "bills": _bills_for_sync(previous_state, same_tenant),
+        "settings": settings,
         "data_source": {
             "mode": "xero",
             "label": source_label,

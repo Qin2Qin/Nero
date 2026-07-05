@@ -5,7 +5,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from services.ai_copy import ai_copy_status
 from services.app_store_readiness import app_store_readiness
-from services.state import compute_metrics, current_forecast, data_source, get_state
+from services.bills import bills_summary
+from services.state import compute_metrics, current_forecast, data_source, get_state, state_today, suggested_cash_floor
 from services.statements import build_statement, render_statement_html
 from services.xero_links import online_invoice_url
 
@@ -76,7 +77,20 @@ def metrics() -> dict:
 
 @router.get("/settings")
 def settings() -> dict:
-    return get_state().get("settings", {"cash_floor": 5000})
+    state = get_state()
+    current = state.get("settings", {"cash_floor": 5000, "cash_floor_mode": "manual"})
+    return {
+        **current,
+        "cash_floor_mode": current.get("cash_floor_mode", "manual"),
+        "suggested_cash_floor": suggested_cash_floor(state),
+    }
+
+
+@router.get("/bills")
+def bills() -> dict:
+    state = get_state()
+    items = state.get("bills", [])
+    return {"bills": items, "summary": bills_summary(items, state_today(state))}
 
 
 @router.get("/data_source")
