@@ -45,6 +45,37 @@ def test_token_status_reports_unconnected(tmp_path: Path) -> None:
     }
 
 
+def test_token_status_accepts_naive_expiry_as_utc(tmp_path: Path) -> None:
+    conn = connect(tmp_path / "nero.db")
+    conn.execute(
+        "INSERT INTO oauth_tokens(id, access_token, refresh_token, expires_at, tenant_id) VALUES (1, ?, ?, ?, ?)",
+        ("access", "refresh", "2099-01-01T00:00:00", "tenant-123"),
+    )
+    conn.commit()
+
+    status = get_token_status(conn)
+
+    assert status["connected"] is True
+    assert status["expired"] is False
+    assert status["tenant_id"] == "tenant-123"
+
+
+def test_save_token_set_normalises_z_expiry(tmp_path: Path) -> None:
+    conn = connect(tmp_path / "nero.db")
+
+    save_token_set(
+        {
+            "access_token": "access",
+            "refresh_token": "refresh",
+            "expires_at": "2099-01-01T00:00:00Z",
+        },
+        tenant_id="tenant-123",
+        conn=conn,
+    )
+
+    assert get_saved_tokens(conn)["expires_at"] == "2099-01-01T00:00:00+00:00"
+
+
 def test_bootstrap_tokens_from_env_imports_direct_tokens(tmp_path: Path, monkeypatch) -> None:
     conn = connect(tmp_path / "nero.db")
     monkeypatch.setenv("XERO_ACCESS_TOKEN", "env-access")
@@ -202,3 +233,28 @@ def test_get_valid_access_prefers_demo_when_saved_token_has_no_tenant(monkeypatc
     assert tokens["tenant_id"] == "demo"
     assert saved["tenant_id"] == "demo"
     assert saved["expires_at"] == expires_at
+
+
+def test_get_valid_access_refreshes_malformed_expiry(monkeypatch, tmp_path: Path) -> None:
+    conn = connect(tmp_path / "nero.db")
+    conn.execute(
+        "INSERT INTO oauth_tokens(id, access_token, refresh_token, expires_at, tenant_id) VALUES (1, ?, ?, ?, ?)",
+        ("old-access", "old-refresh", "not-a-date", "tenant-123"),
+    )
+    conn.commit()
+    monkeypatch.setattr(
+        xero_auth,
+        "refresh_token",
+        lambda refresh: {
+            "access_token": "new-access",
+            "refresh_token": "new-refresh",
+            "expires_at": "2099-01-01T00:00:00",
+        },
+    )
+
+    tokens = xero_auth.get_valid_access(conn)
+    saved = get_saved_tokens(conn)
+
+    assert tokens["access_token"] == "new-access"
+    assert tokens["tenant_id"] == "tenant-123"
+    assert saved["expires_at"] == "2099-01-01T00:00:00+00:00"

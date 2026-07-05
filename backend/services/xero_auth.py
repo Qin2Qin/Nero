@@ -58,10 +58,27 @@ def _expires_at(expires_in: int | str | None) -> str:
     return (datetime.now(timezone.utc) + timedelta(seconds=max(seconds - 60, 60))).replace(microsecond=0).isoformat()
 
 
+def _parse_token_expiry(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    normalized = value.strip()
+    if normalized.endswith("Z"):
+        normalized = f"{normalized[:-1]}+00:00"
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
 def _token_expires_at(tokens: dict) -> str:
     expires_at = tokens.get("expires_at")
     if expires_at:
-        return str(expires_at)
+        parsed = _parse_token_expiry(str(expires_at))
+        if parsed:
+            return parsed.replace(microsecond=0).isoformat()
     return _expires_at(tokens.get("expires_in"))
 
 
@@ -97,7 +114,8 @@ def get_token_status(conn: sqlite3.Connection | None = None) -> dict:
         if row is None:
             return {"connected": False, "tenant_id": None, "expires_at": None, "needs_tenant": False}
         expires_at = row["expires_at"]
-        expired = datetime.fromisoformat(expires_at) <= datetime.now(timezone.utc)
+        parsed_expiry = _parse_token_expiry(expires_at)
+        expired = parsed_expiry is None or parsed_expiry <= datetime.now(timezone.utc)
         return {
             "connected": True,
             "tenant_id": row["tenant_id"],
@@ -237,7 +255,9 @@ def get_valid_access(conn: sqlite3.Connection | None = None) -> dict:
         if tokens is None:
             raise RuntimeError("Xero OAuth tokens are not configured")
 
-        expires_at = datetime.fromisoformat(tokens["expires_at"])
+        expires_at = _parse_token_expiry(tokens["expires_at"])
+        if expires_at is None:
+            expires_at = datetime.min.replace(tzinfo=timezone.utc)
         if expires_at <= datetime.now(timezone.utc):
             refreshed = refresh_token(tokens["refresh_token"])
             status = save_token_set(refreshed, tenant_id=tokens.get("tenant_id"), conn=conn)
