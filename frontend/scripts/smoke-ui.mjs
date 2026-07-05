@@ -501,6 +501,86 @@ async function runSmoke() {
   }
   await noEmailOutboxPage.close();
 
+  const aiPolishPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  const aiDraft = {
+    id: "proposal-ai-1",
+    type: "reminder",
+    contact_id: "contact-ai",
+    contact_name: "AI Customer",
+    contact_email: "accounts@ai-customer.example.com",
+    invoice_id: "invoice-ai-1",
+    invoice_number: "AI-1",
+    status: "pending",
+    reasoning_text: "Payment history suggests this invoice needs a reminder.",
+    expected_impact_dollars: 900,
+    expected_days_accelerated: 3,
+    draft_subject: "Reminder: AI-1",
+    draft_body: "Hi AI Customer,\n\nPlease pay AI-1.\n\nThanks,\nAlex",
+    recommendation_detail: null
+  };
+  const polishedDraft = "Hi AI Customer,\n\nJust checking when AI-1 is likely to be paid.\n\nThanks,\nAlex";
+  const polishRequests = [];
+  const approveRequests = [];
+  await aiPolishPage.route("**/api/ai/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        enabled: true,
+        provider: "openrouter",
+        model: "provider/free-model:free",
+        mode: "free",
+        detail: "AI draft polishing is available for review-only copy."
+      })
+    })
+  );
+  await aiPolishPage.route("**/api/proposals", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([aiDraft])
+    })
+  );
+  await aiPolishPage.route("**/api/proposals/proposal-ai-1/polish", (route) => {
+    polishRequests.push(JSON.parse(route.request().postData() || "{}"));
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        proposal: { ...aiDraft, draft_body: polishedDraft },
+        ai: { provider: "openrouter", model: "provider/free-model:free", mode: "free" }
+      })
+    });
+  });
+  await aiPolishPage.route("**/api/proposals/proposal-ai-1/approve", (route) => {
+    approveRequests.push(route.request().url());
+    route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "should not approve" }) });
+  });
+  await aiPolishPage.goto(frontendUrl, { waitUntil: "networkidle" });
+  await aiPolishPage.getByRole("button", { name: "Actions", exact: true }).click();
+  await aiPolishPage.getByRole("heading", { name: "Actions to review" }).waitFor();
+  const aiCard = aiPolishPage.locator(".proposal-card").filter({ hasText: "AI Customer" }).first();
+  await aiCard.locator("summary").click();
+  const aiTextarea = aiCard.locator("textarea");
+  await aiTextarea.fill(`${aiDraft.draft_body}\n\nPlease reply when you can.`);
+  await aiCard.getByRole("button", { name: "Polish wording" }).click();
+  await aiPolishPage.waitForFunction(
+    (expected) => Array.from(document.querySelectorAll(".proposal-card textarea")).some((node) => node.value === expected),
+    polishedDraft
+  );
+  const polishedValue = await aiTextarea.inputValue();
+  if (polishedValue !== polishedDraft) {
+    throw new Error(`AI polishing did not update the visible draft. Saw: ${polishedValue}`);
+  }
+  if (polishRequests.length !== 1 || !polishRequests[0].draft_body.includes("Please reply when you can.")) {
+    throw new Error(`AI polishing did not send the current draft body: ${JSON.stringify(polishRequests)}`);
+  }
+  if (approveRequests.length) {
+    throw new Error(`AI polishing triggered approval unexpectedly: ${approveRequests.join("\n")}`);
+  }
+  await aiCard.getByRole("button", { name: "Approve draft" }).waitFor();
+  await aiPolishPage.close();
+
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   const browserErrors = [];
   const initialReadPreflights = [];
