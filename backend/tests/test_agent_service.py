@@ -122,6 +122,65 @@ def test_agent_includes_xero_online_invoice_link_when_available() -> None:
     assert "{payment_link}" not in body
 
 
+def test_agent_prioritizes_sendable_high_impact_invoice_actions() -> None:
+    state = {
+        "contacts": [
+            {
+                "id": "missing-email",
+                "name": "Missing Email Ltd",
+                "grade": "C",
+                "avg_days_late": 12,
+                "invoice_count": 4,
+                "low_confidence": False,
+                "revenue_12m": 2000,
+                "trend_slope": 0,
+            },
+            {
+                "id": "sendable",
+                "name": "Sendable Customer",
+                "email": "accounts@sendable.example.com",
+                "grade": "B",
+                "avg_days_late": 5,
+                "invoice_count": 5,
+                "low_confidence": False,
+                "revenue_12m": 12000,
+                "trend_slope": 0,
+            },
+        ],
+        "invoices": [
+            {
+                "id": "old-small",
+                "contact_id": "missing-email",
+                "contact_name": "Missing Email Ltd",
+                "invoice_number": "OLD-100",
+                "amount_due": 100,
+                "due_date": "2026-05-01",
+                "predicted_paid_date": "2026-05-13",
+            },
+            {
+                "id": "recent-large",
+                "contact_id": "sendable",
+                "contact_name": "Sendable Customer",
+                "contact_email": "accounts@sendable.example.com",
+                "invoice_number": "BIG-1000",
+                "amount_due": 1000,
+                "due_date": "2026-07-04",
+                "predicted_paid_date": "2026-07-09",
+            },
+        ],
+        "proposals": [],
+        "action_log": [],
+        "business": {"sender_name": "Maya", "name": "Northstar Fabrication Works"},
+    }
+
+    created = run_agent_cycle(state, max_pending=1, today=date.fromisoformat("2026-07-05"))
+
+    assert len(created) == 1
+    assert created[0]["contact_name"] == "Sendable Customer"
+    assert created[0]["contact_email"] == "accounts@sendable.example.com"
+    assert created[0]["expected_impact_dollars"] == 1000
+
+
 def test_agent_logs_when_no_new_actions_are_needed() -> None:
     state = base_state(
         {

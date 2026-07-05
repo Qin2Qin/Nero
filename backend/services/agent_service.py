@@ -97,9 +97,11 @@ def run_agent_cycle(state: dict[str, Any], max_pending: int = 8, today: date | N
     def can_add() -> bool:
         return len([proposal for proposal in state["proposals"] if proposal["status"] == "pending"]) < max_pending
 
-    # Invoice-level actions.
-    for invoice in sorted(state["invoices"], key=lambda item: item["due_date"]):
-        if not can_add() or invoice["id"] in existing_invoice_ids:
+    # Invoice-level actions: pick the most actionable/high-impact invoices first,
+    # instead of letting low-value missing-email drafts crowd the queue by due date.
+    invoice_candidates: list[dict[str, Any]] = []
+    for invoice in state["invoices"]:
+        if invoice["id"] in existing_invoice_ids:
             continue
         contact = contacts.get(invoice["contact_id"])
         if contact is None:
@@ -116,7 +118,37 @@ def run_agent_cycle(state: dict[str, Any], max_pending: int = 8, today: date | N
         if action_type is None:
             continue
 
-        tone = _tone_for_grade(grade, overdue_days)
+        invoice_candidates.append(
+            {
+                "invoice": invoice,
+                "contact": contact,
+                "action_type": action_type,
+                "overdue_days": overdue_days,
+                "tone": _tone_for_grade(grade, overdue_days),
+                "has_email": bool(invoice.get("contact_email") or contact.get("email")),
+                "amount_due": float(invoice.get("amount_due") or 0),
+            }
+        )
+
+    def invoice_candidate_key(candidate: dict[str, Any]) -> tuple:
+        invoice = candidate["invoice"]
+        due_date = invoice.get("due_date") or "9999-12-31"
+        return (
+            0 if candidate["has_email"] else 1,
+            0 if candidate["overdue_days"] >= 0 else 1,
+            -candidate["amount_due"],
+            -max(candidate["overdue_days"], 0),
+            due_date,
+        )
+
+    for candidate in sorted(invoice_candidates, key=invoice_candidate_key):
+        if not can_add():
+            break
+        invoice = candidate["invoice"]
+        contact = candidate["contact"]
+        action_type = candidate["action_type"]
+        overdue_days = candidate["overdue_days"]
+        tone = candidate["tone"]
         key = (action_type, contact["id"], invoice["id"])
         if key in existing_keys:
             continue
