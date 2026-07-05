@@ -123,8 +123,8 @@ async function runSmoke() {
       /Review \d+ suggested actions to bring £[\d,]+ forward about \d+ days sooner\. Nothing is sent without your OK\./,
       "pending cash summary"
     );
-    await page.getByRole("button", { name: /Open queue/ }).click();
-    await page.getByRole("heading", { name: "Agent Queue" }).waitFor();
+    await page.getByRole("button", { name: /Review actions/ }).click();
+    await page.getByRole("heading", { name: "Actions to review" }).waitFor();
     await page.getByRole("button", { name: "Dashboard" }).click();
     await page.getByRole("heading", { name: "Nero" }).waitFor();
 
@@ -143,8 +143,8 @@ async function runSmoke() {
       throw new Error(`Payer jargon leaked into UI:\n${payerText}`);
     }
 
-    await page.getByRole("button", { name: "Agent Queue" }).click();
-    await page.getByRole("heading", { name: "Agent Queue" }).waitFor();
+    await page.getByRole("button", { name: "Actions" }).click();
+    await page.getByRole("heading", { name: "Actions to review" }).waitFor();
     await page.getByRole("button", { name: "Approve" }).first().click();
     await page.getByRole("button", { name: "Outbox" }).click();
     await page.getByRole("heading", { name: "Outbox" }).waitFor();
@@ -159,6 +159,7 @@ async function runSmoke() {
     await page.getByRole("button", { name: "Guide" }).click();
     await page.getByRole("heading", { name: "How to use Nero" }).waitFor();
     await page.getByText("Review and approve; nothing is sent without your OK.").waitFor();
+    await page.getByText("Open Actions to review suggested reminders or smarter payment terms.").waitFor();
     await page.getByTitle("Close").click();
 
     await page.getByRole("button", { name: "Help & Support" }).click();
