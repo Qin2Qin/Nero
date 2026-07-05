@@ -60,3 +60,33 @@ def test_compute_metrics_handles_empty_proposals() -> None:
     assert metrics["pending_impact_dollars"] == 0
     assert metrics["pending_avg_days_accelerated"] == 0.0
     assert metrics["pending_actions_count"] == 0
+
+
+def test_compute_metrics_adds_aged_receivables() -> None:
+    metrics = compute_metrics(
+        {
+            "proposals": [],
+            "invoices": [
+                {"due_date": "2026-07-05", "amount_due": 100},
+                {"due_date": "2026-07-04", "amount_due": 200},
+                {"due_date": "2026-07-03", "amount_due": 300},
+                {"due_date": "2026-06-03", "amount_due": 400},
+                {"due_date": "2026-05-03", "amount_due": 500},
+                {"due_date": "2026-03-01", "amount_due": 600},
+            ],
+            "data_source": {"mode": "fixture"},
+        }
+    )
+
+    aging = metrics["aged_receivables"]
+    buckets = {bucket["id"]: bucket for bucket in aging["buckets"]}
+
+    assert aging["as_of"] == "2026-07-04"
+    assert aging["open_total"] == 2100
+    assert aging["overdue_total"] == 1800
+    assert buckets["current"]["amount_due"] == 300
+    assert buckets["current"]["invoice_count"] == 2
+    assert buckets["1_30"]["amount_due"] == 300
+    assert buckets["31_60"]["amount_due"] == 400
+    assert buckets["61_90"]["amount_due"] == 500
+    assert buckets["90_plus"]["amount_due"] == 600

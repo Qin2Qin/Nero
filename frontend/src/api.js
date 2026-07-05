@@ -22,7 +22,8 @@ const localState = {
     approved_actions_count: 0,
     pending_impact_dollars: 0,
     pending_avg_days_accelerated: 0,
-    pending_actions_count: 0
+    pending_actions_count: 0,
+    aged_receivables: null
   },
   research: { generated_at: null, sources: {}, files: [] },
   settings: { cash_floor: forecast.cash_floor },
@@ -96,6 +97,49 @@ function nowIso() {
 
 function money(value) {
   return Number(value || 0).toLocaleString("en-US");
+}
+
+const AGING_BUCKETS = [
+  { id: "current", label: "Not overdue" },
+  { id: "1_30", label: "1-30 days late" },
+  { id: "31_60", label: "31-60 days late" },
+  { id: "61_90", label: "61-90 days late" },
+  { id: "90_plus", label: "90+ days late" }
+];
+
+function agingBucketId(daysLate) {
+  if (daysLate <= 0) return "current";
+  if (daysLate <= 30) return "1_30";
+  if (daysLate <= 60) return "31_60";
+  if (daysLate <= 90) return "61_90";
+  return "90_plus";
+}
+
+function buildAgedReceivables(invoices, asOf = localState.forecast.as_of || nowIso().slice(0, 10)) {
+  const buckets = AGING_BUCKETS.map((bucket) => ({ ...bucket, invoice_count: 0, amount_due: 0 }));
+  const byId = new Map(buckets.map((bucket) => [bucket.id, bucket]));
+  const asOfDate = new Date(`${asOf}T00:00:00Z`);
+  let openTotal = 0;
+  let overdueTotal = 0;
+
+  for (const invoice of invoices || []) {
+    const dueDate = new Date(`${invoice.due_date}T00:00:00Z`);
+    if (Number.isNaN(dueDate.getTime())) continue;
+    const amount = Math.round(Number(invoice.amount_due || 0));
+    const daysLate = Math.round((asOfDate - dueDate) / 86400000);
+    const bucket = byId.get(agingBucketId(daysLate));
+    bucket.invoice_count += 1;
+    bucket.amount_due += amount;
+    openTotal += amount;
+    if (daysLate > 0) overdueTotal += amount;
+  }
+
+  return {
+    as_of: asOf,
+    open_total: openTotal,
+    overdue_total: overdueTotal,
+    buckets
+  };
 }
 
 async function request(path, options = {}) {
@@ -172,7 +216,8 @@ function recomputeLocalMetrics() {
     approved_actions_count: approved.actions_count,
     pending_impact_dollars: pending.impact_dollars,
     pending_avg_days_accelerated: pending.avg_days_accelerated,
-    pending_actions_count: pending.actions_count
+    pending_actions_count: pending.actions_count,
+    aged_receivables: buildAgedReceivables(localState.invoices)
   };
 }
 

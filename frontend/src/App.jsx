@@ -132,6 +132,48 @@ function invoiceTimingText(dateValue, asOfValue) {
   return `Due in ${days} ${plural(days, "day")}`;
 }
 
+const AGING_BUCKETS = [
+  { id: "current", label: "Not overdue" },
+  { id: "1_30", label: "1-30 days late" },
+  { id: "31_60", label: "31-60 days late" },
+  { id: "61_90", label: "61-90 days late" },
+  { id: "90_plus", label: "90+ days late" }
+];
+
+function agingBucketId(daysLate) {
+  if (daysLate <= 0) return "current";
+  if (daysLate <= 30) return "1_30";
+  if (daysLate <= 60) return "31_60";
+  if (daysLate <= 90) return "61_90";
+  return "90_plus";
+}
+
+function agedReceivablesFromInvoices(invoices, asOfValue) {
+  const buckets = AGING_BUCKETS.map((bucket) => ({ ...bucket, invoice_count: 0, amount_due: 0 }));
+  const byId = new Map(buckets.map((bucket) => [bucket.id, bucket]));
+  let openTotal = 0;
+  let overdueTotal = 0;
+
+  for (const invoice of invoices || []) {
+    const dueDate = parseDate(invoice.due_date);
+    if (Number.isNaN(dueDate.getTime())) continue;
+    const amount = Math.round(Number(invoice.amount_due || 0));
+    const daysLate = daysBetween(invoice.due_date, asOfValue);
+    const bucket = byId.get(agingBucketId(daysLate));
+    bucket.invoice_count += 1;
+    bucket.amount_due += amount;
+    openTotal += amount;
+    if (daysLate > 0) overdueTotal += amount;
+  }
+
+  return {
+    as_of: asOfValue,
+    open_total: openTotal,
+    overdue_total: overdueTotal,
+    buckets
+  };
+}
+
 function gradeClass(grade) {
   return `grade grade-${String(grade).charAt(0).toLowerCase()}`;
 }
@@ -527,6 +569,41 @@ function ForecastChart({ forecast }) {
   );
 }
 
+function LateInvoicesByAge({ agedReceivables }) {
+  const buckets = agedReceivables?.buckets || [];
+  const openTotal = Number(agedReceivables?.open_total || 0);
+  const overdueTotal = Number(agedReceivables?.overdue_total || 0);
+
+  return (
+    <section className="aging-strip" aria-label="Aged receivables">
+      <div className="aging-head">
+        <span>Late invoices by age</span>
+        <strong>{formatCurrency(overdueTotal)} overdue</strong>
+      </div>
+      <div className="aging-buckets">
+        {buckets.map((bucket) => {
+          const amount = Number(bucket.amount_due || 0);
+          const invoiceCount = Number(bucket.invoice_count || 0);
+          const share = openTotal ? Math.round((amount / openTotal) * 100) : 0;
+          const width = amount > 0 ? Math.max(6, share) : 0;
+          return (
+            <div className={bucket.id === "current" ? "aging-bucket" : "aging-bucket late"} key={bucket.id}>
+              <div className="aging-bucket-top">
+                <span>{bucket.label}</span>
+                <strong>{formatCurrency(amount)}</strong>
+              </div>
+              <div className="aging-bar" aria-hidden="true">
+                <span style={{ width: `${width}%` }} />
+              </div>
+              <em>{invoiceCount} {plural(invoiceCount, "invoice")}</em>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function XeroConnection({ status, source, tenants, syncResult, onSyncXero, onSeedPortfolio, onSelectTenant, busy }) {
   const badge = xeroBadge(status);
   const canSync = status?.demo_mode || status?.connected;
@@ -742,6 +819,7 @@ function Dashboard({
       ? `Review ${pendingActions} suggested ${plural(pendingActions, "action")} to bring ${formatCurrency(pendingImpact)} forward${pendingDaysPhrase}. Nothing is sent without your OK.`
       : "Run the agent when new invoices arrive, then review each suggestion before anything is sent.";
   const openInvoiceCount = data.invoices.length;
+  const agedReceivables = data.metrics?.aged_receivables || agedReceivablesFromInvoices(data.invoices, forecastAsOf);
   const sortedInvoices = useMemo(
     () =>
       sortRows(data.invoices, invoiceSort, {
@@ -807,6 +885,8 @@ function Dashboard({
           <strong>{formatCurrency(cashDisplay)}</strong>
         </article>
       </section>
+
+      <LateInvoicesByAge agedReceivables={agedReceivables} />
 
       <section className={pendingImpact > 0 ? "roi-strip" : "roi-strip quiet"} aria-label="Cash action summary">
         <div>

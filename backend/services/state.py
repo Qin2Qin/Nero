@@ -121,7 +121,62 @@ def _proposal_rollup(state: dict[str, Any], status: str) -> dict[str, int | floa
     }
 
 
-def compute_metrics(state: dict[str, Any]) -> dict[str, int | float]:
+def _empty_aging_buckets() -> list[dict[str, int | str]]:
+    return [
+        {"id": "current", "label": "Not overdue", "invoice_count": 0, "amount_due": 0},
+        {"id": "1_30", "label": "1-30 days late", "invoice_count": 0, "amount_due": 0},
+        {"id": "31_60", "label": "31-60 days late", "invoice_count": 0, "amount_due": 0},
+        {"id": "61_90", "label": "61-90 days late", "invoice_count": 0, "amount_due": 0},
+        {"id": "90_plus", "label": "90+ days late", "invoice_count": 0, "amount_due": 0},
+    ]
+
+
+def _aging_bucket_id(days_late: int) -> str:
+    if days_late <= 0:
+        return "current"
+    if days_late <= 30:
+        return "1_30"
+    if days_late <= 60:
+        return "31_60"
+    if days_late <= 90:
+        return "61_90"
+    return "90_plus"
+
+
+def _aged_receivables(state: dict[str, Any]) -> dict[str, Any]:
+    today = state_today(state)
+    buckets = _empty_aging_buckets()
+    by_id = {bucket["id"]: bucket for bucket in buckets}
+    open_total = 0
+    overdue_total = 0
+
+    for invoice in state.get("invoices", []):
+        due_value = invoice.get("due_date")
+        if not due_value:
+            continue
+        try:
+            due_date = date.fromisoformat(str(due_value))
+        except ValueError:
+            continue
+
+        amount = int(round(float(invoice.get("amount_due") or 0)))
+        days_late = (today - due_date).days
+        bucket = by_id[_aging_bucket_id(days_late)]
+        bucket["invoice_count"] = int(bucket["invoice_count"]) + 1
+        bucket["amount_due"] = int(bucket["amount_due"]) + amount
+        open_total += amount
+        if days_late > 0:
+            overdue_total += amount
+
+    return {
+        "as_of": today.isoformat(),
+        "open_total": open_total,
+        "overdue_total": overdue_total,
+        "buckets": buckets,
+    }
+
+
+def compute_metrics(state: dict[str, Any]) -> dict[str, Any]:
     approved = _proposal_rollup(state, "approved")
     pending = _proposal_rollup(state, "pending")
     return {
@@ -131,6 +186,7 @@ def compute_metrics(state: dict[str, Any]) -> dict[str, int | float]:
         "pending_impact_dollars": pending["impact_dollars"],
         "pending_avg_days_accelerated": pending["avg_days_accelerated"],
         "pending_actions_count": pending["actions_count"],
+        "aged_receivables": _aged_receivables(state),
     }
 
 
