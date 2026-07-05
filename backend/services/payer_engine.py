@@ -60,12 +60,39 @@ def least_squares_slope(values: list[float]) -> float:
     return sum((x - x_mean) * (y - y_mean) for x, y in zip(xs, values)) / denom
 
 
+def _plural(count: int, singular: str, plural_form: str | None = None) -> str:
+    return singular if count == 1 else plural_form or f"{singular}s"
+
+
 def trend_phrase(slope: float) -> str:
     if slope > 1:
-        return "and getting slower"
+        return "and it's getting slower"
     if slope < -1:
-        return "and improving"
-    return "steadily"
+        return "and it's getting better"
+    return "and that's been steady"
+
+
+def payment_timing_text(days_late: float) -> str:
+    rounded = round(days_late)
+    if rounded < 0:
+        days = abs(rounded)
+        return f"{days} {_plural(days, 'day')} early"
+    return f"{rounded} {_plural(rounded, 'day')} late"
+
+
+def payer_explanation(profile: dict) -> str:
+    invoice_count = int(profile.get("invoice_count") or 0)
+    invoice_label = _plural(invoice_count, "invoice")
+    timing = payment_timing_text(float(profile.get("avg_days_late") or 0))
+    unpredictable = ", though timing can be unpredictable" if float(profile.get("stdev_days_late") or 0) >= 10 else ""
+    trend = trend_phrase(float(profile.get("trend_slope") or 0))
+    name = profile.get("name", "This customer")
+    if profile.get("low_confidence") or invoice_count < 3:
+        return (
+            f"Based on {invoice_count} paid {invoice_label}, Nero estimates {name} pays on average {timing} "
+            f"until more payment history comes in{unpredictable}, {trend}."
+        )
+    return f"Based on {invoice_count} paid {invoice_label}, {name} pays on average {timing}{unpredictable}, {trend}."
 
 
 def normalize_paid_invoice(raw: dict) -> PaidInvoice:
@@ -124,27 +151,19 @@ def compute_profiles(raw_invoices: Iterable[dict | PaidInvoice], today: date | N
             if (today - invoice.issue_date).days <= 365
         )
         name = invoices[-1].contact_name
-        phrase = trend_phrase(slope)
-        avg_rounded = round(avg)
-        if avg_rounded < 0:
-            timing = f"pays on average {abs(avg_rounded)} days early"
-        else:
-            timing = f"pays on average {avg_rounded} days late"
-
-        profiles.append(
-            {
-                "id": contact_id,
-                "name": name,
-                "revenue_12m": int(round(revenue_12m)),
-                "grade": grade,
-                "avg_days_late": round(avg, 2),
-                "stdev_days_late": round(stdev, 2),
-                "trend_slope": round(slope, 2),
-                "invoice_count": invoice_count,
-                "low_confidence": low_confidence,
-                "explanation": f"Based on {invoice_count} paid invoices, {name} {timing} ({phrase}).",
-            }
-        )
+        profile = {
+            "id": contact_id,
+            "name": name,
+            "revenue_12m": int(round(revenue_12m)),
+            "grade": grade,
+            "avg_days_late": round(avg, 2),
+            "stdev_days_late": round(stdev, 2),
+            "trend_slope": round(slope, 2),
+            "invoice_count": invoice_count,
+            "low_confidence": low_confidence,
+        }
+        profile["explanation"] = payer_explanation(profile)
+        profiles.append(profile)
 
     return sorted(profiles, key=lambda profile: profile["revenue_12m"], reverse=True)
 
